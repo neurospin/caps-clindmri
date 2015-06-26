@@ -1,0 +1,55 @@
+<pipeline>
+    <docstring>
+        FSL diffusion preprocessings
+
+        * Eddy Currents Correction.
+        * Motions Correction.
+        * Susceptibility Artifacts Correction.
+
+        .. note::
+
+            This script rotates the b-vectors to ensure the consistency
+            between the resulting nifti orientation and the b matrix.
+    </docstring>
+    <processes>
+        <standard name="b0picker">
+            <module>clindmri.preproc.utils.select_first_b0</module>
+        </standard>
+        <standard name="eddy">
+            <module>nipype.interfaces.fsl.MCFLIRT</module>
+            <force name="ref_vol" value="-1"/>
+            <force name="save_plots" value="True"/>
+            <force name="cost" value="normmi"/>
+            <force name="smooth" value="1.0"/>
+            <force name="dof" value="12"/>
+            <force name="terminal_output" value="stream"/>
+            <force name="output_directory" value="Undefined"/>
+        </standard>
+        <standard name="bvecreo">
+            <module>clindmri.preproc.utils.rotate_bvecs</module>
+            <force name="output_directory" value="Undefined"/>
+        </standard>
+    </processes>
+    <inputs>
+        <input name="dfile" dest="eddy.in_file"/>
+        <input name="bvalfile" dest="b0picker.bvalfile"/>
+        <input name="bvecfile" dest="bvecreo.bvecfile"/>
+    </inputs>
+    <outputs>
+        <output name="eddyfile" src="eddy._out_file"/>
+        <output name="eddytrf" src="eddy._par_file"/>
+        <output name="reobvecfile" src="bvecreo.reobvecfile"/>
+    </outputs>
+    <links>
+        <link src="b0picker.b0_index" dest="eddy.ref_vol"/>
+        <link src="eddy._par_file" dest="bvecreo.trffile"/>
+    </links>
+    <positions>
+        <position process="inputs" x="66" y="406"/>
+        <position process="b0picker" x="220" y="430"/>
+        <position process="eddy" x="446" y="-139"/>
+        <position process="bvecreo" x="640" y="784"/>
+        <position process="outputs" x="866" y="560"/>
+    </positions>
+    <scale factor="0.4"/> 
+</pipeline>
