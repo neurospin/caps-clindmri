@@ -284,3 +284,74 @@ def dots(points, color=(1,0,0), psize=1, opacity=1):
     aPolyVertexActor.GetProperty().SetOpacity(opacity)
     aPolyVertexActor.GetProperty().SetPointSize(psize)
     return aPolyVertexActor
+
+
+def surface(points, triangles, labels, ctab, opacity=1):
+    """ Create a colored triangular surface.
+
+    Parameters
+    ----------
+    points: array (n_vertices, 3)
+        the surface vertices.
+    triangles: array
+        nfaces x 3 array defining mesh triangles.
+    labels: array (n_vertices)
+        Annotation id at each vertex.
+        If a vertex does not belong to any label its id must be negative.
+    ctab: ndarray (n_labels, 5)
+        RGBA + label id color table array.
+    opacity: float
+        the actor global opacity.
+
+    Returns
+    -------
+    actor: vtkActor
+        one actor handling the surface.
+    """
+    # First setup points, triangles and colors
+    vtk_points = vtk.vtkPoints()
+    vtk_triangles = vtk.vtkCellArray()
+    vtk_colors = vtk.vtkUnsignedCharArray()
+    vtk_colors.SetNumberOfComponents(1)
+    nb_of_labels = len(set(labels))
+    labels[numpy.where(labels < 0)] = 0
+    for index in range(len(points)):
+        vtk_points.InsertNextPoint(points[index])
+        vtk_colors.InsertNextTuple1(labels[index])
+    for cnt, triangle in enumerate(triangles):
+        vtk_triangle = vtk.vtkTriangle()
+        vtk_triangle.GetPointIds().SetId(0, triangle[0])
+        vtk_triangle.GetPointIds().SetId(1, triangle[1])
+        vtk_triangle.GetPointIds().SetId(2, triangle[2])
+        vtk_triangles.InsertNextCell(vtk_triangle)
+
+    # Make a lookup table using vtkColorSeries
+    lut = vtk.vtkLookupTable()
+    lut.SetNumberOfColors(nb_of_labels + 1)
+    lut.Build()
+    for cnt, lut_element in enumerate(ctab):
+        lut.SetTableValue(cnt, lut_element[0] / 255., lut_element[1] / 255.,
+                          lut_element[2] / 255., lut_element[3] / 255.)
+    lut.SetNanColor(1, 0, 0, 1)
+
+    # Create (geometry and topology) the associated polydata
+    polydata = vtk.vtkPolyData()
+    polydata.SetPoints(vtk_points)
+    polydata.GetPointData().SetScalars(vtk_colors)
+    polydata.SetPolys(vtk_triangles)
+
+    # Create the mapper
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInput(polydata)
+    mapper.SetLookupTable(lut)
+    mapper.SetColorModeToMapScalars()
+    mapper.SetScalarRange(0, nb_of_labels)
+    mapper.SetScalarModeToUsePointData()
+    
+    # Create the actor
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+    actor.GetProperty().SetOpacity(opacity)
+
+    return actor
+    
