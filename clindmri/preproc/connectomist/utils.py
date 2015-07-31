@@ -11,7 +11,7 @@ import os
 import pprint
 import subprocess
 
-from .exceptions import ConnectomistRuntimeError
+from .exceptions import ConnectomistError, ConnectomistRuntimeError
 
 ###############################################################################
 # UTILITY FUNCTIONS
@@ -79,7 +79,7 @@ def run_connectomist(algorithm_name, parameter_file, connectomist_path=None):
 # Wrappers to Ptk command line tools, may disappear in the future.
 ###############################################################################
 
-def nifti_to_gis(path_nifti, path_gis, verbose=False):
+def nifti_to_gis(path_nifti, path_gis, nb_tries=3):
     """
     Function that wraps the PtkNiftiToGisConverter command line tool from
     Connectomist to make it capsul-isable.
@@ -88,31 +88,38 @@ def nifti_to_gis(path_nifti, path_gis, verbose=False):
     ----------
     path_nifti: Str, path to the input Nifti file to be converted.
     path_gis:   Str, path without extension to the 3 output GIS files.
-    verbose:    Bool, print processing infos or not, default False.
+    nb_tries:   Int, number of times to try the conversion.
+                The reason why it sometimes fails is not known.
 
     <process>
-        <return name="path_gis_dim"  type="File" desc="Path to output Gis .dim file."/>
         <return name="path_gis_ima"  type="File" desc="Path to output Gis .ima file."/>
         <return name="path_gis_minf" type="File" desc="Path to output Gis .minf file."/>
-        <input name="path_nifti" type="File" desc="Path to input Nifti file."/>
-        <input name="path_gis"   type="Str"  desc="Path without extension to
-                                                   the 3 Gis files."/>
-        <input name="verbose"    type="Bool" optional="True"/>
+        <return name="path_gis_dim"  type="File" desc="Path to output Gis .dim file."/>
+        <input  name="path_nifti"    type="File" desc="Path to input Nifti file."/>
+        <input  name="path_gis"      type="Str"  desc="Path without extension to
+                                                       the 3 Gis files."/>
+        <input  name="nb_tries"      type="Int"  optional="True"/>
     </process>
     """
 
-    cmd = ["PtkNifti2GisConverter", "-i", path_nifti, "-o", path_gis,
-           "-verbose", str(verbose), "-verbosePluginLoading", str(False)]
-    subprocess.check_call(cmd)
-
-    path_gis_dim  = path_gis + ".dim"
+    cmd = ["PtkNifti2GisConverter", "-i", path_nifti, "-o", path_gis, 
+           "-verbose", "False", "-verbosePluginLoading", "False"]
+    
     path_gis_ima  = path_gis + ".ima"
     path_gis_minf = path_gis + ".ima.minf"
+    path_gis_dim  = path_gis + ".dim"
+    
+    nb_tried = 0
+    while nb_tried < nb_tries:
+        subprocess.check_call(cmd)
+        nb_tried += 1
+        if os.path.isfile(path_gis_ima) and os.path.isfile(path_gis_minf):
+            return path_gis_ima, path_gis_minf, path_gis_dim
 
-    return path_gis_dim, path_gis_ima, path_gis_minf
+    raise ConnectomistError("Conversion nifti_to_gis failed, cmd:\n%s" % " ".join(cmd))
 
 
-def gis_to_nifti(path_gis, path_nifti, verbose=False):
+def gis_to_nifti(path_gis, path_nifti, nb_tries=3):
     """
     Function that wraps the PtkGis2NiftiConverter command line tool from
     Connectomist to make it capsul-isable.
@@ -121,18 +128,19 @@ def gis_to_nifti(path_gis, path_nifti, verbose=False):
     ----------
     path_gis:   Str, path without extension to the 3 input GIS files.
     path_nifti: Str, path to the output Nifti file.
-    verbose:    Bool, print processing infos or not, default False.
+    nb_tries:   Int, number of times to try the conversion.
+                The reason why it sometimes fails is not known.
 
     Returns
     -------
     path_nifti: path to output file.
 
     <process>
-        <return name="path_nifti" type="File" desc="Path to output Nifti file."/>
-        <input name="path_gis"    type="Str"  desc="Path without extension to
-                                                    the 3 input Gis files."/>
-        <input name="path_nifti"  type="File" desc="Path to output Nifti file."/>
-        <input name="verbose"     type="Bool" optional="True"/>
+        <return name="path_nifti" type="File"  desc="Path to output Nifti file."/>
+        <input  name="path_gis"   type="Str"   desc="Path without extension to
+                                                     the 3 input Gis files."/>
+        <input  name="path_nifti"  type="File" desc="Path to output Nifti file."/>
+        <input  name="nb_tries"    type="Int"  optional="True"/>
     </process>
     """
 
@@ -142,14 +150,20 @@ def gis_to_nifti(path_gis, path_nifti, verbose=False):
 
     # Call command line tool:
     # It creates a Nifti + a .minf file (metainformation)
-    cmd = ["PtkGis2NiftiConverter", "-i", path_gis, "-o", path_nifti,
-           "-verbose", str(verbose), "-verbosePluginLoading", str(False)]
-    subprocess.check_call(cmd)
+    cmd = ["PtkGis2NiftiConverter", "-i", path_gis, "-o", path_nifti, 
+           "-verbose", "False", "-verbosePluginLoading", "False"]
+    
+    nb_tried = 0
+    while nb_tried < nb_tries:
+        subprocess.check_call(cmd)
+        nb_tried += 1
+        if os.path.isfile(path_nifti):
+            return path_nifti
 
-    return path_nifti
+    raise ConnectomistError("Conversion gis_to_nifti failed for %s" % path_gis)
 
 
-def concatenate_volumes(path_inputs, path_output, axis="t", verbose=False):
+def concatenate_volumes(path_inputs, path_output, axis="t", nb_tries=3):
     """
     Function that wraps the PtkCat command line tool from Connectomist to make
     it capsul-isable, with only the basic arguments. It allows concatenating
@@ -161,19 +175,24 @@ def concatenate_volumes(path_inputs, path_output, axis="t", verbose=False):
     path_input:  List of str, paths to input volumes.
     path_output: Str, path to output volume.
     axis:        Str, axis along which the concatenation is done.
-    verbose:     Bool (optional), default False.
+    nb_tries:    Int, number of times to try the concatenation.
+                 The reason why it sometimes fails is not known.
 
     <process>
         <return name="path_output" type="File"/>
-        <input name="path_inputs" type="List"/>
-        <input name="path_output" type="File"/>
-        <input name="axis"        type="Str"  optional="True"/>
-        <input name="verbose"     type="Bool" optional="True"/>
+        <input  name="path_inputs" type="List"/>
+        <input  name="path_output" type="File"/>
+        <input  name="axis"        type="Str" optional="True"/>
+        <input  name="nb_tries"    type="Int" optional="True"/>
     </process>
     """
-
     cmd = ["PtkCat", "-i"] + path_inputs + ["-o", path_output, "-t", axis,
-           "-verbose", str(verbose), "-verbosePluginLoading", str(False)]
-    subprocess.check_call(cmd)
+           "-verbose", "False", "-verbosePluginLoading", "False"]
+    nb_tried = 0
+    while nb_tried < nb_tries:
+        subprocess.check_call(cmd)
+        nb_tried += 1
+        if os.path.isfile(path_output + ".ima"):
+            return path_output
 
-    return path_output
+    raise ConnectomistError("Concatenate_volumes failed, cmd:\n%s" % " ".join(cmd))

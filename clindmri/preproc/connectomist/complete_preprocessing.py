@@ -8,7 +8,6 @@
 ##########################################################################
 
 import os
-import tempfile
 import shutil
 import numpy as np
 import nibabel
@@ -25,33 +24,29 @@ from .eddy_current_and_motion import dwi_eddy_current_and_motion_correction
 
 
 # TO BE COMPLETED: CAPSUL
-def gather_and_format_input_files(path_nifti,
+def gather_and_format_input_files(output_directory,
+                                  path_nifti,
                                   path_bval,
                                   path_bvec,
                                   path_b0_magnitude,
-                                  path_b0_phase     = None,
-                                  working_directory = None):
+                                  path_b0_phase = None):
     """
-    Create a directory, "01-Input_Data", in working_directory with all files
-    in Gis format that are needed to start the preprocessing.
-    If working_directory is not given, a temporary directory is automatically
-    created.
+    Gather all files needed to start the preprocessing in the right format
+    (Gis for images and B0 maps).
 
     Parameters
     ----------
+    output_directory:  Str, path to directory where to gather all files.
     path_nifti:        Str, path to input Nifti file to be preprocessed.
     path_bval:         Str, path to .bval file associated to Nifti.
     path_bvec:         Str, path to .bvec file associated to Nifti.
     path_b0_magnitude: Str, path to B0 magnitude map, may also contain phase.
     path_b0_phase:     Str, not required if phase is already contained in
                        path_b0_magnitude.
-    working_directory: Str (optional), path to folder where all the preproces-
-                       sing will be done. If no path is given, a random tempo-
-                       rary directory will be created.
 
     Returns
     -------
-    working_directory, path_gis, path_bval, path_bvec, path_b0_maps: New paths.
+    path_gis, path_bval, path_bvec, path_b0_maps: New paths.
     """
 
     # Check that files exist
@@ -63,17 +58,9 @@ def gather_and_format_input_files(path_nifti,
         if not os.path.isfile(path):
             raise BadFileError(path)
 
-    if working_directory:  # If a path is given
-        if not os.path.isdir(working_directory):
-            # Directory does not exist, create it;
-            os.mkdir(working_directory)
-    else:  # No path given, create a random directory
-        working_directory = tempfile.mkdtemp(prefix="connectomist_")
-
-    # Directory where DWI data is gathered
-    input_directory = os.path.join(working_directory, "01-Input_Data")
-    if not os.path.isdir(input_directory):  # if it does not exist, create it
-        os.mkdir(input_directory)
+    # Create the directory if not existing
+    if not os.path.isdir(output_directory):
+        os.mkdir(output_directory)
 
     # If there is only one b0 map file and if this file contains 2 volumes,
     # split it in 2 files: magnitude and phase
@@ -86,34 +73,34 @@ def gather_and_format_input_files(path_nifti,
             affine    = b0_maps.get_affine()
             magnitude = nibabel.Nifti1Image(voxels[:,:,:,0], affine, header)
             phase     = nibabel.Nifti1Image(voxels[:,:,:,1], affine, header)
-            path_b0_magnitude = os.path.join(input_directory, "b0_magnitude.nii.gz")
-            path_b0_phase     = os.path.join(input_directory, "b0_phase.nii.gz")
+            path_b0_magnitude = os.path.join(output_directory, "b0_magnitude.nii.gz")
+            path_b0_phase     = os.path.join(output_directory, "b0_phase.nii.gz")
             magnitude.to_filename(path_b0_magnitude)
             phase    .to_filename(path_b0_phase)
 
     # Convert Nifti to Gis
     filename_wo_ext = os.path.basename(path_nifti).rsplit(".gz", 1)[0].rsplit(".nii",1)[0]
-    path_gis        = os.path.join(input_directory, filename_wo_ext)
+    path_gis        = os.path.join(output_directory, filename_wo_ext)
     nifti_to_gis(path_nifti, path_gis)
 
     # Copy bval and bvec files, with homogeneous names
     path_bval_copy = path_gis + ".bval"
     path_bvec_copy = path_gis + ".bvec"
-    shutil.copy(path_bval, path_bval_copy)
-    shutil.copy(path_bvec, path_bvec_copy)
+    shutil.copyfile(path_bval, path_bval_copy)
+    shutil.copyfile(path_bvec, path_bvec_copy)
 
     # Convert and rename B0 map(s)
-    path_b0_magnitude_gis = os.path.join(input_directory, "b0_magnitude.gis")
+    path_b0_magnitude_gis = os.path.join(output_directory, "b0_magnitude.gis")
     nifti_to_gis(path_b0_magnitude, path_b0_magnitude_gis)
 
     if path_b0_phase:
-        path_b0_phase_gis = os.path.join(input_directory, "b0_phase.gis")
+        path_b0_phase_gis = os.path.join(output_directory, "b0_phase.gis")
         nifti_to_gis(path_b0_phase, path_b0_phase_gis)
     else:
         path_b0_phase_gis = None
 
     return (path_gis, path_bval_copy, path_bvec_copy, path_b0_magnitude_gis,
-            path_b0_phase_gis, working_directory)
+            path_b0_phase_gis)
 
 
 def export_and_format_corrected_files(eddy_motion_directory,
@@ -215,7 +202,8 @@ def complete_preprocessing(path_nifti,
                            EPI_factor                = None,
                            b0_field                  = 3.0,
                            water_fat_shift_per_pixel = 4.68,
-                           working_directory         = None):
+                           output_directory          = None,
+                           delete_steps              = False):
     """
     Function that runs all preprocessing tabs from Connectomist.
 
@@ -242,32 +230,37 @@ def complete_preprocessing(path_nifti,
                        i.e. echo train length.
     b0_field:          Float, Philips only, B0 field intensity, by default 3.0.
     water_fat_shift_per_pixel: Float, Philips only, default 4.68Hz
-    working_directory: Str (optional), path to folder where all the preproces-
-                       sing will be done. If no path is given, a random tempo-
-                       rary directory will be created.
+    output_directory:  Str, path to folder where all the preprocessing will be
+                       done.
+    delete_steps:      Bool, if True remove all intermediate files and
+                       directories at the end of preprocessing, to keep only
+                       the "07-Preprocessed" directory with 4 files inside:
+                       preprocessed Nifti + bval + bvec + outliers.py
 
 
     Returns
     -------
-    path_nifti, path_bval, path_bvec, working_directory: Paths to output dir/files.
+    path_nifti, path_bval, path_bvec: Paths to output files.
 
     <process>
     </process>
     """
-
-    # Check parameters
+    # Step 0 - Create the preprocessing output directory if not existing
+    if not os.path.isdir(output_directory):
+        os.mkdir(output_directory)
 
     # Step 1 - Bring all files in Gis format in a directory: "01-Input_Data"
-    (path_gis, path_bval, path_bvec, path_b0_magnitude, path_b0_phase,
-     working_directory) = gather_and_format_input_files(path_nifti,
-                                                        path_bval,
-                                                        path_bvec,
-                                                        path_b0_magnitude,
-                                                        path_b0_phase,
-                                                        working_directory)
+    input_directory = os.path.join(output_directory, "01-Input_Data")
+    path_gis, path_bval, path_bvec, path_b0_magnitude, path_b0_phase = \
+        gather_and_format_input_files(input_directory,
+                                      path_nifti,
+                                      path_bval,
+                                      path_bvec,
+                                      path_b0_magnitude,
+                                      path_b0_phase)
 
     # Step 2 - Import files to Connectomist and choose diffusion model
-    raw_dwi_directory = os.path.join(working_directory, "02-Raw_Dwi")
+    raw_dwi_directory = os.path.join(output_directory, "02-Raw_Dwi")
     dwi_data_import_and_qspace_sampling(path_gis,
                                         path_bval,
                                         path_bvec,
@@ -278,17 +271,17 @@ def complete_preprocessing(path_nifti,
                                         invertZ)
 
     # Step 3 - Create a brain mask
-    rough_mask_directory = os.path.join(working_directory, "03-Rough_Mask")
+    rough_mask_directory = os.path.join(output_directory, "03-Rough_Mask")
     dwi_rough_mask_extraction(raw_dwi_directory, rough_mask_directory)
 
     # Step 4 - Detect and filter outlying diffusion slices
-    outliers_directory = os.path.join(working_directory, "04-Outliers")
+    outliers_directory = os.path.join(output_directory, "04-Outliers")
     dwi_outlier_detection(raw_dwi_directory,
                           rough_mask_directory,
                           outliers_directory)
 
     # Step 5 - Susceptibility correction
-    susceptibility_directory = os.path.join(working_directory, "05-Susceptiblity")
+    susceptibility_directory = os.path.join(output_directory, "05-Susceptiblity")
     dwi_susceptibility_artifact_correction(raw_dwi_directory,
                                            rough_mask_directory,
                                            outliers_directory,
@@ -306,20 +299,34 @@ def complete_preprocessing(path_nifti,
                                            water_fat_shift_per_pixel)
 
     # Step 6 - Eddy current and motion correction
-    eddy_motion_directory = os.path.join(working_directory,
-                                         "06-Eddy_Current_And_Motion")
+    eddy_motion_directory = os.path.join(output_directory, "06-Eddy_Current_And_Motion")
     dwi_eddy_current_and_motion_correction(raw_dwi_directory,
                                            rough_mask_directory,
                                            outliers_directory,
                                            eddy_motion_directory)
 
     # Step 7 - Export result as a Nifti with a .bval and a .bvec
-    preprocessed_directory = os.path.join(working_directory, "07-Preprocessed")
+    preprocessed_directory = os.path.join(output_directory, "07-Preprocessed")
     if not os.path.isdir(preprocessed_directory):
         os.mkdir(preprocessed_directory)
     nifti_name = os.path.basename(path_gis).rsplit(".ima", 1)[0] + ".nii"
     path_nifti = os.path.join(preprocessed_directory, nifti_name)
     path_nifti, path_bval, path_bvec = \
         export_and_format_corrected_files(eddy_motion_directory, path_nifti)
+
+    # Delete intermediate files and directories if requested
+    if delete_steps:
+        path_outliers_py = os.path.join(outliers_directory, "outliers.py")
+        shutil.move(path_outliers_py, preprocessed_directory)
+
+        intermediate_directories = [input_directory, raw_dwi_directory,
+                                    rough_mask_directory, outliers_directory,
+                                    susceptibility_directory,
+                                    eddy_motion_directory]
+        for directory in intermediate_directories:
+            shutil.rmtree(directory)
+
+        # Remove useless metadata file
+        os.remove(path_nifti + ".minf")
 
     return path_nifti, path_bval, path_bvec

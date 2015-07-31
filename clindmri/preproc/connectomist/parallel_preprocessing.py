@@ -14,6 +14,7 @@
 from multiprocessing import Process, Manager
 import logging
 import tempfile
+import traceback
 
 from .exceptions             import ConnectomistError
 from .complete_preprocessing import complete_preprocessing
@@ -45,6 +46,7 @@ def parallel_worker(work_queue, result_queue):
             result_queue.put(e.message)
         except Exception as e:
             e.message += "\nUnknown error happened for %s" % kwargs["path_nifti"]
+            e.message += "\n" + traceback.format_exc()
             result_queue.put(e.message)
 
 
@@ -73,7 +75,8 @@ def parallel_preprocessing(nb_processes, list_kwargs, log_path=None):
 
     if not has_file_handler:
         if not log_path:
-            log_path = tempfile.mkstemp(prefix="preprocessing_", suffix=".log")[1]
+            log_path = tempfile.mkstemp(dir="/volatile/logs", suffix=".log",
+                                        prefix="preprocessing_")[1]
         file_handler = logging.FileHandler(log_path, mode="a")
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
@@ -110,14 +113,19 @@ def parallel_preprocessing(nb_processes, list_kwargs, log_path=None):
             new_result = result_queue.get()
             if new_result == FLAG_PROCESS_FINISHED:
                 nb_finished_processes += 1
+                logger.info("Finished processes: %d/%d" % (nb_finished_processes,
+                                                           nb_processes))
                 if nb_finished_processes == nb_processes:
                     break
             elif type(new_result) is str:
                 logger.warning(new_result)
+            elif not (type(new_result) is tuple and len(new_result) == 3):
+                logger.warning("Something went wrong; result: {}".format(new_result))
             else:
                 logger.info("Successfull preprocessing, resulting files:"
                             "\n%s\n%s\n%s" % new_result)
     except KeyboardInterrupt:  # To stop if user uses ctrl+c
+        logger.info("KeyboardInterrupt: stopping processes.")
         for worker in workers:
             worker.terminate()
             worker.join()
