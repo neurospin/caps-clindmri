@@ -12,11 +12,13 @@ import numpy
 import nibabel
 
 # Clindmri import
-from clindmri.tractography import loadtxt
+from clindmri.tractography import Tractogram
+from clindmri.extensions.fsl import flirt2aff
 
 
-def connectivity_matrix(track_file, label_file, symmetric=True):
-    """ Counts the tracks that start and end at each label pair.
+def diffusion_connectivity_matrix(track_file, label_file, symmetric=True):
+    """ Counts the tracks that start and end at each label pair in the 
+    diffusion space.
 
     Parameters
     ----------
@@ -37,7 +39,7 @@ def connectivity_matrix(track_file, label_file, symmetric=True):
     """
     # Load the dataset
     label_array = nibabel.load(label_file).get_data()
-    tracks = loadtxt(track_file)
+    tractogram = Tractogram(track_file)
 
     # Check the validity of the label array
     kind = label_array.dtype.kind
@@ -49,8 +51,68 @@ def connectivity_matrix(track_file, label_file, symmetric=True):
 
     # To compute the connectivity matrix we consider only the first and last
     # point of each track
-    endpoints = [line[0::len(line)-1] for line in tracks]
-    endpoints = numpy.asarray(endpoints).astype(int)
+    endpoints = tractogram.endpoints().astype(int)
+    pointsx, pointsy, pointsz = endpoints.T
+
+    # Get labels associted to track end points
+    endlabels = label_array[pointsx, pointsy, pointsz]
+    if symmetric:
+        endlabels.sort(axis=0)
+    matrix = ndbincount(endlabels)
+    if symmetric:
+        matrix = numpy.maximum(matrix, matrix.T)
+
+    # Remove the connectivity associated to the background
+    matrix = matrix[1:, 1:]
+
+    return matrix
+
+
+def anatomical_connectivity_matrix(track_file, label_file, t1_file,
+                                   diffusion_file, trf_file,  symmetric=True):
+    """ Counts the tracks that start and end at each label pair in the 
+    anatomical space.
+
+    Parameters
+    ----------
+    track_file: str (mandatory)
+        a text file containing tracks.
+    label_file: str (mandatory)
+        a file containing labels that represent a segmentation of the cortex
+        surface.
+    t1_file: str (mandatory)
+        a file containing the t1 image used in FreeSurfer for the segmentation.
+    diffusion_file: str (optional, default None)
+        a file containing the diffusion b0 3d image.
+    trf_file: str (mandatory)
+        a file with the FSL flirt transformation from the diffusion to the
+        t1 spaces.
+    symmetric: bool (optional, default True)
+        symmetric means we don't distinguish between start and end points. If
+        symmetric is True, 'matrix[i, j] == matrix[j, i]'.
+
+    Returns
+    -------
+    matrix: array
+        the number of connection between each pair of regions defined in the
+        'label_file'.
+    """
+    # Load the dataset
+    label_array = nibabel.load(label_file).get_data()
+    tractogram = Tractogram(track_file)
+    affine = flirt2aff(trf_file, diffusion_file, t1_file)
+
+    # Check the validity of the label array
+    kind = label_array.dtype.kind
+    label_positive = (
+        (kind == "u") or ((kind == "i") and (label_array.min() >= 0)))
+    if not (label_positive and label_array.ndim == 3):
+        raise ValueError("Label array must be a 3d integer array with "
+                         "non-negative label values.")
+
+    # To compute the connectivity matrix we consider only the first and last
+    # point of each track
+    endpoints = tractogram.apply_affine_on_endpoints(affine).astype(int)
     pointsx, pointsy, pointsz = endpoints.T
 
     # Get labels associted to track end points

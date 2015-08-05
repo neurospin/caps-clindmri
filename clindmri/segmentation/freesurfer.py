@@ -19,7 +19,8 @@ from clindmri.extensions.fsl import flirt2aff
 from clindmri.registration.utils import extract_image
 
 
-def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex"):
+def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
+           mask=True):
     """ Compute a white matter mask and gyri labelization from the FreeSurfer
     'white' surface.
 
@@ -36,6 +37,8 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex"):
         an affine transform is used to align this image to the t1 image.
     prefix: str (optional, default 'wm')
         the output files prefix.
+    mask: bool (optional, default True)
+        if True generate a white matter binary mask.
 
     Returns
     -------
@@ -47,13 +50,15 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex"):
     # Load the dataset
     t1_image = nibabel.load(t1_file)
     t1_affine = t1_image.get_affine()
-    dest_image = nibabel.load(dest_file)
-    dest_affine = dest_image.get_affine()
-    dest_shape = dest_image.get_shape()
-    basename = os.path.basename(dest_file).split(".")[0]
 
     # If a destination file is specified register it to the t1
     if dest_file is not None:
+
+        # Load dataset
+        basename = os.path.basename(dest_file).split(".")[0]
+        dest_image = nibabel.load(dest_file)
+        dest_affine = dest_image.get_affine()
+        dest_shape = dest_image.get_shape()
 
         # In case of temporal serie extract the first volume
         if len(dest_shape) > 3:
@@ -72,16 +77,21 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex"):
 
     # Otherwise use identity transformation
     else:
+        basename = os.path.basename(t1_file).split(".")[0]
+        dest_affine = t1_affine
+        dest_shape = t1_image.get_shape()
         voxel_t1_to_dest = numpy.identity(4)
 
-    # Load the FreeSurfer surface in the 'dest_file' voxel coordinates
+    # Load the FreeSurfer surface in the 'dest_file' voxel coordinates or
+    # 't1_file' coordinates if not specified
     t1_physical_to_voxel = numpy.linalg.inv(t1_affine)
     seg = read_cortex_surface_segmentation(fsdir, t1_physical_to_voxel,
                                            voxel_t1_to_dest)
 
     # Create a mask of the white matter of both hemisphere
-    mask_array = seg["lh"].voxelize(dest_shape)
-    mask_array += seg["rh"].voxelize(dest_shape)
+    if mask:
+        mask_array = seg["lh"].voxelize(dest_shape)
+        mask_array += seg["rh"].voxelize(dest_shape)
 
     # Create a gyri label image of both hemisphere
     label_array_lh, shift_lh = seg["lh"].labelize(dest_shape)
@@ -89,9 +99,11 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex"):
     label_array = label_array_lh + label_array_rh
 
     # Save the results
-    mask_file = os.path.join(outdir, prefix + basename + "-mask.nii.gz")
-    mask_image = nibabel.Nifti1Image(mask_array, dest_affine)
-    nibabel.save(mask_image, mask_file)
+    mask_file = None
+    if mask:
+        mask_file = os.path.join(outdir, prefix + basename + "-mask.nii.gz")
+        mask_image = nibabel.Nifti1Image(mask_array, dest_affine)
+        nibabel.save(mask_image, mask_file)       
     label_file = os.path.join(outdir, prefix + basename + "-labels.nii.gz")
     label_image = nibabel.Nifti1Image(label_array, dest_affine)
     nibabel.save(label_image, label_file)

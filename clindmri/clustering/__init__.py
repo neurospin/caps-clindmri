@@ -7,6 +7,5 @@
 # for details.
 ##########################################################################
 
-from .io import savetxt
-from .io import loadtxt
-from .utils import Tractogram
+from .local_skeleton_clustering import local_skeleton_clustering
+from .agglomerative_clustering import agglomerative_clustering

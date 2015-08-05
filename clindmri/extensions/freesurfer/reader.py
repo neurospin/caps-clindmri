@@ -204,7 +204,7 @@ class TriSurface(object):
         return 3 * self.vertices.shape[0]
 
     def shape(self):
-        """ TriSurface shape
+        """ TriSurface shape.
 
         Returns
         -------
