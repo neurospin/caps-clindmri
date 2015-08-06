@@ -24,3 +24,11 @@ class FSLRuntimeError(FSLError):
                 algorithm_name, parameter_file))
         super(FSLRuntimeError, self).__init__(message)
 
+
+class FSLConfigurationError(FSLError):
+    """ Error thrown when call to the FSL software failed.
+    """
+    def __init__(self, command_name):
+        message = "FSL command '{0}' not found.".format(command_name)
+        super(FSLConfigurationError, self).__init__(message)
+

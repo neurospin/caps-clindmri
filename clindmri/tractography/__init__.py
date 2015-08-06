@@ -7,6 +7,6 @@
 # for details.
 ##########################################################################
 
-from .io import savetxt
-from .io import loadtxt
+from .trackio import savetxt
+from .trackio import loadtxt
 from .utils import Tractogram

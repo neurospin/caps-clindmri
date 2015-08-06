@@ -20,7 +20,7 @@ from clindmri.registration.utils import extract_image
 
 
 def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
-           mask=True):
+           generate_mask=True, generate_seeds=True):
     """ Compute a white matter mask and gyri labelization from the FreeSurfer
     'white' surface.
 
@@ -35,10 +35,13 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
     dest_file: str (optional, default None)
         a file containing an image where we want to project the segmentations:
         an affine transform is used to align this image to the t1 image.
-    prefix: str (optional, default 'wm')
+    prefix: str (optional, default 'cortex')
         the output files prefix.
-    mask: bool (optional, default True)
+    generate_mask: bool (optional, default True)
         if True generate a white matter binary mask.
+    generate_seeds: boll (optional, default False)
+        if True create a 'seeds' directory containing all the gyri mask as
+        idenpendent files.
 
     Returns
     -------
@@ -46,7 +49,13 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
         the white matter mask image file.
     label_file: str
         the gyri label image file.
+    seeds: list of str
+        a list with the seed volumes.
     """
+    # Create the output directory if necessary
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+
     # Load the dataset
     t1_image = nibabel.load(t1_file)
     t1_affine = t1_image.get_affine()
@@ -55,7 +64,6 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
     if dest_file is not None:
 
         # Load dataset
-        basename = os.path.basename(dest_file).split(".")[0]
         dest_image = nibabel.load(dest_file)
         dest_affine = dest_image.get_affine()
         dest_shape = dest_image.get_shape()
@@ -63,21 +71,20 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
         # In case of temporal serie extract the first volume
         if len(dest_shape) > 3:
             temporal_dest_file = dest_file
-            dest_file = os.path.join(outdir, "e" + basename + "-0.nii.gz")
+            dest_file = os.path.join(outdir, prefix + "_volume-0.nii.gz")
             extract_image(temporal_dest_file, index=0, out_file=dest_file)
             dest_shape = dest_shape[:3]
 
         # Register destination image to t1 image
-        trf_file = os.path.join(outdir, "dest_to_t1_" + basename + ".trf")
-        reg_file = os.path.join(outdir, "dest_to_t1_" + basename + ".nii.gz")
+        trf_file = os.path.join(outdir, prefix + "_dest_to_t1.trf")
+        reg_file = os.path.join(outdir, prefix + "_dest_to_t1.nii.gz")
         flirt(dest_file, t1_file, omat=trf_file, out=reg_file, usesqform=True,
-              cost="normmi", dof=12)
+              cost="normmi", dof=6)
         voxel_dest_to_t1 = flirt2aff(trf_file, dest_file, t1_file)
         voxel_t1_to_dest = numpy.linalg.inv(voxel_dest_to_t1)
 
     # Otherwise use identity transformation
     else:
-        basename = os.path.basename(t1_file).split(".")[0]
         dest_affine = t1_affine
         dest_shape = t1_image.get_shape()
         voxel_t1_to_dest = numpy.identity(4)
@@ -89,23 +96,48 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
                                            voxel_t1_to_dest)
 
     # Create a mask of the white matter of both hemisphere
-    if mask:
+    if generate_mask:
         mask_array = seg["lh"].voxelize(dest_shape)
         mask_array += seg["rh"].voxelize(dest_shape)
 
     # Create a gyri label image of both hemisphere
-    label_array_lh, shift_lh = seg["lh"].labelize(dest_shape)
-    label_array_rh, shift_rh = seg["rh"].labelize(dest_shape, shift_lh)
-    label_array = label_array_lh + label_array_rh
+    label_array = {}
+    label_array["lh"], shift_lh = seg["lh"].labelize(dest_shape)
+    label_array["rh"], shift_rh = seg["rh"].labelize(dest_shape, shift_lh)
 
-    # Save the results
+    # Create the seeds
+    if generate_seeds:
+        seedsdir = os.path.join(outdir, "gyri")
+        if not os.path.isdir(seedsdir):
+            os.mkdir(seedsdir)
+        seeds = []
+        for hemi in ["lh", "rh"]:
+            surf = seg[hemi]
+            hemi_label_array = label_array[hemi]
+            seed_array = numpy.zeros(hemi_label_array.shape,
+                                     dtype=hemi_label_array.dtype)
+            for index, item in surf.metadata.items():
+                if index != 0:
+                    if hemi == "rh":
+                        index += shift_lh
+                    seed_array[numpy.where(hemi_label_array == index)] = 1
+                    seed_file = os.path.join(
+                        seedsdir, "{0}-{1}.nii.gz".format(hemi, item["region"]))
+                    seed_image = nibabel.Nifti1Image(seed_array, dest_affine)
+                    nibabel.save(seed_image, seed_file)
+                    seed_array[...] = 0
+                    seeds.append(seed_file)
+
+    # Save the mask and label images
     mask_file = None
-    if mask:
-        mask_file = os.path.join(outdir, prefix + basename + "-mask.nii.gz")
+    if generate_mask:
+        mask_file = os.path.join(outdir, prefix + "_whitematter-mask.nii.gz")
         mask_image = nibabel.Nifti1Image(mask_array, dest_affine)
-        nibabel.save(mask_image, mask_file)       
-    label_file = os.path.join(outdir, prefix + basename + "-labels.nii.gz")
+        nibabel.save(mask_image, mask_file)
+    label_array = label_array["lh"] + label_array["rh"]     
+    label_file = os.path.join(outdir, prefix + "_gyri-labels.nii.gz")
     label_image = nibabel.Nifti1Image(label_array, dest_affine)
     nibabel.save(label_image, label_file)
 
-    return mask_file, label_file
+    return mask_file, label_file, seeds
+
