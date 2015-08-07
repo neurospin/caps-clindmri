@@ -8,9 +8,10 @@
 ##########################################################################
 
 # System import
+from __future__ import print_function
 import numpy
 import types
-import logging
+import os
 
 # Caps import
 from clindmri.estimation.gdti.monomials import construct_matrix_of_monomials
@@ -66,12 +67,12 @@ def show(ren, title="pvtk", size=(300, 300)):
 
     Parameters
     ----------
-    ren : vtkRenderer() object
-        as returned from function ren()
-    title : string
-        a string for the window title bar
-    size : (int, int)
-        (width,height) of the window
+    ren: vtkRenderer() object
+        as returned from function ren().
+    title: string
+        a string for the window title bar.
+    size: (int, int)
+        (width, height) of the window.
     """
     ren.ResetCameraClippingRange()
 
@@ -88,6 +89,77 @@ def show(ren, title="pvtk", size=(300, 300)):
 
     window.Render()
     iren.Start()
+
+
+def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
+           cam_view=None, n_frames=1, az_ang=10, size=(300, 300),
+           verbose=False):
+    """ This will record a snap/video of the rendered objects.
+
+    Records a video as a series of ".png" files by rotating the azimuth angle
+    'az_angle' in every frame.
+
+    Parameters
+    ----------
+    ren: vtkRenderer() object (mandatory)
+        as returned from function ren()
+    outdir: str (mandatory)
+        the output directory.
+    prefix: str (mandatory)
+        the png snap base names.
+    cam_pos: 3-uplet (optional, default None)
+        the camera position.
+    cam_focal: 3-uplet (optional, default None)
+        the camera focal point.
+    cam_view: 3-uplet (optional, default None)
+        the camera view up. 
+    n_frames: int (optional, default 1)
+        the number of frames to save.
+    az_ang: float (optional, default 10)
+        the azimuthal angle of camera rotation (in degrees).
+    size: 2-uplet (optional, default (300, 300))
+        (width, height) of the window.
+    verbose: bool (optional, default False)
+        if True display debuging message.
+    """
+    # Create a window and a interactor
+    window = vtk.vtkRenderWindow()
+    window.AddRenderer(ren)
+    window.SetSize(size)
+    iren = vtk.vtkRenderWindowInteractor()
+    iren.SetRenderWindow(window)
+
+    # Set the camera properties
+    ren.ResetCamera()
+    camera = ren.GetActiveCamera()
+    if cam_pos is not None:
+        camera.SetPosition(cam_pos)
+    if cam_focal is not None:
+        camera.SetFocalPoint(cam_focal)
+    if cam_view is not None:
+        camera.SetViewUp(cam_view)
+    if verbose:
+        print("Camera Position (%.2f,%.2f,%.2f)" % camera.GetPosition())
+        print("Camera Focal Point (%.2f,%.2f,%.2f)" % camera.GetFocalPoint())
+        print("Camera View Up (%.2f,%.2f,%.2f)" % camera.GetViewUp())
+
+    # Create 'n_frames' by rotating each time the scene by 'az_ang' degrees
+    writer = vtk.vtkPNGWriter()
+    current_angle = 0
+    for index in range(n_frames):
+        camera.Azimuth(current_angle)
+        render = vtk.vtkRenderLargeImage()
+        render.SetInput(ren)
+        render.SetMagnification(1)
+        render.Update()  
+        writer.SetInputConnection(render.GetOutputPort())
+        current_prefix = prefix
+        if n_frames > 1:
+            current_prefix += "-" + str(index + 1).zfill(8)
+        snap_file = os.path.join(outdir, current_prefix + ".png")
+        writer.SetFileName(snap_file)
+        writer.Write()
+        current_angle += az_ang
 
 
 def tensor(coeff, order, position=(0, 0, 0),

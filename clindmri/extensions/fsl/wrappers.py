@@ -132,7 +132,7 @@ class FSLWrapper(object):
                         self.cmd.append("-{0}".format(cmd_parameter_name))
 
                 # Add command parameter
-                else:
+                elif not isinstance(parameter_value, bool):
                     if parameter_name in self.optional:
                         self.cmd.append("--{0}={1}".format(
                             cmd_parameter_name, parameter_value))

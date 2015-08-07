@@ -32,3 +32,12 @@ class FSLConfigurationError(FSLError):
         message = "FSL command '{0}' not found.".format(command_name)
         super(FSLConfigurationError, self).__init__(message)
 
+
+class FSLResultError(FSLError):
+    """ Error thrown when the FSL software has returned a strange result.
+    """
+    def __init__(self, command):
+        message = ("FSL command '{0}' may have returned a strange "
+                   "result.".format(command))
+        super(FSLResultError, self).__init__(message)
+

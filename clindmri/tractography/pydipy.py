@@ -82,8 +82,7 @@ def deterministic(diffusion_file, bvecs_file, bvals_file, outdir,
     streamlines = list(streamline_generator)
 
     # Save the tracks
-    basename = os.path.basename(diffusion_file).split(".")[0]
-    track_file = os.path.join(outdir, basename + ".trk")
+    track_file = os.path.join(outdir, "fibers.txt")
     savetxt(track_file, streamlines, fmt=fmt)
 
     return track_file

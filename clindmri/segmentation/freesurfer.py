@@ -13,10 +13,12 @@ import nibabel
 import numpy
 
 # Clindmri import
+from clindmri.extensions.fsl.exceptions import FSLResultError
 from clindmri.extensions.freesurfer import read_cortex_surface_segmentation
 from clindmri.registration.fsl import flirt
 from clindmri.extensions.fsl import flirt2aff
 from clindmri.registration.utils import extract_image
+
 
 
 def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
@@ -78,13 +80,15 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
         # Register destination image to t1 image
         trf_file = os.path.join(outdir, prefix + "_dest_to_t1.trf")
         reg_file = os.path.join(outdir, prefix + "_dest_to_t1.nii.gz")
-        flirt(dest_file, t1_file, omat=trf_file, out=reg_file, usesqform=True,
+        flirt(dest_file, t1_file, omat=trf_file, out=reg_file, usesqform=False,
               cost="normmi", dof=6)
         voxel_dest_to_t1 = flirt2aff(trf_file, dest_file, t1_file)
         voxel_t1_to_dest = numpy.linalg.inv(voxel_dest_to_t1)
 
     # Otherwise use identity transformation
     else:
+        trf_file = None
+        reg_file = None
         dest_affine = t1_affine
         dest_shape = t1_image.get_shape()
         voxel_t1_to_dest = numpy.identity(4)
@@ -102,15 +106,20 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
 
     # Create a gyri label image of both hemisphere
     label_array = {}
-    label_array["lh"], shift_lh = seg["lh"].labelize(dest_shape)
-    label_array["rh"], shift_rh = seg["rh"].labelize(dest_shape, shift_lh)
+    try:
+        label_array["lh"], shift_lh = seg["lh"].labelize(dest_shape)
+        label_array["rh"], shift_rh = seg["rh"].labelize(dest_shape, shift_lh)
+    except:
+        if reg_file is not None:
+            raise FSLResultError("flirt")
+        raise
 
     # Create the seeds
+    seeds = []
     if generate_seeds:
         seedsdir = os.path.join(outdir, "gyri")
         if not os.path.isdir(seedsdir):
             os.mkdir(seedsdir)
-        seeds = []
         for hemi in ["lh", "rh"]:
             surf = seg[hemi]
             hemi_label_array = label_array[hemi]
@@ -131,13 +140,13 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
     # Save the mask and label images
     mask_file = None
     if generate_mask:
-        mask_file = os.path.join(outdir, prefix + "_whitematter-mask.nii.gz")
+        mask_file = os.path.join(outdir, prefix + "_mask.nii.gz")
         mask_image = nibabel.Nifti1Image(mask_array, dest_affine)
         nibabel.save(mask_image, mask_file)
     label_array = label_array["lh"] + label_array["rh"]     
-    label_file = os.path.join(outdir, prefix + "_gyri-labels.nii.gz")
+    label_file = os.path.join(outdir, prefix + "_gyri_labels.nii.gz")
     label_image = nibabel.Nifti1Image(label_array, dest_affine)
     nibabel.save(label_image, label_file)
 
-    return mask_file, label_file, seeds
+    return mask_file, label_file, seeds, reg_file, trf_file
 

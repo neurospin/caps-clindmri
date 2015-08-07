@@ -8,6 +8,7 @@
 ##########################################################################
 
 # System import
+import os
 import numpy
 import nibabel
 
@@ -16,7 +17,8 @@ from clindmri.tractography import Tractogram
 from clindmri.extensions.fsl import flirt2aff
 
 
-def diffusion_connectivity_matrix(track_file, label_file, symmetric=True):
+def diffusion_connectivity_matrix(track_file, label_file, outdir,
+                                  symmetric=True):
     """ Counts the tracks that start and end at each label pair in the 
     diffusion space.
 
@@ -27,6 +29,8 @@ def diffusion_connectivity_matrix(track_file, label_file, symmetric=True):
     label_file: str (mandatory)
         a file containing labels that represent a segmentation of the cortex
         surface.
+    outdir: str (mandatory)
+        the output directory.
     symmetric: bool (optional, default True)
         symmetric means we don't distinguish between start and end points. If
         symmetric is True, 'matrix[i, j] == matrix[j, i]'.
@@ -38,7 +42,9 @@ def diffusion_connectivity_matrix(track_file, label_file, symmetric=True):
         'label_file'.
     """
     # Load the dataset
-    label_array = nibabel.load(label_file).get_data()
+    label_image = nibabel.load(label_file)
+    label_array = label_image.get_data()
+    label_shape = label_image.get_shape()
     tractogram = Tractogram(track_file)
 
     # Check the validity of the label array
@@ -65,11 +71,22 @@ def diffusion_connectivity_matrix(track_file, label_file, symmetric=True):
     # Remove the connectivity associated to the background
     matrix = matrix[1:, 1:]
 
-    return matrix
+    # Compute the fiber density map
+    density_map = tractogram.density(shape=label_shape)
+
+    # Save the resulting connectivity matrix and density map
+    proba_file = os.path.join(outdir, "det_paths.nii.gz")
+    density_image = nibabel.Nifti1Image(density_map, label_image.get_affine())
+    nibabel.save(density_image, proba_file)
+    network_file = os.path.join(outdir, "det_network_matrix")
+    numpy.savetxt(network_file, matrix)
+
+    return proba_file, network_file
 
 
 def anatomical_connectivity_matrix(track_file, label_file, t1_file,
-                                   diffusion_file, trf_file,  symmetric=True):
+                                   diffusion_file, trf_file,  outdir,
+                                   symmetric=True):
     """ Counts the tracks that start and end at each label pair in the 
     anatomical space.
 
@@ -87,6 +104,8 @@ def anatomical_connectivity_matrix(track_file, label_file, t1_file,
     trf_file: str (mandatory)
         a file with the FSL flirt transformation from the diffusion to the
         t1 spaces.
+    outdir: str (mandatory)
+        the output directory.
     symmetric: bool (optional, default True)
         symmetric means we don't distinguish between start and end points. If
         symmetric is True, 'matrix[i, j] == matrix[j, i]'.
@@ -98,7 +117,9 @@ def anatomical_connectivity_matrix(track_file, label_file, t1_file,
         'label_file'.
     """
     # Load the dataset
-    label_array = nibabel.load(label_file).get_data()
+    label_image = nibabel.load(label_file)
+    label_array = label_image.get_data()
+    label_shape = label_image.get_shape()
     tractogram = Tractogram(track_file)
     affine = flirt2aff(trf_file, diffusion_file, t1_file)
 
@@ -112,7 +133,8 @@ def anatomical_connectivity_matrix(track_file, label_file, t1_file,
 
     # To compute the connectivity matrix we consider only the first and last
     # point of each track
-    endpoints = tractogram.apply_affine_on_endpoints(affine).astype(int)
+    tractogram.apply_affine(affine)
+    endpoints = tractogram.endpoints().astype(int)
     pointsx, pointsy, pointsz = endpoints.T
 
     # Get labels associted to track end points
@@ -126,7 +148,17 @@ def anatomical_connectivity_matrix(track_file, label_file, t1_file,
     # Remove the connectivity associated to the background
     matrix = matrix[1:, 1:]
 
-    return matrix
+    # Compute the fiber density map
+    density_map = tractogram.density(shape=label_shape)
+
+    # Save the resulting connectivity matrix and density map
+    proba_file = os.path.join(outdir, "det_paths.nii.gz")
+    density_image = nibabel.Nifti1Image(density_map, label_image.get_affine())
+    nibabel.save(density_image, proba_file)
+    network_file = os.path.join(outdir, "det_network_matrix")
+    numpy.savetxt(network_file, matrix)
+
+    return proba_file, network_file
 
 
 def ndbincount(x, weights=None, shape=None):
