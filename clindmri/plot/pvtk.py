@@ -97,7 +97,7 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
     """ This will record a snap/video of the rendered objects.
 
     Records a video as a series of ".png" files by rotating the azimuth angle
-    'az_angle' in every frame.
+    'az_ang' in every frame.
 
     Parameters
     ----------

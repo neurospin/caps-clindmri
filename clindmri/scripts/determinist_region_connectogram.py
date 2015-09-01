@@ -36,7 +36,7 @@ This analysis is using Freesurfer & FSL & nilearn & dipy, all of them beeing
 freely available.
 """
 
-from clindmri import signaturedecorator 
+from clindmri import signaturedecorator
 import os
 import shutil
 import numpy
@@ -277,11 +277,9 @@ if not os.path.isfile(track_file):
 
 if use_vtk:
     tracks = loadtxt(track_file)
-    print len(tracks)
-    print tracks[0].shape
     actor = pvtk.line(tracks, scalar=1)
-    pvtk.add_actor(ren, actor)
-    pvtk.record(ren, qcdir, "fibers")
+    pvtk.add(ren, actor)
+    pvtk.record(ren, qcdir, "fibers", az_ang=45, n_frames=2)
     pvtk.clear(ren)
     
 

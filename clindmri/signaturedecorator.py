@@ -11,6 +11,7 @@
 import inspect
 import time
 import json
+import numpy
 
 # Clindmri import
 import decorations
@@ -21,6 +22,7 @@ def function_decorator(func, module_name):
     function execution time.
     """
     def wrapper(*args, **kwargs):
+
         # Get the function parameters
         arg_spec = inspect.getargspec(func)
         defaults = [repr(item) for item in arg_spec.defaults or []]
@@ -30,21 +32,23 @@ def function_decorator(func, module_name):
                 optional[name] = repr(value)
         mandatory = []
         for index in range(len(arg_spec.args) - len(optional)):
-            print "--", index
-            print "--", arg_spec.args[index]
             try:
-                if isinstance(value, list):
-                    value = repr(numpy.asarray(value))[6:-1]
+                if index < len(args):
+                    value = args[index]
                 else:
-                    value = repr(args[index])
-                #representation = repr(args[index])
-                #if len(representation) > 200:
-                #    representation = (
-                #        representation[:100] + "..." + representation[-100:])
-                #print representation
-                mandatory.append((arg_spec.args[index], value))
+                    value = kwargs[arg_spec.args[index]]
+                if isinstance(value, list):
+                    value_repr = array_repr(numpy.asarray(value))[6:]
+                    endindex = value_repr.find("dtype") - 2
+                    value_repr = value_repr[:endindex]
+                elif isinstance(value, numpy.ndarray):
+                    value_repr = array_repr(numpy.asarray(value))
+                else:
+                    value_repr = repr(value)
+                mandatory.append((arg_spec.args[index], value_repr))
             except:
                 mandatory.append((arg_spec.args[index], None))
+                raise
 
         # Create the function signature
         params = ["{0}={1}".format(name, value) for name, value in mandatory]
@@ -70,6 +74,21 @@ def function_decorator(func, module_name):
 
     return wrapper
 
+
+def array_repr(array):
+    """ Representation of a numpy array.
+
+    Parameters
+    ----------
+    array: array (mandatory)
+        a numpy array.
+
+    Returns
+    -------
+    repr: str
+        the representation of the numpy array.
+    """
+    return " ".join([item.strip() for item in repr(array).split("\n")])
 
 decorations.register(function_decorator, ["clindmri"])
 

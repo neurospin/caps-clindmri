@@ -36,6 +36,7 @@ This analysis is using Freesurfer & FSL & nilearn, all of them beeing freely
 available.
 """
 
+from clindmri import signaturedecorator
 import os
 import shutil
 import numpy
@@ -50,6 +51,7 @@ from clindmri.tractography.fsl import bedpostx_datacheck
 from clindmri.tractography.fsl import bedpostx
 from clindmri.tractography.fsl import probtrackx2
 from clindmri.plot.slicer import plot_image
+from clindmri.plot.slicer import  plot_matrix
 import clindmri.plot.pvtk as pvtk
 
 
@@ -292,15 +294,19 @@ if not os.path.isfile(masks_file):
         mask=mask_file,
         dir=probtrackx2_outdir)
 else:
-    proba_pattern = os.path.join(probtrackx2_outdir, "fdt_paths*")
-    proba_files = glob.glob(os.path.join(probtrackx2_outdir, "fdt_paths*"))
+    proba_file = glob.glob(os.path.join(probtrackx2_outdir, "fdt_paths*"))[0]
     network_file = os.path.join(probtrackx2_outdir, "fdt_network_matrix")
-    if not os.path.isfile(network_file):
-        raise IOError("FileDoesNotExist: '{0}'.".format(network_file))
-    if len(proba_files) == 0:
-        raise IOError("FileDoesNotExist: '{0}'.".format(proba_pattern))
+    weights_file = os.path.join(probtrackx2_outdir, "waytotal")
+    for restored_file in [network_file, proba_file, weights_file]:
+        if not os.path.isfile(restored_file):
+            raise IOError("FileDoesNotExist: '{0}'.".format(restored_file))
 
-
+snap_file = os.path.join(qcdir, "fiber_density_map.pdf")
+plot_image(b0_file, overlay_file=proba_file, snap_file=snap_file,
+           name="density", overlay_cmap="cold_hot")
+snap_file = os.path.join(qcdir, "prob_gyri_connectogram.pdf")
+plot_matrix(network_file, snap_file=snap_file, name="prob gyri connectogram",
+            transform=numpy.log1p)
 
 
 
