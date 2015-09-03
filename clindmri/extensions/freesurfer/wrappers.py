@@ -14,6 +14,7 @@ import json
 
 # Clindmri import
 from clindmri.extensions.configuration import environment
+from .exceptions import FreeSurferConfigurationError
 
 
 class FSWrapper(object):
@@ -37,6 +38,18 @@ class FSWrapper(object):
     def __call__(self):
         """ Run the FreeSurfer command.
         """
+        # Check Freesurfer has been configured so the command can be found
+        process = subprocess.Popen(
+                    ["which", self.cmd[0]],
+                    env=self.environment,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
+        self.stdout, self.stderr = process.communicate()
+        self.exitcode = process.returncode
+        if self.exitcode != 0:
+            raise FreeSurferConfigurationError(self.cmd[0])
+
+        # Execute the command
         process = subprocess.Popen(
             self.cmd,
             env=self.environment,

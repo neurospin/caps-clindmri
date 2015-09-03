@@ -14,11 +14,44 @@ import numpy
 
 # Clindmri import
 from clindmri.extensions.fsl.exceptions import FSLResultError
+from clindmri.extensions.freesurfer.wrappers import FSWrapper
 from clindmri.extensions.freesurfer import read_cortex_surface_segmentation
 from clindmri.registration.fsl import flirt
 from clindmri.extensions.fsl import flirt2aff
 from clindmri.registration.utils import extract_image
 
+
+def recon_all(anatfile, output_directory, sid,
+              fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Performs all the FreeSurfer cortical reconstruction process.
+
+    <unit>
+        <input name="anatfile" type="File" desc="The input anatomical image
+            to be segmented with freesurfer."/>
+        <input name="output_directory" type="Directory" description="The
+            freesurfer destination folder."/>
+        <input name="sid" type="Str" description="The current subject
+            identifier."/>
+        <input name="fsconfig" type="File" description="The freesurfer
+            configuration batch."/>
+        <output name="subjfsdir" type="Directory" description="Path to the
+            resulting freesurfer segmentation."/>
+    </unit>
+    """
+    # Create the fs output directory if necessary
+    if not os.path.isdir(output_directory):
+        os.makedirs(output_directory)
+
+    # Call freesurfer
+    cmd = ["recon-all", "-all", "-subjid", sid, "-i", anatfile,
+           "-sd", output_directory]
+    recon = FSWrapper(cmd, shfile=fsconfig)
+    recon()
+    if recon.exitcode != 0:
+        raise FreeSurferRuntimeError(recon.cmd[0], " ".join(recon.cmd[1:]))
+    subjfsdir = os.path.join(output_directory, sid)
+
+    return subjfsdir
 
 
 def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",

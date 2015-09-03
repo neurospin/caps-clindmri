@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline version="1.0">
+    <docstring>
+        Cortical reconstruction
+        ~~~~~~~~~~~~~~~~~~~~~~~
+
+        Performs all the FreeSurfer cortical reconstruction process for a
+        group of subjects.
+    </docstring>
+    <units>
+        <unit name="recon">
+            <module>clindmri.segmentation.freesurfer.recon_all</module>
+            <set name="output_directory" value="None"/>
+            <iterinput name="anatfile"/>
+            <iterinput name="sid"/>
+            <iteroutput name="subjfsdir"/>
+        </unit>
+    </units>
+    <links>
+        <link source="anatfiles" destination="recon.iteranatfile"/>
+        <link source="sids" destination="recon.itersid"/>
+        <link source="fsconfig" destination="recon.fsconfig"/>
+        <link source="recon.itersubjfsdir" destination="subjfsdirs"/>
+    </links>
+    <positions>
+        <position unit="inputs" x="46" y="195"/>
+        <position unit="recon" x="299" y="196"/>
+        <position unit="outputs" x="557" y="295"/>
+    </positions>
+    <zoom level="1"/> 
+</pipeline>

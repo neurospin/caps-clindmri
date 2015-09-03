@@ -24,3 +24,11 @@ class FreeSurferRuntimeError(FreeSurferError):
                 algorithm_name, parameter_file))
         super(FreeSurferRuntimeError, self).__init__(message)
 
+
+class FreeSurferConfigurationError(FreeSurferError):
+    """ Error thrown when call to the FreeSurfer software failed.
+    """
+    def __init__(self, command_name):
+        message = "FreeSurfer command '{0}' not found.".format(command_name)
+        super(FreeSurferConfigurationError, self).__init__(message)
+
