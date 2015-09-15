@@ -14,6 +14,7 @@ import numpy
 
 # Clindmri import
 from clindmri.extensions.fsl.exceptions import FSLResultError
+from clindmri.extensions.fsl.exceptions import FreeSurferRuntimeError
 from clindmri.extensions.freesurfer.wrappers import FSWrapper
 from clindmri.extensions.freesurfer import read_cortex_surface_segmentation
 from clindmri.registration.fsl import flirt
