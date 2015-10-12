@@ -1,10 +1,11 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
-# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
-# for details.
+# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html for details.
 ##########################################################################
 
 """ Module that allows multiple complete_preprocessing() calls to be run in
@@ -50,15 +51,27 @@ def parallel_worker(work_queue, result_queue):
             result_queue.put(e.message)
 
 
-# TO BE COMPLETED: capsul + test
-def parallel_preprocessing(nb_processes, list_kwargs, log_path=None):
+def parallel_preprocessing(nb_processes, list_kwargs, path_log=None):
     """
     Function to make complete_preprocessing() run in parallel.
 
     Parameters
     ----------
-    list_kwargs: List of dicts, each dict stores the arguments for one call to
-            complete_preprocessing(), i.e. one job.
+    nb_processes: Int, number of preprocessing to be run in parallel.
+    list_kwargs:  List of dicts, each dict stores the arguments for one call to
+                  complete_preprocessing() (used as **kwargs).
+    path_log:     Str, path to file where the log is written. If not given
+                  a random tmp file is created.
+
+    <unit>
+        <input name="nb_processes" type="Int" description="Number of 
+            preprocessing to be run in parallel."/>
+        <input name="list_kwargs" type="List" content="Dict" description=
+            "List of dicts, each dict stores the arguments for one call to
+             complete_preprocessing() (used as **kwargs)./>
+        <input name="path_log" type="File" description="Path to file where the
+            log is written. If not given a random tmp file is created."/>
+    </unit>
     """
     ###########################################################################
     # SETTING UP LOGGING SYSTEM
@@ -74,14 +87,13 @@ def parallel_preprocessing(nb_processes, list_kwargs, log_path=None):
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
     if not has_file_handler:
-        if not log_path:
-            log_path = tempfile.mkstemp(dir="/volatile/logs", suffix=".log",
-                                        prefix="preprocessing_")[1]
-        file_handler = logging.FileHandler(log_path, mode="a")
+        if not path_log:
+            path_log = tempfile.mkstemp(suffix=".log", prefix="preprocessing_")[1]
+        file_handler = logging.FileHandler(path_log, mode="a")
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-        logger.info("Path to log file: %s" % log_path)
+        logger.info("Path to log file: %s" % path_log)
 
     ###########################################################################
 

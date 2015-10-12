@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline version="1.0">
+
+    <docstring>
+        Complete preprocessing of diffusion-weighted Nifti images using Connectomist:
+          - detection and correction of outlying slices
+          - correction of susceptibility-induced distortions using B0 Maps
+          - correction of Eddy currents and motion
+        Outputs a corrected Nifti with associated .bval and .bvec with corrected gradient directions.
+    </docstring>
+
+    <units>
+        <unit name="complete_preprocessing">
+            <module>clindmri.preproc.connectomist.noniter_complete_preprocessing.xml</module>
+
+            <iterinput name="subject_id"                   />
+            <iterinput name="path_dwi"                     />
+            <iterinput name="path_bval"                    />
+            <iterinput name="path_bvec"                    />
+            <iterinput name="manufacturer"                 />
+            <iterinput name="path_b0_magnitude"            />
+            <iterinput name="path_b0_phase"                />
+            <iterinput name="invertX"                      />
+            <iterinput name="invertY"                      />
+            <iterinput name="invertZ"                      />
+            <iterinput name="delta_TE"                     />
+            <iterinput name="partial_fourier_factor"       />
+            <iterinput name="parallel_acceleration_factor" />
+            <iterinput name="negative_sign"                />
+            <iterinput name="echo_spacing"                 />
+            <iterinput name="EPI_factor"                   />
+            <iterinput name="b0_field"                     />
+            <iterinput name="water_fat_shift_per_pixel"    />
+            <iterinput name="export_directory"             />
+
+            <iteroutput name="path_preprocessed_dwi"       />
+            <iteroutput name="path_preprocessed_bval"      />
+            <iteroutput name="path_preprocessed_bvec"      />
+        </unit>
+    </units>
+
+    <links>
+
+        <!-- Pipeline inputs -->
+        <link source="subject_ids"                   destination="complete_preprocessing.itersubject_id"                   />
+        <link source="paths_dwi"                     destination="complete_preprocessing.iterpath_dwi"                     />
+        <link source="paths_bval"                    destination="complete_preprocessing.iterpath_bval"                    />
+        <link source="paths_bvec"                    destination="complete_preprocessing.iterpath_bvec"                    />
+        <link source="manufacturers"                 destination="complete_preprocessing.itermanufacturer"                 />
+        <link source="paths_b0_magnitude"            destination="complete_preprocessing.iterpath_b0_magnitude"            />
+        <link source="paths_b0_phase"                destination="complete_preprocessing.iterpath_b0_phase"                />
+        <link source="invertXs"                      destination="complete_preprocessing.iterinvertX"                      />
+        <link source="invertYs"                      destination="complete_preprocessing.iterinvertY"                      />
+        <link source="invertZs"                      destination="complete_preprocessing.iterinvertZ"                      />
+        <link source="delta_TEs"                     destination="complete_preprocessing.iterdelta_TE"                     />
+        <link source="partial_fourier_factors"       destination="complete_preprocessing.iterpartial_fourier_factor"       />
+        <link source="parallel_acceleration_factors" destination="complete_preprocessing.iterparallel_acceleration_factor" />
+        <link source="negative_signs"                destination="complete_preprocessing.iternegative_sign"                />
+        <link source="echo_spacings"                 destination="complete_preprocessing.iterecho_spacing"                 />
+        <link source="EPI_factors"                   destination="complete_preprocessing.iterEPI_factor"                   />
+        <link source="b0_fields"                     destination="complete_preprocessing.iterb0_field"                     />
+        <link source="water_fat_shifts_per_pixel"    destination="complete_preprocessing.iterwater_fat_shift_per_pixel"    />
+        <link source="subject_directories"           destination="complete_preprocessing.iterexport_directory"             />
+        <link source="delete_steps"                  destination="complete_preprocessing.delete_steps"                     />
+
+        <!-- Pipeline outputs -->
+        <link source="complete_preprocessing.iterpath_preprocessed_dwi"  destination="paths_preprocessed_dwi"  />
+        <link source="complete_preprocessing.iterpath_preprocessed_bval" destination="paths_preprocessed_bval" />
+        <link source="complete_preprocessing.iterpath_preprocessed_bvec" destination="paths_preprocessed_bvec" />
+
+    </links>
+
+    <positions>
+        <position unit="inputs"                 x="50"  y="50"  />
+        <position unit="complete_preprocessing" x="389" y="49"  />
+        <position unit="outputs"                x="722" y="549" />
+    </positions>
+
+    <zoom level="1"/>
+</pipeline>

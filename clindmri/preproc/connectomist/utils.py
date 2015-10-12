@@ -1,17 +1,19 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
-# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
-# for details.
+# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html for details.
 ##########################################################################
 
 import os
+import time
 import pprint
 import subprocess
 
-from .exceptions import ConnectomistError, ConnectomistRuntimeError
+from .exceptions import ConnectomistError, ConnectomistRuntimeError, BadFileError
 
 ###############################################################################
 # UTILITY FUNCTIONS
@@ -81,7 +83,7 @@ def run_connectomist(algorithm_name, parameter_file, connectomist_path=None):
 
 def nifti_to_gis(path_nifti, path_gis, nb_tries=3):
     """
-    Function that wraps the PtkNiftiToGisConverter command line tool from
+    Function that wraps the PtkNifti2GisConverter command line tool from
     Connectomist to make it capsul-isable.
 
     Parameters
@@ -91,30 +93,39 @@ def nifti_to_gis(path_nifti, path_gis, nb_tries=3):
     nb_tries:   Int, number of times to try the conversion.
                 The reason why it sometimes fails is not known.
 
-    <process>
-        <return name="path_gis_ima"  type="File" desc="Path to output Gis .ima file."/>
-        <return name="path_gis_minf" type="File" desc="Path to output Gis .minf file."/>
-        <return name="path_gis_dim"  type="File" desc="Path to output Gis .dim file."/>
-        <input  name="path_nifti"    type="File" desc="Path to input Nifti file."/>
-        <input  name="path_gis"      type="Str"  desc="Path without extension to
-                                                       the 3 Gis files."/>
-        <input  name="nb_tries"      type="Int"  optional="True"/>
-    </process>
-    """
+    Raises
+    ------
+    ConnectomistError: If call to PtkNifti2GisConverter failed nb_tries times.
 
-    cmd = ["PtkNifti2GisConverter", "-i", path_nifti, "-o", path_gis, 
+    <unit>
+        <output name="path_gis" type="File" description="Path to output
+            .ima file (Gis format)."/>
+
+        <input name="path_nifti" type="File" description="Path to input Nifti file."/>
+        <input name="path_gis" type="Str" description="Path to the Gis .ima file.
+            If no extension, .ima is added."/>
+        <input name="nb_tries" type="Int"/>
+    </unit>
+    """
+    # Check input existence
+    if not os.path.isfile(path_nifti):
+        raise BadFileError(path_nifti)
+    
+    # Add extension if there is none
+    if not path_gis.endswith("ima"):
+        path_gis += ".ima"
+    
+    # Call command line tool
+    cmd = ["PtkNifti2GisConverter", "-i", path_nifti, "-o", path_gis,
            "-verbose", "False", "-verbosePluginLoading", "False"]
-    
-    path_gis_ima  = path_gis + ".ima"
-    path_gis_minf = path_gis + ".ima.minf"
-    path_gis_dim  = path_gis + ".dim"
-    
     nb_tried = 0
     while nb_tried < nb_tries:
         subprocess.check_call(cmd)
         nb_tried += 1
-        if os.path.isfile(path_gis_ima) and os.path.isfile(path_gis_minf):
-            return path_gis_ima, path_gis_minf, path_gis_dim
+        if os.path.isfile(path_gis):
+            return path_gis
+        else:
+            time.sleep(10)  # wait 10 sec before retrying
 
     raise ConnectomistError("Conversion nifti_to_gis failed, cmd:\n%s" % " ".join(cmd))
 
@@ -126,7 +137,7 @@ def gis_to_nifti(path_gis, path_nifti, nb_tries=3):
 
     Parameters
     ----------
-    path_gis:   Str, path without extension to the 3 input GIS files.
+    path_gis:   Str, path to the Gis .ima file.
     path_nifti: Str, path to the output Nifti file.
     nb_tries:   Int, number of times to try the conversion.
                 The reason why it sometimes fails is not known.
@@ -135,64 +146,80 @@ def gis_to_nifti(path_gis, path_nifti, nb_tries=3):
     -------
     path_nifti: path to output file.
 
-    <process>
-        <return name="path_nifti" type="File"  desc="Path to output Nifti file."/>
-        <input  name="path_gis"   type="Str"   desc="Path without extension to
-                                                     the 3 input Gis files."/>
-        <input  name="path_nifti"  type="File" desc="Path to output Nifti file."/>
-        <input  name="nb_tries"    type="Int"  optional="True"/>
-    </process>
-    """
+    Raises
+    ------
+    ConnectomistError: If call to PtkGis2NiftiConverter failed nb_tries times.
 
-    # Add .nii extension if it's not the case
-    if not (path_nifti.endswith(".nii") or path_nifti.endswith(".nii.gz")):
+    <unit>
+        <output name="path_nifti" type="File" />
+
+        <input name="path_gis"   type="Str" description="Path to the Gis .ima file."/>
+        <input name="path_nifti" type="File"  />
+        <input name="nb_tries"   type="Int"   />
+    </unit>
+    """
+    # Check input existence
+    if not os.path.isfile(path_gis):
+        raise BadFileError(path_gis)
+
+    # The command line tool does not handle .gz properly
+    if path_nifti.endswith(".gz"):
+        path_nifti = path_nifti[:-3] # remove ".gz"
+    
+    # Add .nii extension if not the case
+    if not path_nifti.endswith(".nii"):
         path_nifti += ".nii"
 
     # Call command line tool:
-    # It creates a Nifti + a .minf file (metainformation)
-    cmd = ["PtkGis2NiftiConverter", "-i", path_gis, "-o", path_nifti, 
+    # it creates a Nifti + a .minf file (metainformation)
+    cmd = ["PtkGis2NiftiConverter", "-i", path_gis, "-o", path_nifti,
            "-verbose", "False", "-verbosePluginLoading", "False"]
-    
+
     nb_tried = 0
     while nb_tried < nb_tries:
         subprocess.check_call(cmd)
         nb_tried += 1
         if os.path.isfile(path_nifti):
             return path_nifti
+        else:
+            time.sleep(10)  # wait 10 sec before retrying
 
-    raise ConnectomistError("Conversion gis_to_nifti failed for %s" % path_gis)
+    raise ConnectomistError("Conversion gis_to_nifti failed, cmd:\n%s" % " ".join(cmd))
 
 
 def concatenate_volumes(path_inputs, path_output, axis="t", nb_tries=3):
     """
-    Function that wraps the PtkCat command line tool from Connectomist to make
-    it capsul-isable, with only the basic arguments. It allows concatenating
-    volumes. In particular to concatenante T2 and DW volumes in one file at the
-    end of the preprocessing.
+    Function that wraps the PtkCat command line tool from Connectomist, with
+    only the basic arguments. It allows concatenating volumes. In particular to
+    concatenante T2 and DW volumes in one file at the end of the preprocessing.
 
     Parameters
     ----------
-    path_input:  List of str, paths to input volumes.
+    path_inputs: List of str, paths to input volumes.
     path_output: Str, path to output volume.
     axis:        Str, axis along which the concatenation is done.
     nb_tries:    Int, number of times to try the concatenation.
                  The reason why it sometimes fails is not known.
 
-    <process>
-        <return name="path_output" type="File"/>
-        <input  name="path_inputs" type="List"/>
-        <input  name="path_output" type="File"/>
-        <input  name="axis"        type="Str" optional="True"/>
-        <input  name="nb_tries"    type="Int" optional="True"/>
-    </process>
+    Raises
+    ------
+    ConnectomistError: If call to PtkCat failed
     """
+    # check input existence
+    for path in path_inputs:
+        if not os.path.isfile(path):
+            raise BadFileError(path)
+
+    # Run command line tool
     cmd = ["PtkCat", "-i"] + path_inputs + ["-o", path_output, "-t", axis,
            "-verbose", "False", "-verbosePluginLoading", "False"]
     nb_tried = 0
     while nb_tried < nb_tries:
         subprocess.check_call(cmd)
         nb_tried += 1
-        if os.path.isfile(path_output + ".ima"):
+        if os.path.isfile(path_output):
             return path_output
+        else:
+            time.sleep(10)  # wait 10 sec before retrying
 
-    raise ConnectomistError("Concatenate_volumes failed, cmd:\n%s" % " ".join(cmd))
+    raise ConnectomistError("Failed to concatenate volumes, cmd:\n%s" % " ".join(cmd))
