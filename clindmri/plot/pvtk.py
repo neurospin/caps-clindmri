@@ -121,6 +121,11 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
         (width, height) of the window.
     verbose: bool (optional, default False)
         if True display debuging message.
+
+    Returns
+    -------
+    snaps: list of str
+        the generated snaps.
     """
     # Create a window and a interactor
     window = vtk.vtkRenderWindow()
@@ -146,6 +151,7 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
     # Create 'n_frames' by rotating each time the scene by 'az_ang' degrees
     writer = vtk.vtkPNGWriter()
     current_angle = 0
+    snaps = []
     for index in range(n_frames):
         camera.Azimuth(current_angle)
         render = vtk.vtkRenderLargeImage()
@@ -158,8 +164,11 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
             current_prefix += "-" + str(index + 1).zfill(8)
         snap_file = os.path.join(outdir, current_prefix + ".png")
         writer.SetFileName(snap_file)
+        snaps.append(snap_file)
         writer.Write()
         current_angle += az_ang
+
+    return snaps
 
 
 def tensor(coeff, order, position=(0, 0, 0),

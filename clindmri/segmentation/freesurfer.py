@@ -9,28 +9,83 @@
 
 # System import
 import os
+import glob
 import nibabel
 import numpy
+import json
+from nibabel import freesurfer
 
 # Clindmri import
 from clindmri.extensions.fsl.exceptions import FSLResultError
 from clindmri.extensions.freesurfer.exceptions import FreeSurferRuntimeError
 from clindmri.extensions.freesurfer.wrappers import FSWrapper
 from clindmri.extensions.freesurfer import read_cortex_surface_segmentation
+from clindmri.extensions.freesurfer.reader import TriSurface
+from clindmri.extensions.freesurfer.reader import apply_affine_on_mesh
+from clindmri.extensions.freesurfer.reader import tkregister_translation
 from clindmri.registration.fsl import flirt
 from clindmri.extensions.fsl import flirt2aff
 from clindmri.registration.utils import extract_image
+import clindmri.plot.pvtk as pvtk
+from clindmri.plot.slicer import plot_image
 
 
-def recon_all(anatfile, output_directory, sid,
+"""
+create a registration matrix between the conformed space (orig.mgz) and the native anatomical (rawavg.mgz) 
+
+tkregister2 --mov rawavg.mgz --targ orig.mgz --reg register.native.dat --noedit --regheader
+
+map the surface to the native space: 
+
+mri_surf2surf --sval-xyz pial --reg register.native.dat rawavg.mgz --tval lh.pial.native --tval-xyz --hemi lh --s subjectname
+
+
+"""
+def recon_all(fsdir, anatfile, output_directory, sid,
               fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Performs all the FreeSurfer cortical reconstruction process.
 
+    Processing stages:
+
+    * Motion Correction and Conform
+    * NU (Non-Uniform intensity normalization)
+    * Talairach transform computation
+    * Intensity Normalization 1
+    * Skull Strip
+    * EM Register (linear volumetric registration)
+    * CA Intensity Normalization
+    * CA Non-linear Volumetric Registration
+    * Remove Neck
+    * LTA with Skull
+    * CA Label (Volumetric Labeling, ie Aseg) and Statistics
+    * Intensity Normalization 2 (start here for control points)
+    * White matter segmentation
+    * Edit WM With ASeg
+    * Fill (start here for wm edits)
+    * Tessellation (begins per-hemisphere operations)
+    * Smooth1
+    * Inflate1
+    * QSphere
+    * Automatic Topology Fixer
+    * Final Surfs (start here for brain edits for pial surf)
+    * Smooth2
+    * Inflate2
+    * Spherical Mapping
+    * Spherical Registration
+    * Spherical Registration, Contralateral hemisphere
+    * Map average curvature to subject
+    * Cortical Parcellation - Desikan_Killiany and Christophe (Labeling)
+    * Cortical Parcellation Statistics
+    * Cortical Ribbon Mask
+    * Cortical Parcellation mapping to Aseg 
+
     <unit>
+        <input name="fsdir" type="Directory" description="The
+            freesurfer working directory with all the subjects."/>
         <input name="anatfile" type="File" desc="The input anatomical image
             to be segmented with freesurfer."/>
         <input name="output_directory" type="Directory" description="The
-            freesurfer destination folder."/>
+            freesurfer runtime folder."/>
         <input name="sid" type="Str" description="The current subject
             identifier."/>
         <input name="fsconfig" type="File" description="The freesurfer
@@ -40,19 +95,606 @@ def recon_all(anatfile, output_directory, sid,
     </unit>
     """
     # Create the fs output directory if necessary
-    if not os.path.isdir(output_directory):
-        os.makedirs(output_directory)
+    if not os.path.isdir(fsdir):
+        os.makedirs(fsdir)
 
     # Call freesurfer
-    cmd = ["recon-all", "-all", "-subjid", sid, "-i", anatfile,
-           "-sd", output_directory]
+    cmd = ["recon-all", "-all", "-subjid", sid, "-i", anatfile, "-sd", fsdir]
     recon = FSWrapper(cmd, shfile=fsconfig)
     recon()
     if recon.exitcode != 0:
         raise FreeSurferRuntimeError(recon.cmd[0], " ".join(recon.cmd[1:]))
-    subjfsdir = os.path.join(output_directory, sid)
+    subjfsdir = os.path.join(fsdir, sid)
 
     return subjfsdir
+
+
+def aparcstats2table(fsdir, output_directory,
+                     fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Generate text/ascii tables of freesurfer parcellation stats data
+    '?h.aparc.stats'. This can then be easily imported into a spreadsheet
+    and/or stats program.
+
+    The labels are located here: $FREESURFER_HOME/FreeSurferColorLUT.txt
+
+    <unit>
+        <input name="fsdir" type="Directory" description="The
+            freesurfer working directory with all the subjects."/>
+        <input name="output_directory" type="Directory" description="The
+            statistical destination folder."/>
+        <input name="fsconfig" type="File" description="The freesurfer
+            configuration batch."/>
+        <output name="statfiles" type="List_File" description="The freesurfer
+            summary stats."/>
+    </unit>
+    """
+    # Parameter that will contain the output stats
+    statfiles = []
+
+    # Fist find all the subjects with a stat dir
+    statdirs = glob.glob(os.path.join(fsdir, "*", "stats"))
+    subjects = [item.lstrip(os.sep).split("/")[-2] for item in statdirs]
+    with open(os.path.join(output_directory, "subjects.json"), "w") as open_file:
+        json.dump(subjects, open_file, indent=4)
+
+    # Save the FreeSurfer current working directory and set the new one
+    fscwd = None
+    if "SUBJECTS_DIR" in os.environ:
+        fscwd = os.environ["SUBJECTS_DIR"]
+    os.environ["SUBJECTS_DIR"] = fsdir
+
+    # Create the output stat directory
+    fsoutdir = os.path.join(fsdir, "stats")
+    if not os.path.isdir(fsoutdir):
+        os.makedirs(fsoutdir)
+
+    # Call freesurfer
+    for hemi in ["lh", "rh"]:
+        for meas in ["area", "volume", "thickness", "thicknessstd",
+                     "meancurv", "gauscurv", "foldind", "curvind"]:
+
+            statfile = os.path.join(
+                fsoutdir, "aparc_stats_{0}_{1}.csv".format(hemi, meas))
+            statfiles.append(statfile)  
+            cmd = ["aparcstats2table", "--subjects"] + subjects + ["--hemi", 
+                   hemi, "--meas", meas, "--tablefile", statfile,
+                   "--delimiter", "comma", "--parcid-only"]
+
+            recon = FSWrapper(cmd, shfile=fsconfig)
+            recon()
+            if recon.exitcode != 0:
+                raise FreeSurferRuntimeError(
+                    recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+
+    # Restore the FreeSurfer working directory
+    if fscwd is not None:
+        os.environ["SUBJECTS_DIR"] = fscwd
+
+    return statfiles
+
+
+def asegstats2table(fsdir, output_directory,
+                    fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Generate text/ascii tables of freesurfer parcellation stats data
+    'aseg.stats'. This can then be easily imported into a spreadsheet
+    and/or stats program.
+
+    The labels are located here: $FREESURFER_HOME/FreeSurferColorLUT.txt
+
+    <unit>
+        <input name="fsdir" type="Directory" description="The
+            freesurfer working directory with all the subjects."/>
+        <input name="output_directory" type="Directory" description="The
+            statistical destination folder."/>
+        <input name="fsconfig" type="File" description="The freesurfer
+            configuration batch."/>
+        <output name="statfiles" type="List_File" description="The freesurfer
+            summary stats."/>
+    </unit>
+    """
+    # Parameter that will contain the output stats
+    statfiles = []
+
+    # Fist find all the subjects with a stat dir
+    statdirs = glob.glob(os.path.join(fsdir, "*", "stats"))
+    subjects = [item.lstrip(os.sep).split("/")[-2] for item in statdirs]
+    with open(os.path.join(output_directory, "subjects.json"), "w") as open_file:
+        json.dump(subjects, open_file, indent=4)
+
+    # Save the FreeSurfer current working directory and set the new one
+    fscwd = None
+    if "SUBJECTS_DIR" in os.environ:
+        fscwd = os.environ["SUBJECTS_DIR"]
+    os.environ["SUBJECTS_DIR"] = fsdir
+
+    # Create the output stat directory
+    fsoutdir = os.path.join(fsdir, "stats")
+    if not os.path.isdir(fsoutdir):
+        os.makedirs(fsoutdir)
+
+    # Call freesurfer
+    statfile = os.path.join(fsoutdir, "aseg_stats_volume.csv")
+    statfiles.append(statfile)  
+    cmd = ["asegstats2table", "--subjects"] + subjects + ["--meas", "volume",
+           "--tablefile", statfile, "--delimiter", "comma"]
+    recon = FSWrapper(cmd, shfile=fsconfig)
+    recon()
+    if recon.exitcode != 0:
+        raise FreeSurferRuntimeError(
+            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+
+    # Restore the FreeSurfer working directory
+    if fscwd is not None:
+        os.environ["SUBJECTS_DIR"] = fscwd
+
+    return statfiles
+
+
+def mri_convert(fsdir, regex, output_directory, reslice=True,
+                interpolation="interpolate",
+                fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Export Freesurfer "*.mgz" image in Nifti format.
+
+    Convert in native space: the destination image is resliced like the
+    'rawavg.mgz' file if the reslice option is set. The converted file will
+    then have a '.native' suffix.
+
+    <unit>
+        <input name="fsdir" type="Directory" description="The
+            freesurfer working directory with all the subjects."/>
+        <input name="regex" type="String" description="A regular expression
+            used to locate the files to be converted from the 'fsdir'
+            directory."/>
+        <input name="output_directory" type="Directory" description="The
+            conversion destination folder."/>
+        <input name="reslice" type="Bool" description="If true reslice the
+            input images like the raw image."/>
+        <input name="interpolation" type="String" description="The
+            interpolation method: interpolate|weighted|nearest|cubic."/>
+        <input name="fsconfig" type="File" description="The freesurfer
+            configuration batch."/>
+        <output name="niftifiles" type="List_File" description="The converted
+            nifti files."/>
+    </unit>
+    """
+    # Check the interpolation method
+    if interpolation not in ["interpolate", "weighted", "nearest", "cubic"]:
+        raise ValueError(
+            "'{0}' is not a valid interpolation method.".format(interpolation))
+
+    # Get the images to convert from the regex
+    inputs = glob.glob(os.path.join(fsdir, regex))
+    with open(os.path.join(output_directory, "inputs.json"), "w") as open_file:
+        json.dump(inputs, open_file, indent=4)
+
+    # Convert each input file
+    niftifiles = []
+    for inputfile in inputs:
+
+        # Create the output directory
+        subject = inputfile.replace(fsdir, "")
+        subject = subject.lstrip(os.sep).split(os.sep)[0]
+        outdir = os.path.join(fsdir, subject, "convert")
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+
+        # Create the FS command
+        basename = os.path.basename(inputfile).split(".")[0]
+        cmd = ["mri_convert", "--resample_type", interpolation,
+               "--out_orientation", "RAS"]
+        if reslice:
+            reference_file = os.path.join(fsdir, subject, "mri", "rawavg.mgz")
+            if not os.path.isfile(reference_file):
+                raise ValueError("'{0}' does not exists, can't reslice image "
+                                 "'{1}'.".format(reference_file, inputfile))
+            cmd += ["--reslice_like", reference_file]
+            basename = basename + ".native"
+        converted_file = os.path.join(outdir, basename + ".nii.gz")
+        niftifiles.append(converted_file) 
+        cmd += [inputfile, converted_file]
+
+        # Execute the FS command
+        recon = FSWrapper(cmd, shfile=fsconfig)
+        recon()
+        if recon.exitcode != 0:
+            raise FreeSurferRuntimeError(
+                recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+
+    return niftifiles
+
+
+def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
+                              surface_name="white",
+                              fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Resamples one cortical surface onto an icosahedron.
+
+    Resample the white or pial FreeSurfer cotical surface using the
+    'mri_surf2surf' command. Map also the associated annotation file.
+
+    Can resample at different icosahedron order which specifies the size of the
+    icosahedron according to the following table:
+    Order  Number of Vertices
+    0              12
+    1              42
+    2             162
+    3             642
+    4            2562
+    5           10242
+    6           40962
+    7          163842
+
+    <unit>
+        <input name="fsdir" type="Directory" description="The
+            freesurfer working directory with all the subjects."/>
+        <input name="output_directory" type="Directory" description="The
+            default resample destination folder."/>
+        <input name="orders" type="List_Int" description="The icosahedron
+            orders."/>
+        <input name="surface_name" type="String" description="The surface we
+            want to resample ('white' or 'pial')."/>
+        <input name="fsconfig" type="File" description="The freesurfer
+            configuration batch."/>
+        <output name="resamplefiles" type="List_File" description="The
+            resample surfaces."/>
+    </unit>
+    """
+    # Check input parameters
+    if surface_name not in ["white", "pial"]:
+        raise ValueError("'{0}' is not a valid surface value which must be in "
+                         "['white', 'pial']".format(surface_name))
+    norders = numpy.asarray(orders)
+    if norders.min() < 0 or norders.max() > 7:
+        raise ValueError("'At least one value in {0} is not in 0-7 "
+                         "range.".format(orders))
+
+    # Get all the subjects with the specified surface
+    surfaces = glob.glob(
+        os.path.join(fsdir, "*", "surf","*.{0}".format(surface_name)))
+    with open(os.path.join(output_directory, "surfaces.json"), "w") as open_file:
+        json.dump(surfaces, open_file, indent=4)
+
+    # Go through all the subjects with the desired surface
+    resamplefiles = []
+    for surf in surfaces:
+
+        # Get some information based on the surface path
+        subject_id = surf.split("/")[-3]
+        hemi = os.path.basename(surf).split(".")[0]
+        convertdir = os.path.join(fsdir, subject_id, "convert")
+        if not os.path.isdir(convertdir):
+            os.makedirs(convertdir)
+
+        # Go through all specified orders
+        for level in orders:
+
+            # Construct the FS surface map command
+            convertfile = os.path.join(convertdir, "{0}.{1}.{2}".format(
+                hemi, surface_name, level))
+            resamplefiles.append(convertfile)
+            cmd = ["mri_surf2surf", "--sval-xyz", surface_name,
+                   "--srcsubject", subject_id, "--trgsubject", "ico",
+                   "--trgicoorder", str(level), "--tval", convertfile,
+                   "--tval-xyz", "--hemi", hemi, "--sd", fsdir]
+
+            # Execute the FS command
+            recon = FSWrapper(cmd, shfile=fsconfig)
+            recon()
+            if recon.exitcode != 0:
+                raise FreeSurferRuntimeError(
+                    recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+
+            # Construct the FS label map command
+            annotfile = os.path.join(convertdir, "{0}.aparc.annot.{1}".format(
+                hemi, level))
+            if not os.path.isfile(annotfile):
+                svalannot = os.path.join(fsdir, subject_id, "label",
+                                         "{0}.aparc.annot".format(hemi))
+                cmd = ["mri_surf2surf", "--srcsubject", subject_id,
+                       "--trgsubject", "ico", "--trgicoorder", str(level),
+                       "--hemi", hemi, "--sval-annot", svalannot,
+                       "--tval", annotfile, "--sd", fsdir]
+
+                # Execute the FS command
+                recon = FSWrapper(cmd, shfile=fsconfig)
+                recon()
+                if recon.exitcode != 0:
+                    raise FreeSurferRuntimeError(
+                        recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+
+    return resamplefiles
+
+
+def conformed_to_native_space(fsdir, output_directory,
+                              fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Create a registration matrix between the conformed space (orig.mgz)
+    and the native anatomical (rawavg.mgz).
+
+    <unit>
+        <input name="fsdir" type="Directory" description="The
+            freesurfer working directory with all the subjects."/>
+        <input name="output_directory" type="Directory" description="The
+            default resample destination folder."/>
+        <input name="fsconfig" type="File" description="The freesurfer
+            configuration batch."/>
+        <output name="trffiles" type="List_File"
+            description="The conformed to native transformation files."/>
+    </unit>
+    """
+    # Get all the subjects with a 'mri' directory
+    mridirs = glob.glob(os.path.join(fsdir, "*", "mri"))
+    with open(os.path.join(output_directory, "mris.json"), "w") as open_file:
+        json.dump(mridirs, open_file, indent=4)
+
+    # Go through all the subjects with the desired folder
+    trffiles = []
+    for mdir in mridirs:
+
+        # Get some information based on the folder path
+        subject_id = mdir.rstrip("/").split("/")[-2]
+        convertdir = os.path.join(fsdir, subject_id, "convert")
+        if not os.path.isdir(convertdir):
+            os.makedirs(convertdir)
+
+        # Check that the two images of interest are present
+        rawfile = os.path.join(mdir, "rawavg.mgz")
+        origfile = os.path.join(mdir, "orig.mgz")
+        if not (os.path.isfile(rawfile) and os.path.isfile(origfile)):
+            raise ValueError("In folder '{0}' can't find file '{1}' or file "
+                             "'{2}'.".format(mdir, rawfile, origfile))
+
+        # Construct the FS command
+        trffile = os.path.join(convertdir, "register.native.dat")
+        trffiles.append(trffile)
+        cmd = ["tkregister2", "--mov", rawfile, "--targ", origfile,
+               "--reg", trffile, "--noedit", "--regheader"]
+
+        # Execute the FS command
+        recon = FSWrapper(cmd, shfile=fsconfig)
+        recon()
+        if recon.exitcode != 0:
+            raise FreeSurferRuntimeError(
+                recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+
+    return trffiles
+
+
+def surf_convert(fsdir, output_directory, t1files, surffiles, rm_orig=False,
+                 fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Export FreeSurfer surfaces to the native space.
+
+    Note that all the vetices are given in the index coordinate system.
+    The subjecy id in the t1 and surf files must appear in the -3 position:
+        xxx/subject_id/convert/t1.nii.gz 
+
+    <unit>
+        <input name="fsdir" type="Directory" description="The
+            freesurfer working directory with all the subjects."/>
+        <input name="output_directory" type="Directory" description="The
+            conversion destination folder."/>
+        <input name="t1files" type="List_File" description="The t1 nifti
+            files."/>
+        <input name="surffiles" type="List_File" description="The surface
+            to be converted."/>
+        <input name="rm_orig" type="Bool" description="If true remove
+            the input surfaces."/>
+        <input name="fsconfig" type="File" description="The freesurfer
+            configuration batch."/>
+        <output name="csurffiles" type="List_File" description="The converted
+            surfaces in the native space."/>
+    </unit>  
+    """
+    # Create a t1 subject map
+    t1map = {}
+    for fname in t1files:
+        subject_id = fname.split("/")[-3]
+        if subject_id in t1map:
+            raise ("Can't map two t1 for subject '{0}'.".format(subject_id))
+        t1map[subject_id] = fname
+
+    # Convert all the surfaces
+    csurffiles = []
+    for fname in surffiles:
+
+        # Get the t1 reference image
+        subject_id = fname.split("/")[-3]
+        t1file = t1map[subject_id]
+        t1_image = nibabel.load(t1file)
+
+        # Compute the conformed space to the native anatomical deformation
+        asegfile = os.path.join(fsdir, subject_id, "mri", "aseg.mgz")
+        physical_to_index = numpy.linalg.inv(t1_image.get_affine())
+        translation = tkregister_translation(asegfile, fsconfig)
+        deformation = numpy.dot(physical_to_index, translation)
+
+        # Load and warp the mesh
+        # The mesh: a 2-uplet with vertex (x, y, z) coordinates and
+        # mesh triangles
+        mesh = freesurfer.read_geometry(fname)
+        surf = TriSurface(vertices=apply_affine_on_mesh(mesh[0], deformation),
+                          triangles=mesh[1])
+
+        # Save the mesh in the native space
+        outputfile = fname + ".native"
+        surf.save(os.path.dirname(outputfile), os.path.basename(outputfile))
+        csurffiles.append(outputfile)
+
+        # Clean input surface if specified
+        if rm_orig:
+            os.remove(fname)
+
+    return csurffiles   
+
+
+def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
+       pialfiles=None):
+    """ Compute some quality check plots on the converted FrreSurfer
+    outputs.
+
+    The subjecy id in the input files must appear in the -3 position:
+        xxx/subject_id/convert/t1.nii.gz 
+
+    Steps:
+
+    * t1-images overlays
+    * 3d surface segmentation snaps
+    * t1-surfaces overlays
+
+    <unit>
+        <input name="t1files" type="List_File" description="The
+            t1 subject files."/>
+        <input name="wmfiles" type="List_File" description="The
+            white matter subject files."/>
+        <input name="asegfiles" type="List_File" description="The
+            subcortical segmentation subject files."/>
+        <input name="output_directory" type="Directory" description="The
+            conversion destination folder."/>
+        <input name="whitefiles" type="List_File" description="The subject
+            cortex surfaces."/>
+        <input name="pialfiles" type="List_File" description="The subject pial
+            surfaces."/>
+        <output name="qcfiles" type="List_File" description="The quality check
+            snaps."/>
+    </unit>    
+    """
+    # Create a t1 subject map
+    t1map = {}
+    for fname in t1files:
+        subject_id = fname.split("/")[-3]
+        if subject_id in t1map:
+            raise ("Can't map two t1 for subject '{0}'.".format(subject_id))
+        t1map[subject_id] = fname
+
+    # Create the output list that will contain all the qc files
+    qcfiles = []
+
+    # Construct the t1-surfaces overlays
+    for fname in whitefiles:
+
+        # Get the t1 reference image
+        subject_id = fname.split("/")[-3]
+        t1file = t1map[subject_id]
+        t1_image = nibabel.load(t1file)
+
+        # Get the qc output directory
+        qcdir = os.path.join(os.path.dirname(fname), "qc")
+        qcname = os.path.basename(fname)
+        if not os.path.isdir(qcdir):
+            os.makedirs(qcdir)
+
+        # Get the triangular mesh
+        surface = TriSurface.load(fname)
+        
+        # Construct the surfaces binarized volume
+        binarizedfile = os.path.join(qcdir, qcname + ".nii.gz")
+        overlay = numpy.zeros(t1_image.shape, dtype=numpy.uint)
+        indices = numpy.round(surface.vertices).astype(int).T
+        indices[0, numpy.where(indices[0]>=t1_image.shape[0])] = 0
+        indices[1, numpy.where(indices[1]>=t1_image.shape[1])] = 0
+        indices[2, numpy.where(indices[2]>=t1_image.shape[2])] = 0
+        overlay[indices.tolist()] = 1
+        overlay_image = nibabel.Nifti1Image(overlay, t1_image.get_affine())
+        nibabel.save(overlay_image, binarizedfile)
+        snap_file = os.path.join(qcdir, qcname + ".pdf")
+        plot_image(t1file, overlay_file=binarizedfile, snap_file=snap_file,
+                   name=qcname, overlay_cmap="cold_hot")
+        qcfiles.append(snap_file)
+
+
+    if 0:
+        # Organize all the inputs by subject ids
+        inputs = {}
+        keys = ["t1", "wm", "aseg", "cortex", "pial"]
+        for cnt, item in enumerate([t1files, wmfiles, asegfiles, aparc_asegfiles]):
+            for subject_id, fname in item:
+
+                # Create subject empty structure if necessary
+                if subject_id not in inputs:
+                    inputs[subject_id] = {}
+                    for key in keys:
+                        inputs[subject_id][key] = None
+
+                # Add the new file item
+                inputs[subject_id][keys[cnt]] = fname
+
+        # Compute t1-images overlays
+        qcfiles = []
+        for subject_id, subject_files in inputs.items():
+            
+            # Expect a t1 image
+            t1_file = subject_files["t1"]
+            if t1_file is None:
+                raise ValueError(
+                    "No T1 file found for subject '{0}'.".format(subject_id))
+
+            # Get the qc output directory
+            qcdir = os.path.join(os.path.dirname(t1_file), "qc")
+            if not os.path.isdir(qcdir):
+                os.makedirs(qcdir)
+
+            # Try to overlay the declared images to the t1 image
+            for key in keys[1:]:
+                overlay_file = subject_files[key]
+                if overlay_file is not None:
+                    name = "t1-{0}".format(key)
+                    snap_file = os.path.join(qcdir, "{0}.pdf".format(name))
+                    plot_image(t1_file, overlay_file=overlay_file,
+                               snap_file=snap_file, name=name,
+                               overlay_cmap="cold_hot")
+                    qcfiles.append((subject_id, snap_file))
+
+        # Create cortex segmentation snaps
+        ren = pvtk.ren()
+        for subject_id, whitefile in cortex_surfaces:
+
+            # Get the qc output directory
+            qcdir = os.path.join(os.path.dirname(whitefile), "qc")
+            qcname = os.path.basename(whitefile).split(".")[0]
+            if not os.path.isdir(qcdir):
+                os.makedirs(qcdir)
+
+            # Load the triangular mesh
+            surface = TriSurface.load(whitefile)
+            ctab = [item["color"] for _, item in surface.metadata.items()]
+
+            # Create a vtk surface actor of the cortex surface
+            actor = pvtk.surface(surface.vertices, surface.triangles, surface.labels,
+                                 ctab)
+
+            # Snap
+            pvtk.add(ren, actor)
+            snaps = pvtk.record(ren, qcdir, qcname, n_frames=1)
+            pvtk.clear(ren)
+            qcfiles.append((subject_id, snaps[0]))
+
+            # Create a vtk surface actor of the inflated cortex surface
+            actor = pvtk.surface(surface.inflated_vertices, surface.triangles,
+                                 surface.labels, ctab)
+            pvtk.add(ren, actor)
+            snaps = pvtk.record(ren, qcdir, qcname + "_inflated", n_frames=1)
+            pvtk.clear(ren)
+            qcfiles.append((subject_id, snaps[0]))
+
+            # Overlay with the t1 image
+            t1_file = inputs[subject_id]["t1"]
+            tmp_file = os.path.join(qcdir, "qc_tmp.nii.gz")
+            if t1_file is not None:
+                t1_image = nibabel.load(t1_file)
+                overlay = numpy.zeros(t1_image.shape, dtype=numpy.uint)
+                indices = numpy.round(surface.vertices).astype(int).T
+                indices[0, numpy.where(indices[0]>=t1_image.shape[0])] = 0
+                indices[1, numpy.where(indices[1]>=t1_image.shape[1])] = 0
+                indices[2, numpy.where(indices[2]>=t1_image.shape[2])] = 0
+                overlay[indices.tolist()] = 1
+                overlay_image = nibabel.Nifti1Image(overlay, t1_image.get_affine())
+                nibabel.save(overlay_image, tmp_file)
+                snap_file = os.path.join(qcdir, "{0}.pdf".format(qcname))
+                plot_image(t1_file, overlay_file=tmp_file,
+                           snap_file=snap_file, name=qcname,
+                           overlay_cmap="cold_hot")
+                qcfiles.append((subject_id, snap_file))
+                os.remove(tmp_file)
+
+    return qcfiles
 
 
 def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",

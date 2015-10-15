@@ -12,6 +12,7 @@ import os
 import copy
 import re
 import numpy
+import json
 from nibabel import freesurfer
 
 # Clindmri import
@@ -19,7 +20,8 @@ from .wrappers import FSWrapper
 from .exceptions import FreeSurferRuntimeError
 
 
-def read_cortex_surface_segmentation(fsdir, physical_to_index, affine=None):
+def read_cortex_surface_segmentation(fsdir, physical_to_index, fsconfig,
+                                     affine=None):
     """ Read the cortex gyri surface segmentatation of freesurfer.
 
     Give access to the right and left hemisphere segmentations that can be
@@ -32,6 +34,8 @@ def read_cortex_surface_segmentation(fsdir, physical_to_index, affine=None):
         the subject freesurfer segmentation directory.
     physical_to_index: array (mandatory)
         the transformation to project a physical point in an array.
+    fsconfig: str (mandatory)
+        the freesurfer configuration file.
     affine: array (optional, default None)
         an affine transformation in voxel coordinates that will be applied on
         the output vertex of the cortex surface.
@@ -50,7 +54,7 @@ def read_cortex_surface_segmentation(fsdir, physical_to_index, affine=None):
 
     # Get deformation between the ras and ras-tkregister spaces
     asegfile = os.path.join(segfile, "aseg.mgz")
-    translation = tkregister_translation(asegfile)
+    translation = tkregister_translation(asegfile, fsconfig)
 
     # Construct the deformation to apply on the cortex mesh
     if affine is None:
@@ -69,7 +73,7 @@ def read_cortex_surface_segmentation(fsdir, physical_to_index, affine=None):
         annotfile = os.path.join(labeldir, "{0}.aparc.annot".format(hemi))
         labels, ctab, regions = freesurfer.read_annot(
             annotfile, orig_ids=False)
-        meta = dict((index, {"region": item[0], "color": item[1][:4]})
+        meta = dict((index, {"region": item[0], "color": item[1][:4].tolist()})
                     for index, item in enumerate(zip(regions, ctab)))
 
         # Select the surface type
@@ -118,7 +122,7 @@ def apply_affine_on_mesh(vertex, affine):
     return warp_vertex
 
 
-def tkregister_translation(mgzfile):
+def tkregister_translation(mgzfile, fsconfig):
     """ Get the tkregister translation.
   
     FreeSurfer use a special origin for the Right-Anterior-Superior
@@ -130,6 +134,8 @@ def tkregister_translation(mgzfile):
     ----------
     mgzfile: str (mandatory)
         a FreeSurfer '.mgz' file.
+    fsconfig: str (mandatory)
+        the freesurfer configuration file.
 
     Returns
     -------
@@ -145,7 +151,7 @@ def tkregister_translation(mgzfile):
         command = ["mri_info", "--vox2ras", mgzfile]
         if tkregister:
             command[1] = "--vox2ras-tkr"
-        fsprocess = FSWrapper(command)
+        fsprocess = FSWrapper(command, shfile=fsconfig)
         fsprocess()
         if fsprocess.exitcode != 0:
             raise FreeSurferRuntimeError(command[0], " ".join(command[1:]))
@@ -191,11 +197,91 @@ class TriSurface(object):
         self.vertices = vertices
         self.triangles = triangles
         if labels is None:
-            self.labels = [0, ] * vertices.shape[0]
+            self.labels = numpy.asarray([0, ] * vertices.shape[0])
         else:
             self.labels = labels
         self.metadata = metadata
         self.inflated_vertices = inflated_vertices
+
+    def save(self, outdir, outname):
+        """ Export a mesh in freesurfer format.
+
+        Parameters
+        ----------
+        outdir: str (mandatory)
+            the location where the mesh will be written.
+        outname: str (mandatory)
+            the name of the file(s) that will be written.
+        """
+        meshfile = os.path.join(outdir, outname)
+        freesurfer.write_geometry(meshfile, self.vertices, self.triangles)
+        if self.inflated_vertices is not None:
+            meshfile = os.path.join(outdir, outname + ".inflated")
+            freesurfer.write_geometry(meshfile, self.inflated_vertices,
+                                      self.triangles)
+
+    @classmethod
+    def load(self, meshfile, inflatedmeshpath=None):
+        """ Load a FreeSurfer surface.
+
+        Parameters
+        ----------
+        meshfile: str (mandatory)
+            the location of the file containing the FreeSurfer mesh to be
+            loaded.
+        inflatedmeshpath: str (mandatory)
+            the location of the file containing the FreeSurfer inflated mesh
+            to be loaded.
+
+        Returns
+        -------
+        surf: TriSurface
+            a triangular surface instance
+        """
+        vertices, triangles = freesurfer.read_geometry(meshfile)
+        if inflatedmeshpath is not None:
+            inflated_vertices, _triangles = freesurfer.read_geometry(
+                inflatedmeshpath)
+            if not numpy.allclose(triangles, _triangles):
+                raise ValueError("'{0}' and '{1}' do not represent the same "
+                                 "surface.".format(meshfile, inflatedmeshpath))
+        else:
+            inflated_vertices = None
+
+        return TriSurface(vertices=vertices, triangles=triangles,
+                          inflated_vertices=inflated_vertices)
+
+    def save_vtk(self, outfile, inflated=False):
+        """ Export a mesh in .vtk format
+
+        Parameters
+        ----------
+        outfile: str (mandatory)
+            the location where the mesh will be written.
+        inflated: bool (optional, default False)
+            if True write the inflated volume.
+        """
+        import vtk
+
+        print self.metadata
+
+        # Check that the inflated
+        if inflated and self.inflated_vertices is None:
+            raise ValueError("Can't save inflated volume '{0}' since it has "
+                             "not been specified.".format(outfile))
+
+        # Create the desired polydata
+        polydata = self._polydata(inflated=inflated)
+
+        # Write the polydata
+        writer = vtk.vtkPolyDataWriter()
+        writer.SetDataModeToAscii()
+        writer.SetFileName(outfile)
+        if vtk.VTK_MAJOR_VERSION <= 5:
+            writer.SetInput(polydata)
+        else:
+            writer.SetInputData(polydata)
+        writer.Write()
 
     def nedges(self):
         """ Using Euler's formula for triangle mesh return an approximation of
@@ -322,7 +408,7 @@ class TriSurface(object):
         labels[numpy.where(labels < 0)] = 0
         for index in range(len(vertices)):
             vtk_points.InsertNextPoint(vertices[index])
-            vtk_colors.InsertNextTuple1(self.labels[index])
+            vtk_colors.InsertNextTuple1(labels[index])
         for triangle in self.triangles:
             vtk_triangle = vtk.vtkTriangle()
             vtk_triangle.GetPointIds().SetId(0, triangle[0])

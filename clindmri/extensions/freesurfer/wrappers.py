@@ -49,6 +49,10 @@ class FSWrapper(object):
         if self.exitcode != 0:
             raise FreeSurferConfigurationError(self.cmd[0])
 
+        # Update the working directory
+        if "SUBJECTS_DIR" in os.environ:
+            self.environment["SUBJECTS_DIR"] = os.environ["SUBJECTS_DIR"]
+
         # Execute the command
         process = subprocess.Popen(
             self.cmd,

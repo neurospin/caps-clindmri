@@ -17,6 +17,7 @@
         </unit>
     </units>
     <links>
+        <link source="fsdir" destination="recon.fsdir"/>
         <link source="anatfiles" destination="recon.iteranatfile"/>
         <link source="sids" destination="recon.itersid"/>
         <link source="fsconfig" destination="recon.fsconfig"/>

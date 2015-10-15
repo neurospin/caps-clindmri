@@ -18,10 +18,10 @@ class FreeSurferError(Exception):
 class FreeSurferRuntimeError(FreeSurferError):
     """ Error thrown when call to the FreeSurfer software failed.
     """
-    def __init__(self, algorithm_name, parameter_file):
+    def __init__(self, algorithm_name, parameter_file, error=None):
         message = (
-            "FreeSurfer call for '{0}' failed, with parameters: '{1}'.".format(
-                algorithm_name, parameter_file))
+            "FreeSurfer call for '{0}' failed, with parameters: '{1}' "
+            "failed: {2}.".format(algorithm_name, parameter_file, error))
         super(FreeSurferRuntimeError, self).__init__(message)
 
 
