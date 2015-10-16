@@ -279,7 +279,7 @@ def mri_convert(fsdir, regex, output_directory, reslice=True,
             os.makedirs(outdir)
 
         # Create the FS command
-        basename = os.path.basename(inputfile).split(".")[0]
+        basename = os.path.basename(inputfile).replace(".mgz", "")
         cmd = ["mri_convert", "--resample_type", interpolation,
                "--out_orientation", "RAS"]
         if reslice:
@@ -336,6 +336,8 @@ def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
             configuration batch."/>
         <output name="resamplefiles" type="List_File" description="The
             resample surfaces."/>
+        <output name="annotfiles" type="List_File" description="The
+            resample annotations."/>
     </unit>
     """
     # Check input parameters
@@ -349,12 +351,15 @@ def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
 
     # Get all the subjects with the specified surface
     surfaces = glob.glob(
-        os.path.join(fsdir, "*", "surf","*.{0}".format(surface_name)))
+        os.path.join(fsdir, "*", "surf","lh.{0}".format(surface_name)))
+    surfaces.extend(glob.glob(
+        os.path.join(fsdir, "*", "surf","rh.{0}".format(surface_name))))
     with open(os.path.join(output_directory, "surfaces.json"), "w") as open_file:
         json.dump(surfaces, open_file, indent=4)
 
     # Go through all the subjects with the desired surface
     resamplefiles = []
+    annotfiles = []
     for surf in surfaces:
 
         # Get some information based on the surface path
@@ -386,6 +391,7 @@ def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
             # Construct the FS label map command
             annotfile = os.path.join(convertdir, "{0}.aparc.annot.{1}".format(
                 hemi, level))
+            annotfiles.append(annotfile)
             if not os.path.isfile(annotfile):
                 svalannot = os.path.join(fsdir, subject_id, "label",
                                          "{0}.aparc.annot".format(hemi))
@@ -400,8 +406,11 @@ def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
                 if recon.exitcode != 0:
                     raise FreeSurferRuntimeError(
                         recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+    
+    # Remove duplicate annotation files
+    annotfiles = list(set(annotfiles))
 
-    return resamplefiles
+    return resamplefiles, annotfiles
 
 
 def conformed_to_native_space(fsdir, output_directory,
@@ -526,7 +535,8 @@ def surf_convert(fsdir, output_directory, t1files, surffiles, rm_orig=False,
 
 
 def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
-       pialfiles=None):
+       pialfiles, annotfiles,
+       fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Compute some quality check plots on the converted FrreSurfer
     outputs.
 
@@ -552,6 +562,10 @@ def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
             cortex surfaces."/>
         <input name="pialfiles" type="List_File" description="The subject pial
             surfaces."/>
+        <input name="annotfiles" type="List_File" description="The pial/white
+            surface annotations."/>
+        <input name="fsconfig" type="File" description="The freesurfer
+            configuration batch."/>
         <output name="qcfiles" type="List_File" description="The quality check
             snaps."/>
     </unit>    
@@ -567,134 +581,115 @@ def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
     # Create the output list that will contain all the qc files
     qcfiles = []
 
-    # Construct the t1-surfaces overlays
-    for fname in whitefiles:
+    # Construct the t1-surfaces overlays and the 3d surface segmentation snaps
+    ren = pvtk.ren()
+    for name, files in [("white", whitefiles), ("pial", pialfiles)]:
+        for fname in files:
 
-        # Get the t1 reference image
-        subject_id = fname.split("/")[-3]
-        t1file = t1map[subject_id]
-        t1_image = nibabel.load(t1file)
+            # Get the t1 reference image
+            subject_id = fname.split("/")[-3]
+            t1file = t1map[subject_id]
+            t1_image = nibabel.load(t1file)
 
-        # Get the qc output directory
-        qcdir = os.path.join(os.path.dirname(fname), "qc")
-        qcname = os.path.basename(fname)
-        if not os.path.isdir(qcdir):
-            os.makedirs(qcdir)
+            # Get the qc output directory
+            qcdir = os.path.join(os.path.dirname(fname), "qc")
+            qcname = os.path.basename(fname)
+            if not os.path.isdir(qcdir):
+                os.makedirs(qcdir)
 
-        # Get the triangular mesh
-        surface = TriSurface.load(fname)
-        
-        # Construct the surfaces binarized volume
-        binarizedfile = os.path.join(qcdir, qcname + ".nii.gz")
-        overlay = numpy.zeros(t1_image.shape, dtype=numpy.uint)
-        indices = numpy.round(surface.vertices).astype(int).T
-        indices[0, numpy.where(indices[0]>=t1_image.shape[0])] = 0
-        indices[1, numpy.where(indices[1]>=t1_image.shape[1])] = 0
-        indices[2, numpy.where(indices[2]>=t1_image.shape[2])] = 0
-        overlay[indices.tolist()] = 1
-        overlay_image = nibabel.Nifti1Image(overlay, t1_image.get_affine())
-        nibabel.save(overlay_image, binarizedfile)
-        snap_file = os.path.join(qcdir, qcname + ".pdf")
-        plot_image(t1file, overlay_file=binarizedfile, snap_file=snap_file,
-                   name=qcname, overlay_cmap="cold_hot")
-        qcfiles.append(snap_file)
-
-
-    if 0:
-        # Organize all the inputs by subject ids
-        inputs = {}
-        keys = ["t1", "wm", "aseg", "cortex", "pial"]
-        for cnt, item in enumerate([t1files, wmfiles, asegfiles, aparc_asegfiles]):
-            for subject_id, fname in item:
-
-                # Create subject empty structure if necessary
-                if subject_id not in inputs:
-                    inputs[subject_id] = {}
-                    for key in keys:
-                        inputs[subject_id][key] = None
-
-                # Add the new file item
-                inputs[subject_id][keys[cnt]] = fname
-
-        # Compute t1-images overlays
-        qcfiles = []
-        for subject_id, subject_files in inputs.items():
-            
-            # Expect a t1 image
-            t1_file = subject_files["t1"]
-            if t1_file is None:
+            # Get the triangular mesh
+            basename = os.path.basename(fname).replace(
+                name, "aparc.annot").replace(".native", "") 
+            annotfile = os.path.join(os.path.dirname(fname), basename)
+            if annotfile not in annotfiles:
                 raise ValueError(
-                    "No T1 file found for subject '{0}'.".format(subject_id))
+                    "Annotation file '{0}' can't be found.".format(annotfile))
+            surface = TriSurface.load(fname, annotfile=annotfile)
+            
+            # Construct the surfaces binarized volume
+            binarizedfile = os.path.join(qcdir, qcname + ".nii.gz")
+            overlay = numpy.zeros(t1_image.shape, dtype=numpy.uint)
+            indices = numpy.round(surface.vertices).astype(int).T
+            indices[0, numpy.where(indices[0]>=t1_image.shape[0])] = 0
+            indices[1, numpy.where(indices[1]>=t1_image.shape[1])] = 0
+            indices[2, numpy.where(indices[2]>=t1_image.shape[2])] = 0
+            overlay[indices.tolist()] = 1
+            overlay_image = nibabel.Nifti1Image(overlay, t1_image.get_affine())
+            nibabel.save(overlay_image, binarizedfile)
+            snap_file = os.path.join(qcdir, qcname + ".png")
+            plot_image(t1file, overlay_file=binarizedfile, snap_file=snap_file,
+                       name=qcname, overlay_cmap="cold_hot")
+            qcfiles.append(snap_file)
 
-            # Get the qc output directory
-            qcdir = os.path.join(os.path.dirname(t1_file), "qc")
-            if not os.path.isdir(qcdir):
-                os.makedirs(qcdir)
-
-            # Try to overlay the declared images to the t1 image
-            for key in keys[1:]:
-                overlay_file = subject_files[key]
-                if overlay_file is not None:
-                    name = "t1-{0}".format(key)
-                    snap_file = os.path.join(qcdir, "{0}.pdf".format(name))
-                    plot_image(t1_file, overlay_file=overlay_file,
-                               snap_file=snap_file, name=name,
-                               overlay_cmap="cold_hot")
-                    qcfiles.append((subject_id, snap_file))
-
-        # Create cortex segmentation snaps
-        ren = pvtk.ren()
-        for subject_id, whitefile in cortex_surfaces:
-
-            # Get the qc output directory
-            qcdir = os.path.join(os.path.dirname(whitefile), "qc")
-            qcname = os.path.basename(whitefile).split(".")[0]
-            if not os.path.isdir(qcdir):
-                os.makedirs(qcdir)
-
-            # Load the triangular mesh
-            surface = TriSurface.load(whitefile)
+            # Create a vtk surface actor of the cortex surface with the associated
+            # labels
             ctab = [item["color"] for _, item in surface.metadata.items()]
+            actor = pvtk.surface(
+                surface.vertices, surface.triangles, surface.labels, ctab)
 
-            # Create a vtk surface actor of the cortex surface
-            actor = pvtk.surface(surface.vertices, surface.triangles, surface.labels,
-                                 ctab)
-
-            # Snap
+            # Create a 3d surface segmentation snap
             pvtk.add(ren, actor)
-            snaps = pvtk.record(ren, qcdir, qcname, n_frames=1)
+            snaps = pvtk.record(ren, qcdir, qcname + ".3d", n_frames=1)
             pvtk.clear(ren)
-            qcfiles.append((subject_id, snaps[0]))
+            qcfiles.append(snaps[0])
 
-            # Create a vtk surface actor of the inflated cortex surface
-            actor = pvtk.surface(surface.inflated_vertices, surface.triangles,
-                                 surface.labels, ctab)
-            pvtk.add(ren, actor)
-            snaps = pvtk.record(ren, qcdir, qcname + "_inflated", n_frames=1)
-            pvtk.clear(ren)
-            qcfiles.append((subject_id, snaps[0]))
+    # Get the FreeSurfer lookup table
+    fs_lut_names, fs_lut_colors = parse_fs_lut(os.path.join(
+        os.path.dirname(fsconfig), "FreeSurferColorLUT.txt"))
+    cmap = []
+    nb_values = numpy.asarray(fs_lut_colors.keys()).max()
+    cmap = numpy.zeros((nb_values , 4), dtype=numpy.single)
+    for key, color in fs_lut_colors.items():
+        if key > 0:
+            cmap[key - 1, :3] = color
+    cmap[:, 3] = 200.
+    cmap /= 255.
 
-            # Overlay with the t1 image
-            t1_file = inputs[subject_id]["t1"]
-            tmp_file = os.path.join(qcdir, "qc_tmp.nii.gz")
-            if t1_file is not None:
-                t1_image = nibabel.load(t1_file)
-                overlay = numpy.zeros(t1_image.shape, dtype=numpy.uint)
-                indices = numpy.round(surface.vertices).astype(int).T
-                indices[0, numpy.where(indices[0]>=t1_image.shape[0])] = 0
-                indices[1, numpy.where(indices[1]>=t1_image.shape[1])] = 0
-                indices[2, numpy.where(indices[2]>=t1_image.shape[2])] = 0
-                overlay[indices.tolist()] = 1
-                overlay_image = nibabel.Nifti1Image(overlay, t1_image.get_affine())
-                nibabel.save(overlay_image, tmp_file)
-                snap_file = os.path.join(qcdir, "{0}.pdf".format(qcname))
-                plot_image(t1_file, overlay_file=tmp_file,
-                           snap_file=snap_file, name=qcname,
-                           overlay_cmap="cold_hot")
-                qcfiles.append((subject_id, snap_file))
-                os.remove(tmp_file)
+    # Compute t1-images overlays
+    for name, files in [("aseg", asegfiles), ("wm", wmfiles)]:
+        for fname in files:
+        
+            # Get the t1 reference image
+            subject_id = fname.split("/")[-3]
+            t1file = t1map[subject_id]
+            t1_image = nibabel.load(t1file)
+
+            # Get the qc output directory
+            qcdir = os.path.join(os.path.dirname(fname), "qc")
+            if not os.path.isdir(qcdir):
+                os.makedirs(qcdir)
+
+            # Troncate the color map based on the label max
+            array = nibabel.load(fname).get_data()
+            order = sorted(set(array.flatten()))  
+            ccmap = cmap[order[1] :order[-1] + 1]
+
+            # Overlay the current image with the t1 image
+            qcname = "t1-{0}".format(name)
+            snap_file = os.path.join(qcdir, qcname + ".png")
+            plot_image(t1file, overlay_file=fname, snap_file=snap_file,
+                       name=qcname, overlay_cmap=ccmap, cut_coords=(0, 0, 0))
+            qcfiles.append(snap_file)
 
     return qcfiles
+
+
+def parse_fs_lut(filename="FreeSurferColorLUT.txt"):
+    """ Parse the FreeSurfer general lookup table.
+    """
+    fs_lut_names = {}
+    fs_lut_colors = {}
+    with open(filename) as open_file:
+        for line in open_file:
+            token = line.split()
+            if len(token) >= 6:
+                try:
+                    fs_lut_names[int(token[0])] = token[1]
+                    fs_lut_colors[int(token[0])] = (
+                        int(token[2]), int(token[3]), int(token[4]))
+                except ValueError:
+                    continue
+    return fs_lut_names, fs_lut_colors
 
 
 def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",

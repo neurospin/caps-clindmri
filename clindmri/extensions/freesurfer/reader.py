@@ -221,7 +221,7 @@ class TriSurface(object):
                                       self.triangles)
 
     @classmethod
-    def load(self, meshfile, inflatedmeshpath=None):
+    def load(self, meshfile, inflatedmeshpath=None, annotfile=None):
         """ Load a FreeSurfer surface.
 
         Parameters
@@ -247,9 +247,17 @@ class TriSurface(object):
                                  "surface.".format(meshfile, inflatedmeshpath))
         else:
             inflated_vertices = None
+        if annotfile is not None:
+            labels, ctab, regions = freesurfer.read_annot(
+                annotfile, orig_ids=False)
+            meta = dict((index, {"region": item[0], "color": item[1][:4].tolist()})
+                        for index, item in enumerate(zip(regions, ctab)))
+        else:
+            labels = None
+            meta = None
 
-        return TriSurface(vertices=vertices, triangles=triangles,
-                          inflated_vertices=inflated_vertices)
+        return TriSurface(vertices=vertices, triangles=triangles, labels=labels,
+                          metadata=meta, inflated_vertices=inflated_vertices)
 
     def save_vtk(self, outfile, inflated=False):
         """ Export a mesh in .vtk format

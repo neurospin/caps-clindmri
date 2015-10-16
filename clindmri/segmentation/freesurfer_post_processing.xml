@@ -22,11 +22,17 @@
             <module>clindmri.segmentation.freesurfer.asegstats2table</module>
             <set name="output_directory" value="None"/>
         </unit>
-        <unit name="nifti_aparc_aseg">
+        <unit name="nifti_aparc_aseg_desikan">
             <module>clindmri.segmentation.freesurfer.mri_convert</module>
             <set name="output_directory" value="None"/>
             <set name="interpolation" value="'nearest'"/>
             <set name="regex" value="'*/mri/aparc+aseg.mgz'"/>
+        </unit>
+        <unit name="nifti_aparc_aseg_destrieux">
+            <module>clindmri.segmentation.freesurfer.mri_convert</module>
+            <set name="output_directory" value="None"/>
+            <set name="interpolation" value="'nearest'"/>
+            <set name="regex" value="'*/mri/aparc.a2009s+aseg.mgz'"/>
         </unit>
         <unit name="nifti_aseg">
             <module>clindmri.segmentation.freesurfer.mri_convert</module>
@@ -50,13 +56,13 @@
             <module>clindmri.segmentation.freesurfer.resample_cortical_surface</module>
             <set name="output_directory" value="None"/>
             <set name="surface_name" value="'white'"/>
-            <set name="orders" value="[4]"/>
+            <set name="orders" value="[4, 5, 6, 7]"/>
         </unit>
         <unit name="pial_resampling">
             <module>clindmri.segmentation.freesurfer.resample_cortical_surface</module>
             <set name="output_directory" value="None"/>
             <set name="surface_name" value="'pial'"/>
-            <set name="orders" value="[4]"/>
+            <set name="orders" value="[4, 5, 6, 7]"/>
         </unit>
         <unit name="conformed_to_native">
             <module>clindmri.segmentation.freesurfer.conformed_to_native_space</module>
@@ -75,8 +81,6 @@
         <unit name="qc" qc="True">
             <module>clindmri.segmentation.freesurfer.qc</module>
             <set name="output_directory" value="None"/>
-            <set name="asegfiles" value="[]"/>
-            <set name="wmfiles" value="[]"/>
         </unit>
     </units>
     <links>
@@ -88,9 +92,13 @@
         <link source="fsconfig" destination="aseg_stats.fsconfig"/>
         <link source="aseg_stats.statfiles" destination="aseg_statfiles"/>
 
-        <link source="fsdir" destination="nifti_aparc_aseg.fsdir"/>
-        <link source="fsconfig" destination="nifti_aparc_aseg.fsconfig"/>
-        <link source="nifti_aparc_aseg.niftifiles" destination="aparc_asegfiles"/>
+        <link source="fsdir" destination="nifti_aparc_aseg_desikan.fsdir"/>
+        <link source="fsconfig" destination="nifti_aparc_aseg_desikan.fsconfig"/>
+        <link source="nifti_aparc_aseg_desikan.niftifiles" destination="aparc_aseg_desikanfiles"/>
+
+        <link source="fsdir" destination="nifti_aparc_aseg_destrieux.fsdir"/>
+        <link source="fsconfig" destination="nifti_aparc_aseg_destrieux.fsconfig"/>
+        <link source="nifti_aparc_aseg_destrieux.niftifiles" destination="aparc_aseg_destrieuxfiles"/>
 
         <link source="fsdir" destination="nifti_aseg.fsdir"/>
         <link source="fsconfig" destination="nifti_aseg.fsconfig"/>
@@ -107,10 +115,12 @@
         <link source="fsdir" destination="white_resampling.fsdir"/>
         <link source="fsconfig" destination="white_resampling.fsconfig"/>
         <link source="white_resampling.resamplefiles" destination="whitefiles"/>
+        <link source="white_resampling.annotfiles" destination="whiteannotfiles"/>
 
         <link source="fsdir" destination="pial_resampling.fsdir"/>
         <link source="fsconfig" destination="pial_resampling.fsconfig"/>
         <link source="pial_resampling.resamplefiles" destination="pialfiles"/>
+        <link source="pial_resampling.annotfiles" destination="pialannotfiles"/>
 
         <link source="fsdir" destination="conformed_to_native.fsdir"/>
         <link source="fsconfig" destination="conformed_to_native.fsconfig"/>
@@ -128,10 +138,13 @@
         <link source="pial_resampling.resamplefiles" destination="pial_convert.surffiles"/>
         <link source="pial_convert.csurffiles" destination="pialfiles"/>
 
+        <link source="fsconfig" destination="qc.fsconfig"/>
         <link source="nifti_t1.niftifiles" destination="qc.t1files"/>
         <link source="nifti_wm.niftifiles" destination="qc.wmfiles"/>
         <link source="nifti_aseg.niftifiles" destination="qc.asegfiles"/>
         <link source="white_convert.csurffiles" destination="qc.whitefiles"/>
+        <link source="pial_convert.csurffiles" destination="qc.pialfiles"/>
+        <link source="white_resampling.annotfiles" destination="qc.annotfiles"/>
         <link source="qc.qcfiles" destination="qcfiles"/>
     </links>
     <positions>
@@ -140,7 +153,8 @@
         <position unit="aparc_stats" x="230" y="-18"/>
         <position unit="aseg_stats" x="230" y="-160"/>
         <position unit="nifti_aseg" x="230" y="127"/>
-        <position unit="nifti_aparc_aseg" x="230" y="377"/>
+        <position unit="nifti_aparc_aseg_desikan" x="230" y="377"/>
+        <position unit="nifti_aparc_aseg_destrieux" x="230" y="-544"/>
         <position unit="nifti_wm" x="230" y="621"/>
         <position unit="nifti_t1" x="230" y="868"/>
         <position unit="white_resampling" x="230" y="1112"/>

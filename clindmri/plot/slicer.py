@@ -17,10 +17,12 @@ from nilearn import plotting
 # Matplotlib
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+from matplotlib import colors
 
 
 def plot_image(input_file, edge_file=None, overlay_file=None, contour_file=None,
-               snap_file=None, name=None, overlay_cmap=None):
+               snap_file=None, name=None, overlay_cmap=None,
+               cut_coords=None):
     """ Plot image with edge/overlay/contour on top (useful for checking
     registration).
 
@@ -32,11 +34,15 @@ def plot_image(input_file, edge_file=None, overlay_file=None, contour_file=None,
         The target image to extract the edges from.
     snap_file: str (optional, default None)
         The destination file: if not specified will be the 'input_file'
-        name with a 'pdf' extension.
+        name with a 'png' extension.
     name: str (optional, default None)
         The name of the plot.
     overlay_cmap: str (optional, default None)
-        The color map to use: 'cold_hot' or 'blue_red' or None.
+        The color map to use: 'cold_hot' or 'blue_red' or None,
+        or a N*4 array with values in 0-1 (r, g, b, a).
+    cut_coords: 3-uplet (optional, default None)
+        The MNI coordinates of the point where the cut is performed.
+        If None is given, the cuts is calculated automaticaly.
 
     Returns
     -------
@@ -50,17 +56,28 @@ def plot_image(input_file, edge_file=None, overlay_file=None, contour_file=None,
 
     # Check that the snap_file has been specified
     if snap_file is None:
-        snap_file = input_file.split(".")[0] + ".pdf"
-    if not snap_file.endswith(".pdf"):
-        snape_file += ".pdf"
+        snap_file = input_file.split(".")[0] + ".png"
 
     # Create the plot
-    display = plotting.plot_anat(input_file, title=name or "")
+    display = plotting.plot_anat(input_file, title=name or "",
+                                 cut_coords=cut_coords)
     if edge_file is not None:
         display.add_edges(edge_file)
     if overlay_file is not None:
-        cmap = plotting.cm.__dict__.get(
-            overlay_cmap, plotting.cm.alpha_cmap((1, 1, 0)))
+
+        # Create a custom discrete colormap
+        if isinstance(overlay_cmap, numpy.ndarray):
+            cmap = colors.LinearSegmentedColormap.from_list(
+                "my_colormap", overlay_cmap)
+            #cmap, _ = colors.from_levels_and_colors(
+            #    range(overlay_cmap.shape[0] + 1), overlay_cmap)
+        # This is probably a matplotlib colormap
+        elif overlay_cmap in dir(plotting.cm):
+            cmap = getattr(plotting.cm, overlay_cmap)
+        # Default
+        else:
+            cmap = plotting.cm.alpha_cmap((1, 1, 0))
+
         display.add_overlay(overlay_file, cmap=cmap)
     if contour_file is not None:
         display.add_contours(contour_file, alpha=0.6, filled=True,
