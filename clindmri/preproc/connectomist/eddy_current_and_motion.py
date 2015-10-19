@@ -1,45 +1,60 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
-# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
-# for details.
+# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html for details.
 ##########################################################################
 
-from .utils import (create_parameter_file, run_connectomist)
+import os
+import time
+
+from .exceptions import ConnectomistError
+from .utils      import create_parameter_file, run_connectomist
 
 
-# TO BE COMPLETED: capsul
-def dwi_eddy_current_and_motion_correction(raw_dwi_directory,
+
+def dwi_eddy_current_and_motion_correction(output_directory,
+                                           raw_dwi_directory,
                                            rough_mask_directory,
-                                           outliers_directory,
-                                           output_directory):
+                                           susceptibility_directory):
     """
     Wrapper to Connectomist's "Eddy current & motion" tab.
 
     Parameters
     ----------
-    raw_dwi_directory:    Str, path to Connectomist Raw DWI directory.
-    rough_mask_directory: Str, path to Connectomist Rough Mask directory.
-    outliers_directory:   Str, path to Connectomist Outliers directory.
-    output_directory:     Str, path to Connectomist output work directory.
+    output_directory:        Str, path to Connectomist output work directory.
+    raw_dwi_directory:       Str, path to Connectomist Raw DWI directory.
+    rough_mask_directory:    Str, path to Connectomist Rough Mask directory.
+    susceptbility_directory: Str, path to Connectomist Susceptibility directory.
 
-    <process>
-        <return name="output_directory"/>
-    </process>
+    <unit>
+        <output name="eddy_motion_directory" type="Directory" />
+
+        <input name="output_directory" type="Directory" description="Path to
+            Connectomist output work directory."/>
+        <input name="raw_dwi_directory" type="Directory" description="Path to
+            Connectomist Raw DWI directory."/>
+        <input name="rough_mask_directory" type="Directory" description="Path
+            to Connectomist Rough Mask directory."/>
+        <input name="susceptibility_directory" type="Directory" description="
+            Path to Connectomist Susceptibility directory."/>
+    </unit>
     """
+
     algorithm_name = "DWI-Eddy-Current-And-Motion-Correction"
 
     parameters_value = {
         # ---------------------------------------------------------------------
         # Used parameters
-        "rawDwiDirectory":       raw_dwi_directory,
-        "roughMaskDirectory":    rough_mask_directory,
-        "correctedDwiDirectory": outliers_directory,
-        "outputWorkDirectory":   output_directory,
-        "eddyCurrentCorrection": 2,
-        "motionCorrection":      1,
+        "rawDwiDirectory":              raw_dwi_directory,
+        "roughMaskDirectory":        rough_mask_directory,
+        "correctedDwiDirectory": susceptibility_directory,
+        "outputWorkDirectory":           output_directory,
+        "eddyCurrentCorrection":                        2,
+        "motionCorrection":                             1,
         # ---------------------------------------------------------------------
         # Parameters not used/handled by the code
         "_subjectName": "",
@@ -113,10 +128,32 @@ def dwi_eddy_current_and_motion_correction(raw_dwi_directory,
             "optimizerParametersRotationY":     2
         }
     }
+    
+    output_t2 = os.path.join(output_directory, "t2_wo_eddy_current_and_motion.ima")
+    output_dw = os.path.join(output_directory, "dw_wo_eddy_current_and_motion.ima")
 
-    parameter_file = create_parameter_file(algorithm_name,
-                                           parameters_value,
-                                           output_directory)
-    run_connectomist(algorithm_name, parameter_file)
+    nb_tries = 3  # Number of times to try if it fails
+    nb_tried = 0
+    success  = False
+    while nb_tried < nb_tries:
+        nb_tried += 1
 
-    return output_directory
+        parameter_file = create_parameter_file(algorithm_name,
+                                               parameters_value,
+                                               output_directory)
+        run_connectomist(algorithm_name, parameter_file)
+
+        if os.path.isfile(output_t2) and os.path.isfile(output_dw):
+            success = True
+            break
+        else:
+            time.sleep(10)  # wait 10 sec before retrying
+
+    if not success:
+        raise ConnectomistError("Eddy current and motion correction failed. "
+                                "Missing output file(s): %s or/and %s"
+                                % (output_t2, output_dw))
+    
+    # Capsul needs the output name to be different from input arguments
+    eddy_motion_directory = output_directory
+    return eddy_motion_directory

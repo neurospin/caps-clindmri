@@ -1,57 +1,166 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
-# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
-# for details.
+# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html for details.
 ##########################################################################
 
 import os
+import shutil
 import numpy as np
+import nibabel
 
 from .manufacturers import MANUFACTURERS
 from .exceptions    import (ConnectomistError, BadManufacturerNameError,
                             BadFileError)
-from .utils         import create_parameter_file, run_connectomist
+from .utils         import create_parameter_file, run_connectomist, nifti_to_gis
 
 
-def dwi_data_import_and_qspace_sampling(path_gis,
+def gather_and_format_input_files(output_directory,
+                                  path_dwi,
+                                  path_bval,
+                                  path_bvec,
+                                  path_b0_magnitude,
+                                  path_b0_phase = None):
+    """
+    Gather all files needed to start the preprocessing in the right format
+    (Gis format for images and B0 maps).
+
+    Parameters
+    ----------
+    output_directory:  Str, path to directory where to gather all files.
+    path_dwi:          Str, path to input Nifti file to be preprocessed.
+    path_bval:         Str, path to .bval file associated to Nifti.
+    path_bvec:         Str, path to .bvec file associated to Nifti.
+    path_b0_magnitude: Str, path to B0 magnitude map, may also contain phase.
+    path_b0_phase:     Str, not required if phase is already contained in
+                       path_b0_magnitude.
+
+    Returns
+    -------
+    raw_dwi_directory: Connectomist's import data directory
+
+    <unit>
+        <output name="raw_dwi_directory" type="Directory"     />
+
+        <input name="output_directory"       type="Directory" />
+        <input name="path_dwi"               type="File"      />
+        <input name="path_bval"              type="File"      />
+        <input name="path_bvec"              type="File"      />
+        <input name="path_b0_magnitude"      type="File"      />
+        <input name="path_b0_phase"          type="File"      />
+    </unit>
+    """
+
+    # Check that files exist
+    files = [path_dwi, path_bval, path_bvec, path_b0_magnitude]
+    if path_b0_phase:
+        files.append(path_b0_phase)
+    for path in files:
+        if not os.path.isfile(path):
+            raise BadFileError(path)
+
+    # Create the directory if not existing
+    if not os.path.isdir(output_directory):
+        os.mkdir(output_directory)
+
+    # If there is only one b0 map file and if this file contains 2 volumes,
+    # split it in 2 files: magnitude and phase, assuming the first one is magnitude
+    if path_b0_magnitude and not path_b0_phase:
+        b0_maps = nibabel.load(path_b0_magnitude)
+        if b0_maps.shape[-1] == 2:
+            b0_maps   = nibabel.load(path_b0_magnitude)
+            voxels    = b0_maps.get_data()
+            header    = b0_maps.get_header()
+            affine    = b0_maps.get_affine()
+            magnitude = nibabel.Nifti1Image(voxels[:,:,:,0], affine, header)
+            phase     = nibabel.Nifti1Image(voxels[:,:,:,1], affine, header)
+            path_b0_magnitude = os.path.join(output_directory, "b0_magnitude.nii.gz")
+            path_b0_phase     = os.path.join(output_directory, "b0_phase.nii.gz")
+            magnitude.to_filename(path_b0_magnitude)
+            phase    .to_filename(path_b0_phase)
+
+    # Convert Nifti to Gis
+    path_dwi = nifti_to_gis(path_dwi, os.path.join(output_directory, "dwi.ima"))
+
+    # Copy bval and bvec files, with homogeneous names
+    path_bval_copy = os.path.join(output_directory, "dwi.bval")
+    path_bvec_copy = os.path.join(output_directory, "dwi.bvec")
+    shutil.copyfile(path_bval, path_bval_copy)
+    shutil.copyfile(path_bvec, path_bvec_copy)
+
+    # Convert and rename B0 map(s)
+    path_b0_magnitude = nifti_to_gis(path_b0_magnitude,
+                                     os.path.join(output_directory, "b0_magnitude.ima"))
+
+    if path_b0_phase:
+        path_b0_phase = nifti_to_gis(path_b0_phase,
+                                     os.path.join(output_directory, "b0_phase.ima"))
+    else:
+        path_b0_phase = None
+
+    return (path_dwi, path_bval_copy, path_bvec_copy, path_b0_magnitude,
+            path_b0_phase)
+
+
+def dwi_data_import_and_qspace_sampling(output_directory,
+                                        path_dwi,
                                         path_bval,
                                         path_bvec,
-                                        output_directory,
                                         manufacturer,
-                                        invertX=True,
-                                        invertY=False,
-                                        invertZ=False):
+                                        path_b0_magnitude,
+                                        path_b0_phase = None,
+                                        invertX       = True,
+                                        invertY       = False,
+                                        invertZ       = False,
+                                        subject_id    = None):
     """
     Wrapper to Connectomist's "DWI & Q-space" tab.
 
     Parameters
     ----------
-    path_gis:         Str, path to .ima (Gis format) diffusion-weighted data.
-    path_bvec:        Str, path to .bval file.
-    path_bval:        Str, path to .bvec file.
+    output_directory: Str, path to Connectomist's output directory.
+    path_dwi:         Str, path to Nifti diffusion-weighted data.
+    path_bvec:        Str, path to .bval file associated to the Nifti.
+    path_bval:        Str, path to .bvec file associated to the Nifti.
     manufacturer:     Str, name of the manufacturer (e.g. "Siemens", "GE",
                       "Philips" or "Bruker").
-    output_directory: Str, path to Connectomist output work directory.
     invertX:          Bool, if True invert x-axis of diffusion model.
     invertY           Same as invertX for y-axis.
     invertZ:          Same as invertX for z-axis.
 
-    <process>
-        <return name="output_directory" type="Directory"/>
-        <input name="path_gis"  type="File" desc="Path to .ima (Gis format)
-                                                  diffusion-weighted data."/>
-        <input name="path_bval" type="File" desc="Path to .bval file."/>
-        <input name="path_bvec" type="File" desc="Path to .bvec file."/>
-        <input name="output_directory" type="Directory"/>
-        <input name="invertX" type="Bool" desc="If True invert x-axis of
-                                                diffusion model"/>
-        <input name="invertY" type="Bool" desc="Same as invertX but for y-axis"/>
-        <input name="invertZ" type="Bool" desc="Same as invertX but for z-axis"/>
-    </process>
+    <unit>
+        <output name="raw_dwi_directory" type="Directory" description="Path to
+            Connectomist output directory."/>
+
+        <input name="output_directory" type="Directory" />
+        <input name="path_dwi"  type="File"             />
+        <input name="path_bval" type="File"             />
+        <input name="path_bvec" type="File"             />
+        <input name="manufacturer" type="Str" description="Name of the MRI
+            manufacturer (e.g. 'Siemens', 'GE', 'Philips' or 'Bruker')." />
+        <input name="path_b0_magnitude" type="File"     />
+        <input name="path_b0_phase"     type="File"     />
+        <input name="invertX" type="Bool" description="If True invert x-axis
+            of diffusion model."/>
+        <input name="invertY" type="Bool" description="Same as invertX but for
+            y-axis."/>
+        <input name="invertZ" type="Bool" description="Same as invertX but for
+            z-axis."/>
+        <input name="subject_id" type="Str" description="Subject's identifier." />
+    </unit>
     """
+
+    (path_dwi, path_bval, path_bvec, path_b0_magnitude, path_b0_phase) = \
+        gather_and_format_input_files(output_directory,
+                                      path_dwi,
+                                      path_bval,
+                                      path_bvec,
+                                      path_b0_magnitude,
+                                      path_b0_phase)
 
     algorithm_name = "DWI-Data-Import-And-QSpace-Sampling"
 
@@ -61,18 +170,18 @@ def dwi_data_import_and_qspace_sampling(path_gis,
 
         # ---------------------------------------------------------------------
         # Field: "Diffusion weighted-images"
-        "fileNameDwi":  path_gis,  # "DW data"
-        "sliceAxis":    2,         # "Slice axis", default "Z-axis"
-        "phaseAxis":    1,         # "Phase axis", default "Y-axis"
-        "manufacturer": None,
+        "fileNameDwi":   path_dwi,  # "DW data"
+        "sliceAxis":            2,  # "Slice axis", default "Z-axis"
+        "phaseAxis":            1,  # "Phase axis", default "Y-axis"
+        "manufacturer":      None,
 
         # Subfield: "Advanced parameters"
-        "flipAlongX": 0,  # "Flip data along x"
-        "flipAlongY": 0,
-        "flipAlongZ": 0,
-        "numberOfDiscarded":   0,     # "#discarded images at beginning"
-        "numberOfT2":          None,  # "#T2"
-        "numberOfRepetitions": 1,     # "#repetitions"
+        "flipAlongX":           0,  # "Flip data along x"
+        "flipAlongY":           0,
+        "flipAlongZ":           0,
+        "numberOfDiscarded":    0,  # "#discarded images at beginning"
+        "numberOfT2":        None,  # "#T2"
+        "numberOfRepetitions":  1,  # "#repetitions"
         # ---------------------------------------------------------------------
         # Field: "Rotation of field of view", default is identity matrix
         "qSpaceTransform_xx": 1.0,
@@ -96,18 +205,18 @@ def dwi_data_import_and_qspace_sampling(path_gis,
         "invertZAxis": 2 if invertZ else 0,
 
         # In this field but not used/handled parameters
-        "qSpaceChoice1MaximumBValue": 1000,  # case Cartesian
-        "qSpaceChoice2BValue":        1000,  # case spherical single-shell PTK
-        "qSpaceChoice3BValue":        1000,  # case spherical single-shell SMS
-        "qSpaceChoice4BValue":        1000,  # case spherical single-shell GEHC
-        "qSpaceChoice6BValues":         "",
-        "qSpaceChoice7BValues":         "",
-        "qSpaceChoice8BValues":         "",
-        "qSpaceChoice9BValues":         "",
-        "qSpaceChoice10BValues":        "",
-        "qSpaceChoice11BValues":        "",
-        "qSpaceChoice12BValues":        "",
-        "qSpaceChoice13BValues":        "",
+        "qSpaceChoice1MaximumBValue":       1000,  # case Cartesian
+        "qSpaceChoice2BValue":              1000,
+        "qSpaceChoice3BValue":              1000,
+        "qSpaceChoice4BValue":              1000,
+        "qSpaceChoice6BValues":               "",
+        "qSpaceChoice7BValues":               "",
+        "qSpaceChoice8BValues":               "",
+        "qSpaceChoice9BValues":               "",
+        "qSpaceChoice10BValues":              "",
+        "qSpaceChoice11BValues":              "",
+        "qSpaceChoice12BValues":              "",
+        "qSpaceChoice13BValues":              "",
         "qSpaceChoice1NumberOfSteps":         11,
         "qSpaceChoice2NumberOfOrientations":   6,
         "qSpaceChoice3NumberOfOrientations":   6,
@@ -128,7 +237,7 @@ def dwi_data_import_and_qspace_sampling(path_gis,
         "outputWorkDirectory": output_directory,
         # ---------------------------------------------------------------------
         # unknown parameter
-        "_subjectName": "",
+        "_subjectName": subject_id if subject_id else "",
     }
 
     if manufacturer not in MANUFACTURERS:
@@ -154,7 +263,8 @@ def dwi_data_import_and_qspace_sampling(path_gis,
         # Spherical single-shell custom
         parameters_value["qSpaceSamplingType"] = 4
     else:
-        raise ConnectomistError("Multiple shell models not handled.")
+        raise ConnectomistError("Multiple shell models not handled. "
+                                "Path to .bval file: %s" % path_bval)
 
     # Check validity of .bvec file.
     # If bvec file does not exist or filled with 0s, raise Error
@@ -166,4 +276,6 @@ def dwi_data_import_and_qspace_sampling(path_gis,
                                            output_directory)
     run_connectomist(algorithm_name, parameter_file)
 
-    return output_directory
+    # Capsul needs the output name to be different from input arguments
+    raw_dwi_directory = output_directory
+    return raw_dwi_directory

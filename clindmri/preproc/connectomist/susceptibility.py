@@ -1,28 +1,28 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
-# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
-# for details.
+# http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html for details.
 ##########################################################################
 
+import os
+
 from .manufacturers import MANUFACTURERS
-from .exceptions    import BadManufacturerNameError, MissingParametersError
+from .exceptions    import (BadManufacturerNameError, MissingParametersError,
+                            BadFileError)
 from .utils         import create_parameter_file, run_connectomist
 
 
-# TO BE COMPLETED: capsul
-def dwi_susceptibility_artifact_correction(raw_dwi_directory,
+def dwi_susceptibility_artifact_correction(output_directory,
+                                           raw_dwi_directory,
                                            rough_mask_directory,
                                            outliers_directory,
-                                           output_directory,
-                                           manufacturer,
                                            delta_TE,
                                            partial_fourier_factor,
                                            parallel_acceleration_factor,
-                                           path_b0_magnitude,
-                                           path_b0_phase             = None,
                                            negative_sign             = False,
                                            echo_spacing              = None,
                                            EPI_factor                = None,
@@ -33,17 +33,14 @@ def dwi_susceptibility_artifact_correction(raw_dwi_directory,
 
     Parameters
     ----------
+    output_directory:     Str, path to Connectomist output work directory.
     raw_dwi_directory:    Str, path to Connectomist Raw DWI folder.
     rough_mask_directory: Str, path to Connectomist Rough Mask folder.
     outliers_directory:   Str, path to Connectomist Outliers folder.
-    output_directory:     Str, path to Connectomist output work directory.
-    manufacturer:         Str, manufacturer name (e.g. "Siemens", "GE"...).
     delta_TE:             Float, difference in seconds between the 2 echoes
                           in B0 magnitude map acquisition.
     partial_fourier_factor: Float (]0;1]), percentage of k-space plane acquired.
     parallel_acceleration_factor: Int, nb of parallel acquisition in k-space plane.
-    path_b0_magnitude:    Str, path to B0 magnitude map, also contains phase for GE.
-    path_b0_phase:        Str, not for GE, path to B0 phase map.
     negative_sign:        Bool, if True invert direction of unwarping in
                           susceptibility-distortion correction.
     echo_spacing:         Float, not for Philips, acquisition time in ms between
@@ -53,9 +50,35 @@ def dwi_susceptibility_artifact_correction(raw_dwi_directory,
     b0_field:             Float, Philips only, B0 field intensity, by default 3.0.
     water_fat_shift_per_pixel: Float, Philips only, default 4.68Hz
 
-    <process>
-    </process>
+    <unit>
+        <output name="susceptibility_directory"    type="Directory" />
+
+        <input name="output_directory"             type="Directory" />
+        <input name="raw_dwi_directory"            type="Directory" />
+        <input name="rough_mask_directory"         type="Directory" />
+        <input name="outliers_directory"           type="Directory" />
+        <input name="delta_TE"                     type="Float"     />
+        <input name="partial_fourier_factor"       type="Float"     />
+        <input name="parallel_acceleration_factor" type="Float"     />
+        <input name="negative_sign"                type="Bool"      />
+        <input name="echo_spacing"                 type="Float"     />
+        <input name="EPI_factor"                   type="Int"       />
+        <input name="b0_field"                     type="Float"     />
+        <input name="water_fat_shift_per_pixel"    type="Float"     />
+    </unit>
     """
+
+    path_b0_magnitude = os.path.join(raw_dwi_directory, "b0_magnitude.ima")
+    path_b0_phase     = os.path.join(raw_dwi_directory, "b0_phase.ima")
+
+    try:
+        parameter_file = os.path.join(raw_dwi_directory, "acquisition_parameters.py")
+        exec_dict = dict()  # To store variables created by execfile() call.
+        execfile(parameter_file, exec_dict)
+        manufacturer = exec_dict["acquisitionParameters"]["manufacturer"].split(" ")[0]
+    except:
+        raise BadFileError(parameter_file)
+
     algorithm_name = "DWI-Susceptibility-Artifact-Correction"
 
     parameters_value = {
@@ -173,7 +196,7 @@ def dwi_susceptibility_artifact_correction(raw_dwi_directory,
             "brukerParallelAccelerationFactor":    parallel_acceleration_factor,
             "brukerFileNameFirstEchoB0Magnitude":  path_b0_magnitude,
             "brukerFileNameB0PhaseDifference":     path_b0_phase,
-            "brukerPhaseNegativeSign":             negative_sign,
+            "brukerPhaseNegativeSign":             2 if negative_sign else 0,
             'brukerEchoSpacing':                   echo_spacing
         },
         "GE": {
@@ -181,7 +204,7 @@ def dwi_susceptibility_artifact_correction(raw_dwi_directory,
             "gePartialFourierFactor":              partial_fourier_factor,
             "geParallelAccelerationFactor":        parallel_acceleration_factor,
             "geFileNameDoubleEchoB0MagnitudePhaseRealImaginary": path_b0_magnitude,
-            "gePhaseNegativeSign":                 negative_sign,
+            "gePhaseNegativeSign":                 2 if negative_sign else 0,
             "geEchoSpacing":                       echo_spacing
 
         },
@@ -191,7 +214,7 @@ def dwi_susceptibility_artifact_correction(raw_dwi_directory,
             "philipsParallelAccelerationFactor":   parallel_acceleration_factor,
             "philipsFileNameFirstEchoB0Magnitude": path_b0_magnitude,
             "philipsFileNameB0PhaseDifference":    path_b0_phase,
-            "philipsPhaseNegativeSign":            negative_sign,
+            "philipsPhaseNegativeSign":            2 if negative_sign else 0,
             "philipsEPIFactor":                    EPI_factor,
             "philipsStaticB0Field":                b0_field,
             "philipsWaterFatShiftPerPixel":        water_fat_shift_per_pixel
@@ -202,7 +225,7 @@ def dwi_susceptibility_artifact_correction(raw_dwi_directory,
             "siemensParallelAccelerationFactor":    parallel_acceleration_factor,
             "siemensFileNameDoubleEchoB0Magnitude": path_b0_magnitude,
             "siemensFileNameB0PhaseDifference":     path_b0_phase,
-            "siemensPhaseNegativeSign":             negative_sign,
+            "siemensPhaseNegativeSign":             2 if negative_sign else 0,
             "siemensEchoSpacing":                   echo_spacing
         }
     }
@@ -225,4 +248,6 @@ def dwi_susceptibility_artifact_correction(raw_dwi_directory,
                                            output_directory)
     run_connectomist(algorithm_name, parameter_file)
 
-    return output_directory
+    # Capsul needs the output name to be different from input arguments
+    susceptibility_directory = output_directory
+    return susceptibility_directory
