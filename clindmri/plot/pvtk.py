@@ -394,7 +394,6 @@ def surface(points, triangles, labels, ctab, opacity=1):
     vtk_triangles = vtk.vtkCellArray()
     vtk_colors = vtk.vtkUnsignedCharArray()
     vtk_colors.SetNumberOfComponents(1)
-    nb_of_labels = len(set(labels))
     labels[numpy.where(labels < 0)] = 0
     for index in range(len(points)):
         vtk_points.InsertNextPoint(points[index])
@@ -407,8 +406,9 @@ def surface(points, triangles, labels, ctab, opacity=1):
         vtk_triangles.InsertNextCell(vtk_triangle)
 
     # Make a lookup table using vtkColorSeries
+    nb_of_labels = len(ctab)
     lut = vtk.vtkLookupTable()
-    lut.SetNumberOfColors(nb_of_labels + 1)
+    lut.SetNumberOfColors(nb_of_labels)
     lut.Build()
     for cnt, lut_element in enumerate(ctab):
         lut.SetTableValue(cnt, lut_element[0] / 255., lut_element[1] / 255.,
