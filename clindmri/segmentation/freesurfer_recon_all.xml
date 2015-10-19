@@ -6,6 +6,59 @@
 
         Performs all the FreeSurfer cortical reconstruction process for a
         group of subjects.
+
+        Command:
+
+        * recon-all -all
+
+        Processing stages:
+
+        1. Motion Correction and Conform
+        2. NU (Non-Uniform intensity normalization)
+        3. Talairach transform computation
+        4. Intensity Normalization 1
+        5. Skull Strip
+        6. EM Register (linear volumetric registration)
+        7. CA Intensity Normalization
+        8. CA Non-linear Volumetric Registration
+        9. Remove Neck
+        10. LTA with Skull
+        11. CA Label (Volumetric Labeling, ie Aseg) and Statistics
+        12. Intensity Normalization 2 (start here for control points)
+        13. White matter segmentation
+        14. Edit WM With ASeg
+        15. Fill (start here for wm edits)
+        16. Tessellation (begins per-hemisphere operations)
+        17. Smooth1
+        18. Inflate1
+        19. QSphere
+        20. Automatic Topology Fixer
+        21. Final Surfs (start here for brain edits for pial surf)
+        22. Smooth2
+        23. Inflate2
+        24. Spherical Mapping
+        25. Spherical Registration
+        26. Spherical Registration, Contralateral hemisphere
+        27. Map average curvature to subject
+        28. Cortical Parcellation - Desikan_Killiany and Christophe (Labeling)
+        29. Cortical Parcellation Statistics
+        30. Cortical Ribbon Mask
+        31. Cortical Parcellation mapping to Aseg
+
+        Important outputs:
+
+        1. mri/wm.mgz: the white matter mask also used for troubleshooting
+        2. mri/aseg.mgz: the subcortiacal segmentation
+        3. mri/aparc+aseg.mgz: the subcortical + cortial segmentation using the
+           Desikan atlas
+        4. mri/aprc.a2009s+aseg.mgz: the subcortical + cortial segmentation
+           using the Destrieux atlas
+        5. surf/xx.pial: the xx (lh, rh) pial (grey/csf) surface
+        6. surf/xx.white: the xx (lh, rh) white (white/grey) surface
+        7. label/xx.aparc.annot: the xx (lh, rh) parcellation of the pial
+           surface based on the Desikan atlas
+        8. label/xx.aparc.a2009s.annot: the xx (lh, rh) parcellation of the
+           pial surface based on the Destrieux atlas 
     </docstring>
     <units>
         <unit name="recon">

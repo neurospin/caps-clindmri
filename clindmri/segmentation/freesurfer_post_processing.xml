@@ -1,17 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline version="1.0">
     <docstring>
-        Freesurfer post processings
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Freesurfer inspection
+        ~~~~~~~~~~~~~~~~~~~~~
 
-        Performs all the FreeSurfer cortical reconstruction post
-        processings:
+        Inspect the results returned by the FreeSurfer cortical reconstruction 
+        pipeline.
 
-        * Group of subjects statistical summaries: subcortial (aseg) or pial
-          (aparc)
-        * Nifti conversions: aseg - aparc+aseg - wm - t1
-        * White mesh conversion.
-        * Quality checks: segmentations/t1 overlays - cortex parcellation
+        Steps:
+
+        1. Group of subjects statistical summaries: subcortial (aseg) or pial
+           (aparc). Generate text/ascii tables of freesurfer parcellation
+           stats datat that are stored in a 'stats' folder. This can then be
+           easily imported into a spreadsheet and/or stats program.
+        2. Nifti conversions: aseg - aparc+aseg - aparc.a2009s+aseg - wm - t1.
+           Export FreeSurfer '.mgz' images of interest in Nifti format. These
+           images are resliced like the 'rawavg.mgz' file, have a '.native'
+           suffix and are stored in a 'convert' folder. 
+        3. Surface conversions: resample the white or pial FreeSurfer
+           surfaces at different resolutions (impacts the number of vertex)
+           with common mesh that can be directly used in a longitudinal
+           setting. The results are also stored in a 'convert' folder with
+           a '.native' suffix and the considered level in the file name. Vetex
+           are expressed in the index coordinate system. 
+        4. Quality checks: segmentations/t1 overlays - pial/white parcellation.
+           Results are stored in the 'convert/qc' folder.
     </docstring>
     <units>
         <unit name="aparc_stats">

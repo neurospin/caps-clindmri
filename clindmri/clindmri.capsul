@@ -9,10 +9,44 @@
             [
                 "This code was used in 2015 by Antoine Grigis",
                 "<antoine.grigis@cea.fr> to treat the IMAGEN_ data in",
-                "NeuroSpin.",
+                "NeuroSpin (~3000 anatomical images).",
                 "",
                 ".. _IMAGEN: http://www.imagen.org/"
             ]
         ]
+    },
+    "Cortical reconstruction inspection": {
+        "module": "clindmri.segmentation.freesurfer_post_processing.xml",
+        "category": "MRI",
+        "time_cost": 1,
+        "qc_cost": 2,
+        "pilot": "",
+        "references": [
+            [
+                "This code was used in 2015 by Antoine Grigis",
+                "<antoine.grigis@cea.fr> to treat the IMAGEN_ data in",
+                "NeuroSpin (~3000 anatomical images).",
+                "",
+                ".. _IMAGEN: http://www.imagen.org/"
+            ]
+        ]        
+
+    },
+    "Diffusion image preprocessing": {
+        "module": "clindmri.preproc.connectomist.complete_preprocessing.xml",
+        "category": "dMRI",
+        "time_cost": 2,
+        "qc_cost": 0,
+        "pilot": "",
+        "references": [
+            [
+                "This code was used in 2015 by Thomas Gareau",
+                "<thomas.gareau@cea.fr> to treat the IMAGEN_ data in",
+                "NeuroSpin (~1500 anatomical images).",
+                "",
+                ".. _IMAGEN: http://www.imagen.org/"
+            ]
+        ]        
+
     }
 }

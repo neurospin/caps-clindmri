@@ -2,10 +2,17 @@
 <pipeline version="1.0">
 
     <docstring>
-        Complete preprocessing of diffusion-weighted Nifti images using Connectomist:
-          - detection and correction of outlying slices
-          - correction of susceptibility-induced distortions using B0 Maps
-          - correction of Eddy currents and motion
+        Diffusion image preprocessing
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        Complete preprocessing of diffusion-weighted Nifti images using Connectomist.
+
+        Steps:
+
+        1. detection and correction of outlying slices
+        2. correction of susceptibility-induced distortions using B0 Maps
+        3. correction of Eddy currents and motion
+
         Outputs a corrected Nifti with associated .bval and .bvec with corrected gradient directions.
     </docstring>
 
