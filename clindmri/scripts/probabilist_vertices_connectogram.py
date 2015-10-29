@@ -53,8 +53,6 @@ Example
 
 # system imports
 from __future__ import print_function
-import sys
-sys.path.append('/home/rc244162/git/caps-clindmri')
 from nilearn import plotting
 from matplotlib import cm
 import numpy
