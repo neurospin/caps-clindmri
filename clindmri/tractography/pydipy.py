@@ -11,9 +11,7 @@
 import os
 import nibabel
 import numpy
-
-# Clindmri import
-from clindmri.tractography import savetxt
+import random
 
 # Dipy import
 from dipy.core.gradients import gradient_table
@@ -23,9 +21,8 @@ from dipy.reconst import peaks, shm
 from dipy.tracking import utils
 
 
-def deterministic(diffusion_file, bvecs_file, bvals_file, outdir,
-                  mask_file=None, order=4, nb_seeds_per_voxel=1, step=0.5,
-                  fmt="%.4f"):
+def deterministic(diffusion_file, bvecs_file, bvals_file, trackfile,
+                  mask_file=None, order=4, nb_seeds_per_voxel=1, step=0.5):
     """ Compute a deterministic tractography using an ODF model.
 
     Parameters
@@ -36,8 +33,8 @@ def deterministic(diffusion_file, bvecs_file, bvals_file, outdir,
         a file containing the diffusion gradient directions.
     bvals_file: str (mandatory)
         a file containing the diffusion b-values.
-    outdir: str (mandatory)
-        the output directory.
+    trackfile: str (mandatory)
+        a file path where the fibers will be saved in trackvis format. 
     mask_file: str (optional, default None)
         an image used to mask the diffusion data during the tractography. If
         not set, all the image voxels are considered.
@@ -47,18 +44,23 @@ def deterministic(diffusion_file, bvecs_file, bvals_file, outdir,
         the number of seeds per voxel used during the propagation.
     step: float (optional, default 0.5)
         the integration step in voxel fraction used during the propagation.
-    fmt: str (optional, default '%.4f')
-        the saved track elements format.
 
     Returns
     -------
-    track_file: str
-        a determinist model of the white matter organization.
+    streamlines: tuple of 3-uplet
+        the computed fiber tracks in trackvis format (points: ndarray shape
+        (N,3) where N is the number of points, scalars: None or ndarray shape
+        (N, M) where M is the number of scalars per point, properties: None or
+        ndarray shape (P,) where P is the number of properties).
+    hdr: structured array
+        structured array with trackvis header fields (voxel size, voxel order,
+        dim).
     """
     # Read diffusion sequence
     bvals, bvecs = read_bvals_bvecs(bvals_file, bvecs_file)
     gtab = gradient_table(bvals, bvecs)
-    diffusion_array = nibabel.load(diffusion_file).get_data()
+    diffusion_image = nibabel.load(diffusion_file)
+    diffusion_array = diffusion_image.get_data()
     if mask_file is not None:
         mask_array = nibabel.load(mask_file).get_data()
     else:
@@ -79,12 +81,17 @@ def deterministic(diffusion_file, bvecs_file, bvals_file, outdir,
         odf_vertices=peaks.default_sphere.vertices, a_low=.05, step_sz=step,
         seeds=seeds)
     affine = streamline_generator.affine
-    streamlines = list(streamline_generator)
 
-    # Save the tracks
-    track_file = os.path.join(outdir, "fibers.txt")
-    savetxt(track_file, streamlines, fmt=fmt)
+    # Save the tracks in trackvis format
+    hdr = nibabel.trackvis.empty_header()
+    hdr["voxel_size"] = diffusion_image.get_header().get_zooms()[:3]
+    hdr["voxel_order"] = "LAS"
+    hdr["dim"] = diffusion_array.shape[:3]
+    streamlines = [track for track in streamline_generator]
+    random.shuffle(streamlines)
+    streamlines = ((track, None, None) for track in streamlines)
+    nibabel.trackvis.write(trackfile, streamlines, hdr, points_space="voxel")
 
-    return track_file
+    return streamlines, hdr
 
     
