@@ -179,6 +179,28 @@ class Tractogram(object):
         return numpy.asarray(affine_endpoints)
 
 
+def filter_by_length(fibers, min_length=0):
+    """ Keep only fibers with minimum length.
+
+    Parameters
+    ----------
+    fibers: sequence of array (Ni, 3)
+        the fiber sequence to be filtered.
+    min_length: float
+        the threshold under which fibers are rejected.
+
+    Returns
+    -------
+    fitered_fibers: sequence of array (Ni, 3)
+        the sequence with the input fibers of requested length.
+    """
+    fitered_fibers = []
+    for track in fibers:
+        if length(track) > min_length:
+            fitered_fibers.append(track)
+    return fitered_fibers
+
+
 def length(xyz, along=False):
     """ Euclidean length of track line.
 
@@ -207,6 +229,42 @@ def length(xyz, along=False):
     return numpy.sum(dists)
 
 
+def resample(xyz, nb_pol=40):
+    """ Resample a fiber with the input specified number of points using VTK.
+
+    Parameters
+    ----------
+    xyz: array-like shape (N,3)
+       array representing x,y,z of N points in a track.
+    nb_pol: int
+       integer representing number of points (poles) we need along the curve.
+    """
+    # Local import
+    import vtk
+
+    # Construct the VTK fiber interpolation material
+    nb_samples = len(xyz)
+    splinex = vtk.vtkCardinalSpline()
+    spliney = vtk.vtkCardinalSpline()
+    splinez = vtk.vtkCardinalSpline()
+    samples = vtk.vtkPoints()
+    for index in range(nb_samples):
+        x, y, z = xyz[index]
+        splinex.AddPoint(index, x)
+        spliney.AddPoint(index, y)
+        splinez.AddPoint(index, z)
+        samples.InsertPoint(index, x, y, z)
+
+    # Interpolate x, y and z by using the three spline filters
+    points = []
+    for index in range(nb_pol):
+        t = (nb_samples - 1.0) / (nb_pol - 1.0) * index
+        points.append(
+            (splinex.Evaluate(t), spliney.Evaluate(t), splinez.Evaluate(t)))
+
+    return numpy.asarray(points)
+
+
 def downsample(xyz, n_pols=3):
     """ Downsample for a specific number of points along the curve.
 
@@ -223,7 +281,7 @@ def downsample(xyz, n_pols=3):
     Returns
     -------
     xyz2 : array shape (M,3)
-       array representing x,z,z of M points that where extrapolated. M
+       array representing x,y,z of M points that where extrapolated. M
        should be equal to n_pols
     """
     # Ensure we are working with numpy array
@@ -260,8 +318,12 @@ def downsample(xyz, n_pols=3):
 def _extrap(xyz, cumlen, distance):
     """ Helper function for extrapolation.
     """
-    # Find where is the new point: interval  
-    ind = numpy.where((cumlen - distance) > 0)[0][0]
+    # Find where is the new point: interval 
+    try: 
+        ind = numpy.where((cumlen - distance) > 0)[0][0]
+    except:
+        print xyz, cumlen, distance, cumlen - distance
+        raise
     len0 = cumlen[ind - 1]        
     len1 = cumlen[ind]
 

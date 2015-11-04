@@ -150,10 +150,8 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
 
     # Create 'n_frames' by rotating each time the scene by 'az_ang' degrees
     writer = vtk.vtkPNGWriter()
-    current_angle = 0
     snaps = []
     for index in range(n_frames):
-        camera.Azimuth(current_angle)
         render = vtk.vtkRenderLargeImage()
         render.SetInput(ren)
         render.SetMagnification(1)
@@ -166,7 +164,7 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
         writer.SetFileName(snap_file)
         snaps.append(snap_file)
         writer.Write()
-        current_angle += az_ang
+        camera.Azimuth(az_ang)
 
     return snaps
 
@@ -231,15 +229,16 @@ def tensor(coeff, order, position=(0, 0, 0),
     return actor
 
 
-def line(lines, scalar, lut=None, opacity=1, linewidth=1):
+def line(lines, colors, lut=None, opacity=1, linewidth=1):
     """ Create a line actor for one or more lines.    
     
     Parameters
     ----------
     lines : list
         a list of array representing a line as 3d points (N, 3)
-    scalar : a float   
-        0 <= scalar <= 1 to associate a color to the bloc of lines.         
+    colors : a float or a list of float
+        0 <= scalar <= 1 to associate a color to the bloc of lines or
+        a list of scalar to associate different color to lines.       
     opacity : float (default = 1)
         the transparency of the bloc of lines: 0 <= transparency <= 1.
     linewidth : float (default = 1)
@@ -259,7 +258,11 @@ def line(lines, scalar, lut=None, opacity=1, linewidth=1):
     # If one line is passed as a numpy array, create virtually a list around
     # this structure
     if not isinstance(lines, types.ListType):
-        lines = [lines]  
+        lines = [lines]
+
+    # If one color is passed, create virtually a list around this structure
+    if not isinstance(colors, types.ListType):
+        colors = [colors] * len(lines)
       
     # Create vtk structures
     vtk_points = vtk.vtkPoints()
@@ -268,12 +271,12 @@ def line(lines, scalar, lut=None, opacity=1, linewidth=1):
   
     # Go through all lines for the rendering
     point_id = 0
-    for line in lines:
+    for line, scalar in zip(lines, colors):
 
         # Get the line size
         nb_of_points, line_dim = line.shape
 
-        # Associate one scalar to each point of the line for color rendering 
+        # Associate one scalar to each point of the line for color rendering
         scalars = [scalar] * nb_of_points
 
         # Fill the vtk structure for the curretn line
@@ -320,6 +323,102 @@ def line(lines, scalar, lut=None, opacity=1, linewidth=1):
     actor.GetProperty().SetLineWidth(linewidth)
     
     return actor
+
+
+def tubes(lines, colors, opacity=1, linewidth=0.15, tube_sides=8,
+          lod=True, lod_points=10 ** 4, lod_points_size=5):
+    """ Uses streamtubes to visualize polylines.
+
+
+    Parameters
+    ----------
+    lines : list
+        a list of array representing a line as 3d points (N, 3)
+    colors : array (N, 3)
+        rgb colors.       
+    opacity : float (default = 1)
+        the transparency of the bloc of lines: 0 <= transparency <= 1.
+    linewidth : float (default = 1)
+        the line thickness. 
+    tube_sides: int
+        the tube resolution.
+    lod: bool
+        use vtkLODActor rather than vtkActor.
+    lod_points: int
+        number of points to be used when LOD is in effect.
+    lod_points_size: int
+        size of points when lod is in effect.            
+    
+    Returns
+    ----------
+    actor: vtkActor or vtkLODActor
+        the bloc of tubes actor.
+    """
+    points = vtk.vtkPoints()
+
+    colors = numpy.asarray(colors)
+    if colors.ndim == 1:
+        colors = numpy.tile(colors, (len(lines), 1))
+
+    # Create the polyline.
+    streamlines = vtk.vtkCellArray()
+
+    cols = vtk.vtkUnsignedCharArray()
+    cols.SetName("Cols")
+    cols.SetNumberOfComponents(3)
+
+    len_lines = len(lines)
+    prior_line_shape = 0
+    for i in range(len_lines):
+        line = lines[i]
+        streamlines.InsertNextCell(line.shape[0])
+        for j in range(line.shape[0]):
+            points.InsertNextPoint(*line[j])
+            streamlines.InsertCellPoint(j + prior_line_shape)
+            color = (255 * colors[i]).astype('ubyte')
+            cols.InsertNextTuple3(*color)
+        prior_line_shape += line.shape[0]
+
+    profileData = vtk.vtkPolyData()
+    profileData.SetPoints(points)
+    profileData.SetLines(streamlines)
+    profileData.GetPointData().AddArray(cols)
+
+    # Add thickness to the resulting line.
+    profileTubes = vtk.vtkTubeFilter()
+    profileTubes.SetNumberOfSides(tube_sides)
+
+    if vtk.vtkVersion.GetVTKMajorVersion() <= 5:
+        profileTubes.SetInput(profileData)
+    else:
+        profileTubes.SetInputData(profileData)
+
+    #profileTubes.SetInput(profileData)
+    profileTubes.SetRadius(linewidth)
+
+    profileMapper = vtk.vtkPolyDataMapper()
+    profileMapper.SetInputConnection(profileTubes.GetOutputPort())
+    profileMapper.ScalarVisibilityOn()
+    profileMapper.SetScalarModeToUsePointFieldData()
+    profileMapper.SelectColorArray("Cols")
+    profileMapper.GlobalImmediateModeRenderingOn()
+
+    if lod:
+        profile = vtk.vtkLODActor()
+        profile.SetNumberOfCloudPoints(lod_points)
+        profile.GetProperty().SetPointSize(lod_points_size)
+    else:
+        profile = vtk.vtkActor()
+    profile.SetMapper(profileMapper)
+
+    profile.GetProperty().SetAmbient(0)  # .3
+    profile.GetProperty().SetSpecular(0)  # .3
+    profile.GetProperty().SetSpecularPower(10)
+    profile.GetProperty().SetInterpolationToGouraud()
+    profile.GetProperty().BackfaceCullingOn()
+    profile.GetProperty().SetOpacity(opacity)
+
+    return profile
 
 
 def dots(points, color=(1,0,0), psize=1, opacity=1):

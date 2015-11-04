@@ -78,7 +78,7 @@ def clustering_metric(tracks,
     Returns
     -------
     metric : array
-        a (M * (M + 1) / 2) - M array containing the condensed track to track
+        a (M * (M - 1) / 2) array containing the condensed track to track
         distances.
     """
     cdef:
@@ -90,33 +90,35 @@ def clustering_metric(tracks,
     metric_type = metric_map[distance_metric]
     number_of_tracks = len(tracks)
     condensed_matrix_size = int(
-        number_of_tracks * (number_of_tracks + 1.) / 2. - number_of_tracks)
+        number_of_tracks * (number_of_tracks - 1.) / 2.)
 
     # Allocate the output if necessary
     if metric is None:
         metric = np.zeros((condensed_matrix_size, ), dtype=np.single)
     if metric.shape[0] != condensed_matrix_size:
-        raise TypeError("Metric array must have shape: {0}".format(condensed_matrix_size))
+        raise TypeError("Metric array must have shape: {0}".format(
+            condensed_matrix_size))
 
     # Format input tracks to be compliant with c loops: make a copy
     # Find the longest track number of samples: used to build memory layout.
     cdef:
         cnp.ndarray[float, ndim=2] track
         Track *ctracks
+    ctracks = <Track *>malloc(number_of_tracks * sizeof(Track))
     for i from 0 <= i < number_of_tracks:
 
         # Track copy
         ctracks[i].nb_of_points = tracks[i].shape[0]
-        ctracks[i].track = <float *>realloc(
-            NULL, ctracks[i].nb_of_points * 3 * sizeof(float))
+        ctracks[i].track = <float *>malloc(ctracks[i].nb_of_points * 3 *
+                                           sizeof(float))
         track = np.ascontiguousarray(tracks[i], dtype=np.float32)
         ptr = <float *>track.data
         for j from 0 <= j < (ctracks[i].nb_of_points * 3):
             ctracks[i].track[j] = ptr[j]
 
         # Max search
-        if ctracks[i].nb_of_points > max_number_of_points:
-            max_number_of_points = ctracks[i].nb_of_points
+        #if ctracks[i].nb_of_points > max_number_of_points:
+        #    max_number_of_points = ctracks[i].nb_of_points
 
     # Parallel distance computation: loop over tracks
     cdef:
@@ -133,11 +135,13 @@ def clustering_metric(tracks,
             for y in parallel.prange(x + 1, inner, schedule="static",
                                      num_threads=nb_of_threads):
 
-                # Preallocate the min buffer array for track distance calculations
-                min_buffer = <float *>realloc(
-                    NULL, (ctracks[x].nb_of_points + ctracks[y].nb_of_points) * sizeof(float))
+                # Preallocate the min buffer array for track distance
+                # calculations
+                min_buffer = <float *>malloc(
+                    (ctracks[x].nb_of_points + ctracks[y].nb_of_points) *
+                    sizeof(float))
 
-                # Average minimume distance between two tracks                   
+                # Average minimum distance between two tracks                   
                 dist = czhang(ctracks[x].nb_of_points, ctracks[x].track,
                               ctracks[y].nb_of_points, ctracks[y].track,
                               min_buffer, metric_type, zhang_thr)
@@ -147,6 +151,9 @@ def clustering_metric(tracks,
                 metric_indx = (
                     x * (number_of_tracks - 1) - x * (x - 1) / 2 + y - x - 1)
                 metric[metric_indx] = dist
+
+                # Free memory
+                free(min_buffer)
 
     # Free memory
     with nogil:
@@ -413,7 +420,7 @@ cdef inline void min_distances(size_t t1_len,
     for t1_pi from 0 <= t1_pi < t1_len:
         min_t1t2[t1_pi] = sqrt(min_t1t2[t1_pi])
     for t2_pi from 0 <= t2_pi < t2_len:
-        min_t2t1[t2_pi] = sqrt(min_t2t1[t2_pi])
+        min_t2t1[t2_pi] = sqrt(min_t2t1[t2_pi])    
 
 
 @cython.boundscheck(False)

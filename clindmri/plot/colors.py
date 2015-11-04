@@ -8,16 +8,37 @@
 ##########################################################################
 
 # System import
-import numpy as np
+import numpy
 
 
 # Define some common colors
-red = np.array([1, 0, 0])
-green = np.array([0, 1, 0])
-blue = np.array([0, 0, 1])
-yellow = np.array([1, 1, 0])
-cyan = np.array([0, 1, 1])
-azure = np.array([0, 0.49, 1])
-golden = np.array([1, 0.84, 0])
-white = np.array([1, 1, 1])
-black = np.array([0, 0, 0])
+red = numpy.array([1, 0, 0])
+green = numpy.array([0, 1, 0])
+blue = numpy.array([0, 0, 1])
+yellow = numpy.array([1, 1, 0])
+cyan = numpy.array([0, 1, 1])
+azure = numpy.array([0, 0.49, 1])
+golden = numpy.array([1, 0.84, 0])
+white = numpy.array([1, 1, 1])
+black = numpy.array([0, 0, 0])
+
+
+def line_colors(streamlines):
+    """ Create colors for streamlines.
+
+    Parameters
+    ----------
+    streamlines: list of array
+        some streamlines.
+
+    Returns
+    -------
+    colors: array
+        streamline colors based on the orientation.
+    """
+    colors = []
+    for track in streamlines:
+        orient = track[-1] - track[0]
+        orient = numpy.abs(orient / numpy.linalg.norm(orient))
+        colors.append(orient) 
+    return colors
