@@ -16,6 +16,7 @@ import os
 # Caps import
 from clindmri.estimation.gdti.monomials import construct_matrix_of_monomials
 from .colors import *
+from .animate import images_to_gif
 
 # VTK import
 try:
@@ -93,7 +94,7 @@ def show(ren, title="pvtk", size=(300, 300)):
 
 def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
            cam_view=None, n_frames=1, az_ang=10, size=(300, 300),
-           verbose=False):
+           animate=False, delay=100, verbose=False):
     """ This will record a snap/video of the rendered objects.
 
     Records a video as a series of ".png" files by rotating the azimuth angle
@@ -112,13 +113,21 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
     cam_focal: 3-uplet (optional, default None)
         the camera focal point.
     cam_view: 3-uplet (optional, default None)
-        the camera view up. 
+        the camera view up.
     n_frames: int (optional, default 1)
         the number of frames to save.
     az_ang: float (optional, default 10)
         the azimuthal angle of camera rotation (in degrees).
     size: 2-uplet (optional, default (300, 300))
         (width, height) of the window.
+    animate: bool (optional, default False)
+        if True agglomerate the generated snaps in a Gif and delete the
+        raw snaps.
+    delay: int (optional, default 100)
+        this option is useful for regulating the animation of image
+        sequences ticks/ticks-per-second seconds must expire before the
+        display of the next image. The default is no delay between each
+        showing of the image sequence. The default ticks-per-second is 100.
     verbose: bool (optional, default False)
         if True display debuging message.
 
@@ -165,6 +174,14 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
         snaps.append(snap_file)
         writer.Write()
         camera.Azimuth(az_ang)
+
+    # Create an animation
+    if animate:
+        giffile = os.path.join(outdir, prefix + ".gif")
+        images_to_gif(snaps, giffile, delay=delay)
+        for fname in snaps:
+            os.remove(fname)
+        snaps = [giffile]
 
     return snaps
 

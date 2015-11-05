@@ -230,7 +230,7 @@ def asegstats2table(fsdir, output_directory,
     return statfiles
 
 
-def mri_convert(fsdir, regex, output_directory, reslice=True,
+def mri_convert(fsdir, regex, output_directory=None, reslice=True,
                 interpolation="interpolate",
                 fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Export Freesurfer "*.mgz" image in Nifti format.
@@ -264,8 +264,10 @@ def mri_convert(fsdir, regex, output_directory, reslice=True,
 
     # Get the images to convert from the regex
     inputs = glob.glob(os.path.join(fsdir, regex))
-    with open(os.path.join(output_directory, "inputs.json"), "w") as open_file:
-        json.dump(inputs, open_file, indent=4)
+    if output_directory is not None:
+        path = os.path.join(output_directory, "inputs.json")
+        with open(path, "w") as open_file:
+            json.dump(inputs, open_file, indent=4)
 
     # Convert each input file
     niftifiles = []
@@ -303,8 +305,8 @@ def mri_convert(fsdir, regex, output_directory, reslice=True,
     return niftifiles
 
 
-def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
-                              surface_name="white",
+def resample_cortical_surface(fsdir, regex, output_directory=None,
+                              orders=[4, 5, 6, 7], surface_name="white",
                               fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Resamples one cortical surface onto an icosahedron.
 
@@ -326,6 +328,9 @@ def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
     <unit>
         <input name="fsdir" type="Directory" description="The
             freesurfer working directory with all the subjects."/>
+        <input name="regex" type="String" description="A regular expression
+            used to locate the surface files to be converted from the 'fsdir'
+            directory."/>
         <input name="output_directory" type="Directory" description="The
             default resample destination folder."/>
         <input name="orders" type="List_Int" description="The icosahedron
@@ -350,12 +355,11 @@ def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
                          "range.".format(orders))
 
     # Get all the subjects with the specified surface
-    surfaces = glob.glob(
-        os.path.join(fsdir, "*", "surf","lh.{0}".format(surface_name)))
-    surfaces.extend(glob.glob(
-        os.path.join(fsdir, "*", "surf","rh.{0}".format(surface_name))))
-    with open(os.path.join(output_directory, "surfaces.json"), "w") as open_file:
-        json.dump(surfaces, open_file, indent=4)
+    surfaces = glob.glob(os.path.join(fsdir, regex))
+    if output_directory is not None:
+        path = os.path.join(output_directory, "surfaces.json")
+        with open(path, "w") as open_file:
+            json.dump(surfaces, open_file, indent=4)
 
     # Go through all the subjects with the desired surface
     resamplefiles = []
@@ -413,7 +417,7 @@ def resample_cortical_surface(fsdir, output_directory, orders=[4, 5, 6, 7],
     return resamplefiles, annotfiles
 
 
-def conformed_to_native_space(fsdir, output_directory,
+def conformed_to_native_space(fsdir, regex, output_directory=None,
                               fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Create a registration matrix between the conformed space (orig.mgz)
     and the native anatomical (rawavg.mgz).
@@ -421,6 +425,9 @@ def conformed_to_native_space(fsdir, output_directory,
     <unit>
         <input name="fsdir" type="Directory" description="The
             freesurfer working directory with all the subjects."/>
+        <input name="regex" type="String" description="A regular expression
+            used to locate the surface files to be converted from the 'fsdir'
+            directory."/>
         <input name="output_directory" type="Directory" description="The
             default resample destination folder."/>
         <input name="fsconfig" type="File" description="The freesurfer
@@ -430,9 +437,11 @@ def conformed_to_native_space(fsdir, output_directory,
     </unit>
     """
     # Get all the subjects with a 'mri' directory
-    mridirs = glob.glob(os.path.join(fsdir, "*", "mri"))
-    with open(os.path.join(output_directory, "mris.json"), "w") as open_file:
-        json.dump(mridirs, open_file, indent=4)
+    mridirs = glob.glob(os.path.join(fsdir, regex))
+    if output_directory is not None:
+        path = os.path.join(output_directory, "mris.json")
+        with open(path, "w") as open_file:
+            json.dump(mridirs, open_file, indent=4)
 
     # Go through all the subjects with the desired folder
     trffiles = []
@@ -467,7 +476,7 @@ def conformed_to_native_space(fsdir, output_directory,
     return trffiles
 
 
-def surf_convert(fsdir, output_directory, t1files, surffiles, rm_orig=False,
+def surf_convert(fsdir, t1files, surffiles, output_directory=None, rm_orig=False,
                  fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Export FreeSurfer surfaces to the native space.
 
@@ -534,8 +543,8 @@ def surf_convert(fsdir, output_directory, t1files, surffiles, rm_orig=False,
     return csurffiles   
 
 
-def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
-       pialfiles, annotfiles,
+def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
+       actor_ang=[0., 0., 0.], output_directory=None,
        fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Compute some quality check plots on the converted FrreSurfer
     outputs.
@@ -548,6 +557,9 @@ def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
     * t1-images overlays
     * 3d surface segmentation snaps
     * t1-surfaces overlays
+
+    actor_ang: float (optional, default 0)
+        the actor rotation in the z direction.   
 
     <unit>
         <input name="t1files" type="List_File" description="The
@@ -564,6 +576,8 @@ def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
             surfaces."/>
         <input name="annotfiles" type="List_File" description="The pial/white
             surface annotations."/>
+        <input name="actor_ang" type="List_Float" description="The actor x, y,
+            z position (in degrees)."/>
         <input name="fsconfig" type="File" description="The freesurfer
             configuration batch."/>
         <output name="qcfiles" type="List_File" description="The quality check
@@ -575,7 +589,8 @@ def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
     for fname in t1files:
         subject_id = fname.split("/")[-3]
         if subject_id in t1map:
-            raise ("Can't map two t1 for subject '{0}'.".format(subject_id))
+            raise Exception("Can't map two t1 for subject '{0}'"
+                            ".".format(subject_id))
         t1map[subject_id] = fname
 
     # Create the output list that will contain all the qc files
@@ -626,12 +641,18 @@ def qc(t1files, wmfiles, asegfiles, output_directory, whitefiles,
             ctab = [item["color"] for _, item in surface.metadata.items()]
             actor = pvtk.surface(
                 surface.vertices, surface.triangles, surface.labels, ctab)
+            actor.RotateX(actor_ang[0])
+            actor.RotateY(actor_ang[1])
+            actor.RotateZ(actor_ang[2])
 
             # Create a 3d surface segmentation snap
             pvtk.add(ren, actor)
-            snaps = pvtk.record(ren, qcdir, qcname + ".3d", n_frames=1)
-            pvtk.clear(ren)
+            snaps = pvtk.record(ren, qcdir, qcname, n_frames=36,
+                                az_ang=10, animate=True, delay=50)
             qcfiles.append(snaps[0])
+            snaps = pvtk.record(ren, qcdir, qcname + ".3d", n_frames=1)
+            qcfiles.append(snaps[0])
+            pvtk.clear(ren)
 
     # Get the FreeSurfer lookup table
     fs_lut_names, fs_lut_colors = parse_fs_lut(os.path.join(
