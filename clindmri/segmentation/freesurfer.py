@@ -41,7 +41,7 @@ mri_surf2surf --sval-xyz pial --reg register.native.dat rawavg.mgz --tval lh.pia
 
 
 """
-def recon_all(fsdir, anatfile, output_directory, sid,
+def recon_all(fsdir, anatfile, sid, output_directory=None,
               fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Performs all the FreeSurfer cortical reconstruction process.
 
@@ -84,10 +84,10 @@ def recon_all(fsdir, anatfile, output_directory, sid,
             freesurfer working directory with all the subjects."/>
         <input name="anatfile" type="File" desc="The input anatomical image
             to be segmented with freesurfer."/>
-        <input name="output_directory" type="Directory" description="The
-            freesurfer runtime folder."/>
         <input name="sid" type="Str" description="The current subject
             identifier."/>
+        <input name="output_directory" type="Directory" description="The
+            freesurfer runtime folder."/>
         <input name="fsconfig" type="File" description="The freesurfer
             configuration batch."/>
         <output name="subjfsdir" type="Directory" description="Path to the
@@ -103,7 +103,8 @@ def recon_all(fsdir, anatfile, output_directory, sid,
     recon = FSWrapper(cmd, shfile=fsconfig)
     recon()
     if recon.exitcode != 0:
-        raise FreeSurferRuntimeError(recon.cmd[0], " ".join(recon.cmd[1:]))
+        raise FreeSurferRuntimeError(
+            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
     subjfsdir = os.path.join(fsdir, sid)
 
     return subjfsdir

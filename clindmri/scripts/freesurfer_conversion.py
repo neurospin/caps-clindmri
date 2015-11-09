@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2013-2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -55,12 +55,46 @@ Steps:
 
 Command:
 
-python clindmri/scripts/freesurfer_conversion.py 
+python $HOME/git/clindmri/scripts/freesurfer_conversion.py 
     -v 2
     -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh
     -d /volatile/imagen/dmritest/freesurfer
     -s 000043561374
     -e
+    -g
+
+Local multi-processing:
+
+from hopla import hopla
+import os
+myhome = os.environ["HOME"]
+status, exitcodes = hopla(
+    os.path.join(myhome, "git", "caps-clindmri", "clindmri", "scripts",
+                 "freesurfer_conversion.py"), 
+    c="/i2bm/local/freesurfer/SetUpFreeSurfer.sh",
+    d="/volatile/imagen/dmritest/freesurfer",
+    s=["000043561374", "000085724167", "000052904972"],
+    e=True,
+    hopla_iterative_kwargs=["s"],
+    hopla_cpus=3,
+    hopla_logfile="/volatile/imagen/dmritest/freesurfer/conversion.log",
+    hopla_verbose=1)
+
+Cluster multi-processing:
+
+from hopla.converter import hopla
+import hopla.demo as demo
+import os
+
+apath = os.path.abspath(os.path.dirname(demo.__file__))
+script = os.path.join(os.path.dirname(demo.__file__),
+                      "my_ls_script.py")
+status, exitcodes = hopla(
+    script, hopla_iterative_kwargs=["d"], d=[apath, apath], v=1,
+    hopla_verbose=1, hopla_cpus=2, hopla_cluster=True,
+    hopla_cluster_logdir="/home/ag239446/test/log",
+    hopla_cluster_python_cmd="/usr/bin/python2.7",
+    hopla_cluster_queue="Cati_LowPrio")
 """
 
 def is_file(filearg):
@@ -96,6 +130,9 @@ parser.add_argument(
 parser.add_argument(
     "-s", "--subjectid", dest="subjectid", required=True,
     help="the subject identifier.")
+parser.add_argument(
+    "-g", "--graph", dest="graphics", action="store_true",
+    help="if activated compute quality controls on the FreeSurfer outputs.")
 args = parser.parse_args()
 
 
@@ -176,15 +213,16 @@ if args.verbose > 1:
 """
 Step 4: Quality controls.
 """
-if args.verbose > 0:
-    print("[info] Start quality control...")
-whitefiles = surfaces["lh.white"] + surfaces["rh.white"]
-pialfiles = surfaces["lh.pial"] + surfaces["rh.pial"]
-qcfiles = qc(
-    niftifiles["rawavg"], niftifiles["wm"], niftifiles["aseg"],  whitefiles,
-    pialfiles, annotations, actor_ang=[90., 180., 0.],
-    output_directory=None, fsconfig=args.fsconfig)
-if args.verbose > 1:
-    print("[result] QC: {0}.".format(qcfiles))
+if args.graphics:
+    if args.verbose > 0:
+        print("[info] Start quality control...")
+    whitefiles = surfaces["lh.white"] + surfaces["rh.white"]
+    pialfiles = surfaces["lh.pial"] + surfaces["rh.pial"]
+    qcfiles = qc(
+        niftifiles["rawavg"], niftifiles["wm"], niftifiles["aseg"],  whitefiles,
+        pialfiles, annotations, actor_ang=[90., 180., 0.],
+        output_directory=None, fsconfig=args.fsconfig)
+    if args.verbose > 1:
+        print("[result] QC: {0}.".format(qcfiles))
         
     
