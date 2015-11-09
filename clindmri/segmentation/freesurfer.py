@@ -26,8 +26,6 @@ from clindmri.extensions.freesurfer.reader import tkregister_translation
 from clindmri.registration.fsl import flirt
 from clindmri.extensions.fsl import flirt2aff
 from clindmri.registration.utils import extract_image
-import clindmri.plot.pvtk as pvtk
-from clindmri.plot.slicer import plot_image
 
 
 """
@@ -110,7 +108,7 @@ def recon_all(fsdir, anatfile, sid, output_directory=None,
     return subjfsdir
 
 
-def aparcstats2table(fsdir, output_directory,
+def aparcstats2table(fsdir, output_directory=None,
                      fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Generate text/ascii tables of freesurfer parcellation stats data
     '?h.aparc.stats'. This can then be easily imported into a spreadsheet
@@ -135,8 +133,10 @@ def aparcstats2table(fsdir, output_directory,
     # Fist find all the subjects with a stat dir
     statdirs = glob.glob(os.path.join(fsdir, "*", "stats"))
     subjects = [item.lstrip(os.sep).split("/")[-2] for item in statdirs]
-    with open(os.path.join(output_directory, "subjects.json"), "w") as open_file:
-        json.dump(subjects, open_file, indent=4)
+    if output_directory is not None:
+        path = os.path.join(output_directory, "subjects.json")
+        with open(path, "w") as open_file:
+            json.dump(subjects, open_file, indent=4)
 
     # Save the FreeSurfer current working directory and set the new one
     fscwd = None
@@ -174,7 +174,7 @@ def aparcstats2table(fsdir, output_directory,
     return statfiles
 
 
-def asegstats2table(fsdir, output_directory,
+def asegstats2table(fsdir, output_directory=None,
                     fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Generate text/ascii tables of freesurfer parcellation stats data
     'aseg.stats'. This can then be easily imported into a spreadsheet
@@ -199,8 +199,10 @@ def asegstats2table(fsdir, output_directory,
     # Fist find all the subjects with a stat dir
     statdirs = glob.glob(os.path.join(fsdir, "*", "stats"))
     subjects = [item.lstrip(os.sep).split("/")[-2] for item in statdirs]
-    with open(os.path.join(output_directory, "subjects.json"), "w") as open_file:
-        json.dump(subjects, open_file, indent=4)
+    if output_directory is not None:
+        path = os.path.join(output_directory, "subjects.json")
+        with open(path, "w") as open_file:
+            json.dump(subjects, open_file, indent=4)
 
     # Save the FreeSurfer current working directory and set the new one
     fscwd = None
@@ -585,6 +587,9 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
             snaps."/>
     </unit>    
     """
+    import clindmri.plot.pvtk as pvtk
+    from clindmri.plot.slicer import plot_image
+
     # Create a t1 subject map
     t1map = {}
     for fname in t1files:
