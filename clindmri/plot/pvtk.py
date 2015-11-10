@@ -16,6 +16,7 @@ import os
 # Caps import
 from clindmri.estimation.gdti.monomials import construct_matrix_of_monomials
 from .colors import *
+# from vtk.util.colors import *
 from .animate import images_to_gif
 
 # VTK import
@@ -483,7 +484,7 @@ def dots(points, color=(1,0,0), psize=1, opacity=1):
     return aPolyVertexActor
 
 
-def surface(points, triangles, labels, ctab, opacity=1):
+def surface(points, triangles, labels, ctab=None, opacity=1):
     """ Create a colored triangular surface.
 
     Parameters
@@ -495,9 +496,10 @@ def surface(points, triangles, labels, ctab, opacity=1):
     labels: array (n_vertices)
         Annotation id at each vertex.
         If a vertex does not belong to any label its id must be negative.
-    ctab: ndarray (n_labels, 5)
-        RGBA + label id color table array.
-    opacity: float
+    ctab: ndarray (n_labels, 5) (optional, default None)
+        RGBA + label id color table array. If None a default blue to red
+        256 levels lookup table is used.
+    opacity: float (optional, default 1)
         the actor global opacity.
 
     Returns
@@ -522,14 +524,22 @@ def surface(points, triangles, labels, ctab, opacity=1):
         vtk_triangles.InsertNextCell(vtk_triangle)
 
     # Make a lookup table using vtkColorSeries
-    nb_of_labels = len(ctab)
-    lut = vtk.vtkLookupTable()
-    lut.SetNumberOfColors(nb_of_labels)
-    lut.Build()
-    for cnt, lut_element in enumerate(ctab):
-        lut.SetTableValue(cnt, lut_element[0] / 255., lut_element[1] / 255.,
-                          lut_element[2] / 255., lut_element[3] / 255.)
-    lut.SetNanColor(1, 0, 0, 1)
+    if ctab is not None:
+        nb_of_labels = len(ctab)
+        lut = vtk.vtkLookupTable()
+        lut.SetNumberOfColors(nb_of_labels)
+        lut.Build()
+        for cnt, lut_element in enumerate(ctab):
+            lut.SetTableValue(
+                cnt, lut_element[0] / 255., lut_element[1] / 255.,
+                lut_element[2] / 255., lut_element[3] / 255.)
+        lut.SetNanColor(1, 0, 0, 1)
+    # This creates a blue to red lut.
+    else:
+        nb_of_labels = 256
+        lut.SetHueRange(0.667, 0.0)
+        lut.SetNumberOfColors(nb_of_labels)
+        lut.Build()
 
     # Create (geometry and topology) the associated polydata
     polydata = vtk.vtkPolyData()
