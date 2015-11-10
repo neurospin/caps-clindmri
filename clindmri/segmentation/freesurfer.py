@@ -308,6 +308,62 @@ def mri_convert(fsdir, regex, output_directory=None, reslice=True,
     return niftifiles
 
 
+def mri_vol2surf(hemi, volume_file, texture_file, ico_order, dat_file, fsdir,
+                 sid,  surface_name="white",
+                 fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Assigns values from a volume to each surface vertex.
+
+    Wrapper around the FreeSurfer 'mri_vol2surf' command to create the
+    described texture.
+
+    Parameters
+    ----------
+    hemi: str (mandatory)
+        hemisphere ('lh' or 'rh').
+    volume_file: str (mandatory)
+        input volume path.
+    texture_file: str (mandatory)
+        output path.
+    ico_order: int (mandatory)
+        icosahedron order in [0, 7] that will be used to generate the cortical
+        surface texture at a specific tessalation (the corresponding cortical
+        surface can be resampled using the
+        'clindmri.segmentation.freesurfer.resample_cortical_surface' function).
+    dat_file: str (mandatory)
+        structural to FreeSurfer space affine transformation matrix '.dat'
+        file as computed by 'tkregister2'.
+    fsdir: str (mandatory)
+        FreeSurfer subjects directory 'SUBJECTS_DIR'.
+    sid: str (mandatory)
+        FreeSurfer subject identifier.
+    surface_name: str (optional, default 'white')
+        The surface we  want to resample ('white' or 'pial')."
+    fsconfig: str (optional)
+        The FreeSurfer '.sh' config file.
+    """
+    # Check input parameters
+    if surface_name not in ["white", "pial"]:
+        raise ValueError("'{0}' is not a valid surface value which must be in "
+                         "['white', 'pial']".format(surface_name))
+    if ico_order < 0 or ico_order > 7:
+        raise ValueError("'Ico order '{0}' is not in 0-7 "
+                         "range.".format(orders))
+
+    # Construct the FS vol2surf command
+    cmd = ["mri_vol2surf", "--src", volume_file, "--out", texture_file,
+           "--srcreg", dat_file, "--hemi", hemi, "--trgsubject",
+           "ico", "--icoorder", "{0}".format(ico_order), "--surf",
+           surface_name, "--sd", fsdir, "--srcsubject", sid, "--noreshape",
+           "--out_type", "mgz"]
+
+    # Execute the FS command
+    recon = FSWrapper(cmd, shfile=fsconfig)
+    recon()
+    if recon.exitcode != 0:
+        raise FreeSurferRuntimeError(
+            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+
+
 def resample_cortical_surface(fsdir, regex, output_directory=None,
                               orders=[4, 5, 6, 7], surface_name="white",
                               fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):

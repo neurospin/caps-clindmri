@@ -55,7 +55,7 @@ Steps:
 
 Command:
 
-python $HOME/git/clindmri/scripts/freesurfer_conversion.py 
+python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_conversion.py 
     -v 2
     -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh
     -d /volatile/imagen/dmritest/freesurfer
@@ -119,7 +119,7 @@ parser.add_argument(
     "-v", "--verbose", dest="verbose", type=int, choices=[0, 1, 2], default=0,
     help="increase the verbosity level: 0 silent, [1, 2] verbose.")
 parser.add_argument(
-    "-e", "--errase", dest="errase", action="store_true",
+    "-e", "--erase", dest="erase", action="store_true",
     help="if activated, clean the result folder.")
 parser.add_argument(
     "-c", "--config", dest="fsconfig", metavar="FILE", required=True,
@@ -152,7 +152,7 @@ if not os.path.isdir(subjdir):
 convertdir = os.path.join(subjdir, "convert")
 if not os.path.isdir(convertdir):
     os.mkdir(convertdir)
-elif args.errase:
+elif args.erase:
     shutil.rmtree(convertdir)
     os.mkdir(convertdir)
 
