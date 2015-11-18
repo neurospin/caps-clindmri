@@ -16,6 +16,8 @@ import os
 # Caps import
 from clindmri.estimation.gdti.monomials import construct_matrix_of_monomials
 from .colors import *
+# from vtk.util.colors import *
+from .animate import images_to_gif
 
 # VTK import
 try:
@@ -62,7 +64,7 @@ def clear(ren):
     ren.RemoveAllViewProps()
 
 
-def show(ren, title="pvtk", size=(300, 300)):
+def show(ren, title="pvtk", size=(300, 300), observers=None):
     """ Show window
 
     Parameters
@@ -73,6 +75,8 @@ def show(ren, title="pvtk", size=(300, 300)):
         a string for the window title bar.
     size: (int, int)
         (width, height) of the window.
+    observers: callable
+        functions that will be called at the end of the pick event.
     """
     ren.ResetCameraClippingRange()
 
@@ -81,9 +85,20 @@ def show(ren, title="pvtk", size=(300, 300)):
     window.SetWindowName(title)
     window.SetSize(size)
 
-    style = vtk.vtkInteractorStyleTrackballCamera()
     iren = vtk.vtkRenderWindowInteractor()
+
+    picker = vtk.vtkCellPicker()
+    if observers is not None:
+        actors = ren.GetActors()
+        for func in observers:
+            func.picker = picker
+            func.actors = [actors.GetItemAsObject(index)
+                           for index in range(actors.GetNumberOfItems())]
+            picker.AddObserver("EndPickEvent", func)
+
+    style = vtk.vtkInteractorStyleTrackballCamera()
     iren.SetRenderWindow(window)
+    iren.SetPicker(picker)
     iren.SetInteractorStyle(style)
     iren.Initialize()
 
@@ -93,7 +108,7 @@ def show(ren, title="pvtk", size=(300, 300)):
 
 def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
            cam_view=None, n_frames=1, az_ang=10, size=(300, 300),
-           verbose=False):
+           animate=False, delay=100, verbose=False):
     """ This will record a snap/video of the rendered objects.
 
     Records a video as a series of ".png" files by rotating the azimuth angle
@@ -112,13 +127,21 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
     cam_focal: 3-uplet (optional, default None)
         the camera focal point.
     cam_view: 3-uplet (optional, default None)
-        the camera view up. 
+        the camera view up.
     n_frames: int (optional, default 1)
         the number of frames to save.
     az_ang: float (optional, default 10)
         the azimuthal angle of camera rotation (in degrees).
     size: 2-uplet (optional, default (300, 300))
         (width, height) of the window.
+    animate: bool (optional, default False)
+        if True agglomerate the generated snaps in a Gif and delete the
+        raw snaps.
+    delay: int (optional, default 100)
+        this option is useful for regulating the animation of image
+        sequences ticks/ticks-per-second seconds must expire before the
+        display of the next image. The default is no delay between each
+        showing of the image sequence. The default ticks-per-second is 100.
     verbose: bool (optional, default False)
         if True display debuging message.
 
@@ -166,7 +189,37 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
         writer.Write()
         camera.Azimuth(az_ang)
 
+    # Create an animation
+    if animate:
+        giffile = os.path.join(outdir, prefix + ".gif")
+        images_to_gif(snaps, giffile, delay=delay)
+        for fname in snaps:
+            os.remove(fname)
+        snaps = [giffile]
+
     return snaps
+
+
+def text(text, font_size=10, position=(0, 0), color=(0, 0, 0),
+         is_visible=True):
+    """ Generate a 2d text actor.
+    """
+    mapper = vtk.vtkTextMapper()
+    mapper.SetInput(text)
+    properties = mapper.GetTextProperty()
+    properties.SetFontFamilyToArial()
+    properties.SetFontSize(font_size)
+    properties.BoldOn()
+    properties.ShadowOn()
+    properties.SetColor(color)
+
+    actor = vtk.vtkActor2D()
+    actor.SetPosition(position)
+    if not is_visible:
+        actor.VisibilityOff()
+    actor.SetMapper(mapper)
+
+    return actor
 
 
 def tensor(coeff, order, position=(0, 0, 0),
@@ -466,7 +519,7 @@ def dots(points, color=(1,0,0), psize=1, opacity=1):
     return aPolyVertexActor
 
 
-def surface(points, triangles, labels, ctab, opacity=1):
+def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
     """ Create a colored triangular surface.
 
     Parameters
@@ -478,10 +531,13 @@ def surface(points, triangles, labels, ctab, opacity=1):
     labels: array (n_vertices)
         Annotation id at each vertex.
         If a vertex does not belong to any label its id must be negative.
-    ctab: ndarray (n_labels, 5)
-        RGBA + label id color table array.
-    opacity: float
+    ctab: ndarray (n_labels, 5) (optional, default None)
+        RGBA + label id color table array. If None a default blue to red
+        256 levels lookup table is used.
+    opacity: float (optional, default 1)
         the actor global opacity.
+    set_lut: bool (optional, default True)
+        if True set a tuned lut.
 
     Returns
     -------
@@ -505,14 +561,22 @@ def surface(points, triangles, labels, ctab, opacity=1):
         vtk_triangles.InsertNextCell(vtk_triangle)
 
     # Make a lookup table using vtkColorSeries
-    nb_of_labels = len(ctab)
     lut = vtk.vtkLookupTable()
-    lut.SetNumberOfColors(nb_of_labels)
-    lut.Build()
-    for cnt, lut_element in enumerate(ctab):
-        lut.SetTableValue(cnt, lut_element[0] / 255., lut_element[1] / 255.,
-                          lut_element[2] / 255., lut_element[3] / 255.)
-    lut.SetNanColor(1, 0, 0, 1)
+    if ctab is not None:
+        nb_of_labels = len(ctab)
+        lut.SetNumberOfColors(nb_of_labels)
+        lut.Build()
+        for cnt, lut_element in enumerate(ctab):
+            lut.SetTableValue(
+                cnt, lut_element[0] / 255., lut_element[1] / 255.,
+                lut_element[2] / 255., lut_element[3] / 255.)
+        lut.SetNanColor(1, 0, 0, 1)
+    # This creates a blue to red lut.
+    else:
+        nb_of_labels = 256
+        lut.SetHueRange(0.667, 0.0)
+        lut.SetNumberOfColors(nb_of_labels)
+        lut.Build()
 
     # Create (geometry and topology) the associated polydata
     polydata = vtk.vtkPolyData()
@@ -523,10 +587,11 @@ def surface(points, triangles, labels, ctab, opacity=1):
     # Create the mapper
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInput(polydata)
-    mapper.SetLookupTable(lut)
-    mapper.SetColorModeToMapScalars()
-    mapper.SetScalarRange(0, nb_of_labels)
-    mapper.SetScalarModeToUsePointData()
+    if set_lut:
+        mapper.SetLookupTable(lut)
+        mapper.SetColorModeToMapScalars()
+        mapper.SetScalarRange(0, nb_of_labels)
+        mapper.SetScalarModeToUsePointData()
     
     # Create the actor
     actor = vtk.vtkActor()
