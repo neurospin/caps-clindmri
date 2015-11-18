@@ -55,12 +55,12 @@ Steps:
 
 Command:
 
-python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_conversion.py 
-    -v 2
-    -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh
-    -d /volatile/imagen/dmritest/freesurfer
-    -s 000043561374
-    -e
+python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_conversion.py \
+    -v 2 \
+    -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh \
+    -d /volatile/imagen/dmritest/001/processed \
+    -s fs \
+    -e \
     -g
 
 Local multi-processing:
@@ -220,7 +220,7 @@ if args.graphics:
     pialfiles = surfaces["lh.pial"] + surfaces["rh.pial"]
     qcfiles = qc(
         niftifiles["rawavg"], niftifiles["wm"], niftifiles["aseg"],  whitefiles,
-        pialfiles, annotations, actor_ang=[90., 180., 0.],
+        pialfiles, annotations, actor_ang=[0., 0., 0.], #[90., 180., 0.],
         output_directory=None, fsconfig=args.fsconfig)
     if args.verbose > 1:
         print("[result] QC: {0}.".format(qcfiles))

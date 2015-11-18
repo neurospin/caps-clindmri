@@ -14,15 +14,21 @@ import numpy
 # Nilearn import
 from nilearn import plotting
 
-# Matplotlib
+# Matplotlib import
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from matplotlib import colors
+from matplotlib import cm
+
+# Clindmri import
+from .animate import split_image
+from .animate import get_image_dimensions
+from .animate import images_to_gif
 
 
-def plot_image(input_file, edge_file=None, overlay_file=None, contour_file=None,
-               snap_file=None, name=None, overlay_cmap=None,
-               cut_coords=None):
+def plot_image(input_file, edge_file=None, overlay_file=None,
+               contour_file=None, snap_file=None, name=None,
+               overlay_cmap=None, cut_coords=None):
     """ Plot image with edge/overlay/contour on top (useful for checking
     registration).
 
@@ -47,7 +53,7 @@ def plot_image(input_file, edge_file=None, overlay_file=None, contour_file=None,
     Returns
     -------
     snap_file: str
-        A pdf snap of the image.
+        A png snap of the image.
     """
     # Check the input images exist on the file system
     for in_file in [input_file, edge_file, overlay_file, contour_file]:
@@ -59,8 +65,11 @@ def plot_image(input_file, edge_file=None, overlay_file=None, contour_file=None,
         snap_file = input_file.split(".")[0] + ".png"
 
     # Create the plot
+    kwargs = {}
+    if isinstance(cut_coords, int):
+        kwargs["display_mode"] = "z"
     display = plotting.plot_anat(input_file, title=name or "",
-                                 cut_coords=cut_coords)
+                                 cut_coords=cut_coords, **kwargs)
     if edge_file is not None:
         display.add_edges(edge_file)
     if overlay_file is not None:
@@ -74,6 +83,8 @@ def plot_image(input_file, edge_file=None, overlay_file=None, contour_file=None,
         # This is probably a matplotlib colormap
         elif overlay_cmap in dir(plotting.cm):
             cmap = getattr(plotting.cm, overlay_cmap)
+        elif overlay_cmap in dir(cm):
+            cmap = cm.get_cmap(overlay_cmap)
         # Default
         else:
             cmap = plotting.cm.alpha_cmap((1, 1, 0))
@@ -86,6 +97,68 @@ def plot_image(input_file, edge_file=None, overlay_file=None, contour_file=None,
     display.close()
 
     return snap_file
+
+
+def animate_image(input_file, edge_file=None, overlay_file=None,
+                  contour_file=None, outdir=None, name=None,
+                  overlay_cmap=None, cut_coords=None, clean=True):
+    """ Animate an image with edge/overlay/contour on top (useful for checking
+    registration).
+
+    Parameters
+    ----------
+    input_file: str (mandatory)
+        An image to display.
+    outline_file: str (optional, default None)
+        The target image to extract the edges from.
+    outdir: str (optional, default None)
+        The destination directory: if not specified will be the 'input_file'
+        directory.
+    name: str (optional, default None)
+        The name of the plot.
+    overlay_cmap: str (optional, default None)
+        The color map to use: 'cold_hot' or 'blue_red' or None,
+        or a N*4 array with values in 0-1 (r, g, b, a).
+    cut_coords: 3-uplet (optional, default None)
+        The MNI coordinates of the point where the cut is performed.
+        If None is given, the cuts is calculated automaticaly.
+    clean: bool (default True)
+        It True delete the temporary snaps.
+
+    Returns
+    -------
+    snap_file: str
+        A gif snap of the image.
+    """
+    # Check that the snap_file has been specified
+    if outdir is None:
+        outdir = os.path.dirname(input_file)
+
+    # Create an image stacking the slices
+    snap_file = os.path.join(outdir, "nodif_proba.png")
+    plot_image(input_file, edge_file=edge_file, overlay_file=overlay_file,
+               contour_file=contour_file, snap_file=snap_file, name=name,
+               overlay_cmap=overlay_cmap, cut_coords=cut_coords)
+
+    # Get the large image dimensions
+    width, height = get_image_dimensions(snap_file)
+
+    # Split the generated large image into multiple layers to build the gif
+    # file
+    snap_files = split_image(
+        snap_file, outdir, "tmp_", width / cut_coords, height)
+
+    # Combine the png layers to obtain the gif file
+    gif_image = os.path.join(outdir, "nodif_proba.gif")
+    images_to_gif(snap_files, gif_image, delay=10)
+
+    # Clean
+    if clean:
+        os.remove(snap_file)
+        for fname in snap_files:
+            os.remove(fname)
+
+    return gif_image
 
 
 def plot_matrix(input_file, snap_file=None, name=None, transform=None):
@@ -116,7 +189,7 @@ def plot_matrix(input_file, snap_file=None, name=None, transform=None):
     if snap_file is None:
         snap_file = input_file.split(".")[0] + ".pdf"
     if not snap_file.endswith(".pdf"):
-        snape_file += ".pdf"
+        snap_file += ".pdf"
 
     # Create the plot
     matrix = numpy.loadtxt(input_file)
@@ -137,5 +210,3 @@ def plot_matrix(input_file, snap_file=None, name=None, transform=None):
         raise
 
     return snap_file
-
-    

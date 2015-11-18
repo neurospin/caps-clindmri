@@ -18,24 +18,25 @@ import numpy
 # Bredala import
 import bredala
 bredala.USE_PROFILER = False
-bredala.register("clindmri.connectivity.fsl", names=["get_profile"])
+bredala.register("clindmri.connectivity.fsl",
+                 names=["get_profile", "qc_profile"])
 bredala.register("clindmri.tractography.fsl", names=["probtrackx2"])
 bredala.register("clindmri.registration.fsl", names=["flirt"])
-bredala.register("clindmri.segmentation.freesurfer", names=["mri_vol2surf",
-    "conformed_to_native_space"])
+bredala.register("clindmri.segmentation.freesurfer", names=["mri_vol2surf"])
 
 # Clindmri imports
 from clindmri.connectivity.fsl import get_profile
-from clindmri.segmentation.freesurfer import conformed_to_native_space
+from clindmri.connectivity.fsl import qc_profile
 from clindmri.extensions.freesurfer import read_cortex_surface_segmentation
 from clindmri.extensions.freesurfer.reader import TriSurface
+from clindmri.extensions.freesurfer.reader import apply_affine_on_mesh
 from clindmri.registration.fsl import flirt
 from clindmri.extensions.fsl import flirt2aff
 
 
 # Parameters to keep trace
 __hopla__ = ["bedpostxdir", "fsdir", "subjectid", "t1_file", "nodif_file",
-             "outdir", "trf_file", "dat_file", "ico_order", "hemi"]
+             "outdir", "trf_file", "dat_file", "ico_order", "hemi", "snaps"]
 
 
 # Script documentation
@@ -87,7 +88,8 @@ Example
           -o /volatile/imagen/dmritest/001/processed/probaconnect/proba_vertices_connectivity \
           -i 7 \
           --hemi rh \
-          --indices 1
+          --indices 1 \
+          -g
 """
 
 def is_file(filearg):
@@ -156,6 +158,9 @@ parser.add_argument(
     "--indices", dest="vertices_indices", default=None, nargs="+", type=int,
     help=("the vertices indices used as seeding point to compute the "
           "connectogram. If None all the hemisphere vertices are considered."))
+parser.add_argument(
+    "-g", "--graph", dest="graphics", action="store_true",
+    help="if activated compute quality controls on the outputs.")
 args = parser.parse_args()
 
 
@@ -174,6 +179,9 @@ dat_file = args.dat_file
 ico_order = args.ico_order
 hemi = args.hemi
 vertices_indices = args.vertices_indices
+
+# Output arguments
+snaps = []
 
 
 """
@@ -261,18 +269,10 @@ Launch the tractography on the requested point of the cortical surface on the
 selected hemisphere
 """
 # Load the white mesh in the diffusion space
-physical_to_index = numpy.linalg.inv(nibabel.load(t1_file).get_affine())
+surface = TriSurface.load(whitefile)
 voxel_diff_to_t1 = flirt2aff(trf_file, nodif_file, t1_file)
 voxel_t1_to_diff = numpy.linalg.inv(voxel_diff_to_t1)
-
-# Get deformation between the ras and ras-tkregister spaces
-surface = TriSurface.load(whitefile)
-asegfile = os.path.join(segfile, "aseg.mgz")
-translation = tkregister_translation(asegfile, fsconfig)
-deformation = numpy.dot(voxel_t1_to_dest, numpy.dot(physical_to_index, translation))
-surface.vertices = apply_affine_on_mesh(surface.vertices, deformation)
-
-
+white_diff_vertices = apply_affine_on_mesh(surface.vertices, voxel_t1_to_diff)
 
 # Select the vertices of interest
 if vertices_indices is None:
@@ -283,12 +283,13 @@ textures = {}
 for index in vertices_indices:
 
     # Select the seeding vertex
-    point = surface.vertices[index]
+    point = white_diff_vertices[index]
 
     # Create a directory for each seeding vertex in order to avoid collision
     # Raise an exception if the directory has already been created
     vertexdir = os.path.join(connectdir, "{0}_{1}".format(hemi, index))
-    os.mkdir(vertexdir)
+    if not os.path.isdir(vertexdir):
+        os.mkdir(vertexdir)
 
     # Write seeding vertex coordinates to file
     seed_file = os.path.join(vertexdir, "fdt_coordinates.txt")
@@ -297,7 +298,17 @@ for index in vertices_indices:
             print(coordinate, file=open_file)
 
     # Launch the tractography on this seeding vertex
-    textures[repr(point.tolist())] = get_profile(
+    proba_file, textures[index] = get_profile(
         ico_order, nodif_file, nodifmask_file, seed_file, merged_prefix,
         vertexdir, t1_file, trf_file, dat_file, fsdir, subjectid, fsconfig)
+
+    # Launch QC if requested
+    if args.graphics:
+        qcdir = os.path.join(vertexdir, "qc")
+        if not os.path.isdir(qcdir):
+            os.mkdir(qcdir)
+        snaps.extend(
+            qc_profile(nodif_file, proba_file, textures[index],
+                       ico_order, fsdir, subjectid, qcdir, fsconfig,
+                       actor_ang=(0., 0., 0.)))
 

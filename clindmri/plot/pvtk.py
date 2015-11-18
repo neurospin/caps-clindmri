@@ -64,7 +64,7 @@ def clear(ren):
     ren.RemoveAllViewProps()
 
 
-def show(ren, title="pvtk", size=(300, 300)):
+def show(ren, title="pvtk", size=(300, 300), observers=None):
     """ Show window
 
     Parameters
@@ -75,6 +75,8 @@ def show(ren, title="pvtk", size=(300, 300)):
         a string for the window title bar.
     size: (int, int)
         (width, height) of the window.
+    observers: callable
+        functions that will be called at the end of the pick event.
     """
     ren.ResetCameraClippingRange()
 
@@ -83,9 +85,20 @@ def show(ren, title="pvtk", size=(300, 300)):
     window.SetWindowName(title)
     window.SetSize(size)
 
-    style = vtk.vtkInteractorStyleTrackballCamera()
     iren = vtk.vtkRenderWindowInteractor()
+
+    picker = vtk.vtkCellPicker()
+    if observers is not None:
+        actors = ren.GetActors()
+        for func in observers:
+            func.picker = picker
+            func.actors = [actors.GetItemAsObject(index)
+                           for index in range(actors.GetNumberOfItems())]
+            picker.AddObserver("EndPickEvent", func)
+
+    style = vtk.vtkInteractorStyleTrackballCamera()
     iren.SetRenderWindow(window)
+    iren.SetPicker(picker)
     iren.SetInteractorStyle(style)
     iren.Initialize()
 
@@ -185,6 +198,28 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
         snaps = [giffile]
 
     return snaps
+
+
+def text(text, font_size=10, position=(0, 0), color=(0, 0, 0),
+         is_visible=True):
+    """ Generate a 2d text actor.
+    """
+    mapper = vtk.vtkTextMapper()
+    mapper.SetInput(text)
+    properties = mapper.GetTextProperty()
+    properties.SetFontFamilyToArial()
+    properties.SetFontSize(font_size)
+    properties.BoldOn()
+    properties.ShadowOn()
+    properties.SetColor(color)
+
+    actor = vtk.vtkActor2D()
+    actor.SetPosition(position)
+    if not is_visible:
+        actor.VisibilityOff()
+    actor.SetMapper(mapper)
+
+    return actor
 
 
 def tensor(coeff, order, position=(0, 0, 0),
@@ -484,7 +519,7 @@ def dots(points, color=(1,0,0), psize=1, opacity=1):
     return aPolyVertexActor
 
 
-def surface(points, triangles, labels, ctab=None, opacity=1):
+def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
     """ Create a colored triangular surface.
 
     Parameters
@@ -501,6 +536,8 @@ def surface(points, triangles, labels, ctab=None, opacity=1):
         256 levels lookup table is used.
     opacity: float (optional, default 1)
         the actor global opacity.
+    set_lut: bool (optional, default True)
+        if True set a tuned lut.
 
     Returns
     -------
@@ -524,9 +561,9 @@ def surface(points, triangles, labels, ctab=None, opacity=1):
         vtk_triangles.InsertNextCell(vtk_triangle)
 
     # Make a lookup table using vtkColorSeries
+    lut = vtk.vtkLookupTable()
     if ctab is not None:
         nb_of_labels = len(ctab)
-        lut = vtk.vtkLookupTable()
         lut.SetNumberOfColors(nb_of_labels)
         lut.Build()
         for cnt, lut_element in enumerate(ctab):
@@ -550,10 +587,11 @@ def surface(points, triangles, labels, ctab=None, opacity=1):
     # Create the mapper
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInput(polydata)
-    mapper.SetLookupTable(lut)
-    mapper.SetColorModeToMapScalars()
-    mapper.SetScalarRange(0, nb_of_labels)
-    mapper.SetScalarModeToUsePointData()
+    if set_lut:
+        mapper.SetLookupTable(lut)
+        mapper.SetColorModeToMapScalars()
+        mapper.SetScalarRange(0, nb_of_labels)
+        mapper.SetScalarModeToUsePointData()
     
     # Create the actor
     actor = vtk.vtkActor()

@@ -9,8 +9,10 @@
 
 # System imports
 from __future__ import print_function
-import subprocess
 import os
+import re
+import glob
+import subprocess
 
 
 class ImageMagickWrapper(object):
@@ -93,3 +95,64 @@ def images_to_gif(input_img_list, output_file, delay=100):
     # Execute the ImageMagick command
     magick = ImageMagickWrapper(cmd)
     magick()
+
+
+def split_image(input_image, outdir, outprefix, outwidth, outheight):
+    """ Split one image into multiple images using ImageMagick convert.
+
+    Parameters
+    ----------
+    input_image: str (mandatory)
+        path to the image.
+    outdir: str (mandatory)
+        the output directory.
+    outprefix: str (mandatory)
+        the output images prefix.
+    outwidth: int (mandatory)
+        the width in pixels of the output images.
+    outheight: int (mandatory)
+        the height in pixels of the output images.
+
+    Returns
+    -------
+    output_images: list of str
+        list of the splitted images.
+    """
+    inext = os.path.splitext(os.path.basename(input_image))[-1]
+    outpattern = os.path.join(outdir, "{0}-%03d{1}".format(outprefix, inext))
+
+    # Construct the ImageMagick command
+    cmd = ["convert", input_image,
+           "-crop", "{0}x{1}".format(outwidth, outheight),
+           outpattern]
+
+    # Execute the ImageMagick command
+    magick = ImageMagickWrapper(cmd)
+    magick()
+
+    return sorted(glob.glob(outpattern.replace("%03d", "*")))
+
+
+def get_image_dimensions(input_image):
+    """ Get image dimensions using ImageMagick identify.
+
+    Parameters
+    ----------
+    input_image: str (mandatory)
+        input image.
+
+    Returns
+    -------
+    width, height: (int, int)
+        the image dimensions.
+    """
+    # Construct the ImageMagick command
+    cmd = ["identify", "-ping", "-format", "'%wx%h'", input_image]
+
+    # Execute the ImageMagick command
+    magick = ImageMagickWrapper(cmd)
+    dim_str = magick()
+    width, height = (int(dimension) for dimension
+                     in re.search("(\d+)x(\d+)", dim_str).groups())
+
+    return width, height

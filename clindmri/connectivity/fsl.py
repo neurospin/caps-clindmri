@@ -9,11 +9,13 @@
 
 # System import
 import os
+import nibabel
 
 # Clindmri imports
 from clindmri.tractography.fsl import probtrackx2
 from clindmri.registration.fsl import flirt
 from clindmri.segmentation.freesurfer import mri_vol2surf
+from clindmri.extensions.freesurfer.reader import TriSurface
 
 
 def get_profile(ico_order, nodif_file, nodifmask_file, seed_file,
@@ -57,10 +59,12 @@ def get_profile(ico_order, nodif_file, nodifmask_file, seed_file,
     sid: str (mandatory)
         FreeSurfer subject identifier.
     fsconfig: str (mandatory)
-        The FreeSurfer '.sh' config file.
+        the FreeSurfer '.sh' config file.
 
     Returns
     -------
+    proba_file: str
+        the seed probabilistic tractography volume.
     textures: dict
         a dictionary containing the probabilist texture for each hemisphere.
     """
@@ -94,203 +98,123 @@ def get_profile(ico_order, nodif_file, nodifmask_file, seed_file,
                      fsconfig=fsconfig)
         textures[hemi] = prob_texture_file
 
-    return textures
+    return proba_file, textures
 
 
-def qc_profile(hemi, mri_vol2surf_out, nodif_file, overlay_file, level,
-               fs_subjects_dir, fs_subject, output_dir, fsconfig):
-    """ Tractography QC function.
-        Generates views of :
-        - the superposition of the nodif image with tractography result volume.
-        - the connected points on the cortical surface
-        Resample cortical meshes if needed.
-        Results output are available as gif and png.
+def qc_profile(nodif_file, proba_file, proba_texture,  ico_order,
+               fsdir, sid, outdir, fsconfig, actor_ang=(0., 0., 0.)):
+    """ Connectivity profile QC.
 
-        Parameters
-        ----------
-        hemi: str (mandatory)
-            hemisphere (lh or rh).
-        mri_vol2surf_out: str (mandatory)
-            The FS mri_vol2surf mgz volume, or connection array.
-        nodif_file: str (mandatory)
-            The nodif image file.
-        overlay_file: str (mandatory)
-            The protrackx2 output volume.
-        level: int (mandatory)
-            order of icosahedron when FS option trgsubject=ico.
-            specifies the order of the icosahedral tesselation. the number of
-            vertices is given by the formula 10*2^n+2. In general, it is best
-            to use the largest size available.
-        fs_subjects_dir: str (mandatory)
-            Freesurfer subjects directory SUBJECTS_DIR.
-        fs_subject: str (mandatory)
-            Freesurfer subject name.
-        output_dir: str (mandatory)
-            The QC output directory.
-        fsconfig: str (mandatory)
-            The Freesurfer .sh config file.
+    Generates views of:
+    - the superposition of the nodif image with tractography result volume.
+    - the connected points on the cortical surface
+    Resample cortical meshes if needed.
+    Results output are available as gif and png.
 
-        """
-    subject_dir = os.path.join(fs_subjects_dir, fs_subject)
+    Parameters
+    ----------
+    nodif_file: str (mandatory)
+        file for probtrackx2 containing the no diffusion volume and associated
+        space information.
+    proba_file: str (mandatory)
+        the protrackx2 output seeding probabilistic path volume.
+    proba_texture: dict (mandatory)
+        the FreeSurfer mri_vol2surf '.mgz' 'lh' and 'rh' textrue that contains
+        the cortiacal connection strength.
+    ico_order: int (mandatory)
+        icosahedron order in [0, 7] that will be used to generate the cortical
+        surface texture at a specific tessalation (the corresponding cortical
+        surface can be resampled using the
+        'clindmri.segmentation.freesurfer.resample_cortical_surface' function).
+    fsdir: str (mandatory)
+        FreeSurfer subjects directory 'SUBJECTS_DIR'.
+    sid: str (mandatory)
+        FreeSurfer subject identifier.
+    outdir: str (mandatory)
+        The QC output directory.
+    fsconfig: str (mandatory)
+        the FreeSurfer '.sh' config file.
+    actor_ang: 3-uplet (optinal, default (0, 0, 0))
+        the actor x, y, z position (in degrees).
 
-    # Define QC images directories
-    png_outdir = os.path.join(output_dir, 'PNGs')
-    gif_outdir = os.path.join(output_dir, 'GIFs')
-    if not os.path.isdir(png_outdir):
-        os.mkdir(png_outdir)
-    if not os.path.isdir(gif_outdir):
-        os.mkdir(gif_outdir)
+    Returns
+    -------
+    snaps: list of str
+        two gifs images, one showing the connection profile as a texture on
+        the cortical surface, the other a volumic representation of the
+        deterministic tractography.
+    """
+    import clindmri.plot.pvtk as pvtk
+    from clindmri.plot.slicer import animate_image
 
-    # Generate gif of the fdt_paths overlay on the nodif image if needed
-    assert overlay_file.endswith('.nii.gz')
-    overlay_name = os.path.basename(overlay_file)[:-len('.nii.gz')]
-    prefix = 'nodif_' + overlay_name
-    output_gif_file = os.path.join(gif_outdir, prefix + '.gif')
-    if not os.path.isfile(output_gif_file):
+    # Construct/check the subject directory
+    subjectdir = os.path.join(fsdir, sid)
+    if not os.path.isdir(subjectdir):
+        raise ValueError(
+            "'{0}' is not a FreeSurfer subject directory.".format(subjectdir))
 
-        # Get the fdt_paths image shape
-        overlay_shape = nibabel.load(overlay_file).shape
+    # Check that the output QC directory exists
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
 
-        # Superpose the nodif and fdt_paths volumes with nilearn
-        nodif_and_overlay = plotting.plot_anat(nodif_file,
-                                               cut_coords=overlay_shape[2],
-                                               display_mode='z')
-        # Choose a colormap
-        cmap = cm.get_cmap('Spectral')
-
-        # Add fdt_paths overlay (from probtrackx2) on the nodif image
-        nodif_and_overlay.add_overlay(overlay_file, cmap=cmap)
-
-        # Save all the z cuts of the nodif and overlay superposition
-        all_z_cuts_png = os.path.join(png_outdir,
-                                      prefix + '.png')
-        nodif_and_overlay.savefig(all_z_cuts_png)
-
-        # Get the large image dimensions
-        width, height = get_image_dimensions(all_z_cuts_png)
-
-        # Split the large image generated by nilearn into multiple layers to
-        # build the gif file
-        z_cuts = split_image(all_z_cuts_png, png_outdir, prefix,
-                             width/overlay_shape[2], height)
-
-        # Combine the png layers to obtain the gif file
-        images_to_gif(
-            z_cuts,
-            output_gif_file,
-            delay=10
-        )
-
-    # Resample the white mesh on the icosphere if needed
-    meshfile = os.path.join(subject_dir, "convert", "{0}.white.{1}"
-                            .format(hemi, level))
-    annotfile = os.path.join(subject_dir, "convert",
-                             "{0}.aparc.annot.{1}".format(hemi, level))
-    if (not os.path.isfile(meshfile)) or (not os.path.isfile(annotfile)):
-        resample_cortical_surface(fs_subjects_dir, output_dir, orders=[level],
-                                  surface_name="white", fsconfig=fsconfig)
-
-    # Check that the input volume has the expected properties
-    assert(mri_vol2surf_out.endswith('.mgz'))
-
-    connection_array = nibabel.load(mri_vol2surf_out).get_data()
-
-    connection_array_dim = connection_array.ndim
-    connection_array_shape = connection_array.shape
-    if connection_array_dim != 3:
-        raise ValueError("Expected connection array dim : 3. Found : {0}"
-                         .format(connection_array_dim))
-    if (connection_array_shape[1] != 1) or (connection_array_shape[2] != 1):
-        raise ValueError("Expected connection array shape : (*, 1, 1). "
-                         "Found : {0}".format(connection_array_shape))
-
-    # Flatten the connection array into 1D
-    labels = connection_array.ravel()
-
-    # Load the vtk mesh
-    surface = TriSurface.load(meshfile, annotfile=annotfile)
-
-    # Define a vtk renderer + actor and add the labels on the vtk surface
-    ren = pvtk.ren()
-    actor = pvtk.surface(surface.vertices, surface.triangles, labels)
-    pvtk.add(ren, actor)
-
-    mri_vol2surf_basename = os.path.splitext(
-        os.path.basename(mri_vol2surf_out))[0]
-
-    # Generate the png layers to be combined into gif
-    rotatez_ang = 0
+    # Superpose the nodif and probabilistic tractography volumes
+    proba_shape = nibabel.load(proba_file).shape
     snaps = []
-    for _ in range(2):
-        if rotatez_ang > 0:
-            # Rotate the vtk actor along the Z axis
-            ren.GetActors().GetLastActor().RotateZ(rotatez_ang)
-        snaps += pvtk.record(ren,
-                             png_outdir,
-                             mri_vol2surf_basename + '_{0}'.format(rotatez_ang),
-                             n_frames=36,
-                             az_ang=10)
-        rotatez_ang += 90
-    snaps = sorted(snaps)
+    snaps.append(
+        animate_image(nodif_file, overlay_file=proba_file, clean=True,
+                      overlay_cmap="Spectral", cut_coords=proba_shape[2],
+                      outdir=outdir))
 
-    # Combine the png layers to obtain the gif file
-    images_to_gif(
-        snaps,
-        os.path.join(gif_outdir, mri_vol2surf_basename + '.gif'),
-        delay=10
-    )
+    # Define a renderer
+    ren = pvtk.ren()
 
-def get_image_dimensions(input_image):
-    """ Get image dimensions using ImageMagick identify.
+    # For each hemisphere
+    for hemi in ["lh", "rh"]:
 
-        Parameters
-        ----------
-        input_image: str (mandatory)
-            Input image.
+        # Get the the white mesh on the desired icosphere
+        meshfile = os.path.join(
+            subjectdir, "convert", "{0}.white.{1}.native".format(
+                hemi, ico_order))
+        if not os.path.isfile(meshfile):
+            raise ValueError(
+                "'{0}' is not a valid white mesh. Generate it through the "
+                "'clindmri.scripts.freesurfer_conversion' script.".format(
+                    meshfile))
 
-        Returns
-        -------
-        width, height: (int, int)
-            The image dimensions.
-    """
-    cmd = ["identify", "-ping", "-format", "'%wx%h'", input_image]
-    # Execute the ImageMagick command
-    magick = ImageMagickWrapper(cmd)
-    dim_str = magick()
-    width, height = (int(dimension) for dimension
-                     in re.search('(\d+)x(\d+)', dim_str).groups())
-    return width, height
+        # Check texture has the expected extension, size
+        texture_file = proba_texture[hemi]
+        if not texture_file.endswith(".mgz"):
+            raise ValueError("'{0}' is not a '.mgz' file. Format not "
+                             "supported.".format(texture_file))
+        profile_array = nibabel.load(texture_file).get_data()
+        profile_dim = profile_array.ndim
+        profile_shape = profile_array.shape
+        if profile_dim != 3:
+            raise ValueError(
+                "Expected profile texture array of dimension 3 not "
+                "'{0}'".format(profile_dim))
+        if (profile_shape[1] != 1) or (profile_shape[2] != 1):
+            raise ValueError(
+                "Expected profile texture array of shape (*, 1, 1) not "
+                "'{0}'.".format(profile_shape))
 
+        # Flatten the profile texture array
+        texture = profile_array.ravel()
 
-def split_image(input_image, output_dir, output_prefix, output_width,
-                output_height):
-    """ Split one image into multiple images using ImageMagick convert.
+        # Load the white mesh
+        surface = TriSurface.load(meshfile)
 
-        Parameters
-        ----------
-        input_image: str (mandatory)
-            Path to the image.
-        output_dir: str (mandatory)
-            The output directory.
-        output_prefix: str (mandatory)
-            The output images prefix.
-        output_width: int (mandatory)
-            The width in pixels of the output images.
-        output_height: int (mandatory)
-            The height in pixels of the output images.
+        # Define a textured surface actor
+        actor = pvtk.surface(surface.vertices, surface.triangles, texture)
+        actor.RotateX(actor_ang[0])
+        actor.RotateY(actor_ang[1])
+        actor.RotateZ(actor_ang[2])
+        pvtk.add(ren, actor)
 
-        Returns
-        -------
-        output_img_list: list of str
-            List of the output images.
-    """
-    input_extension = os.path.splitext(os.path.basename(input_image))[-1]
-    output_pattern = os.path.join(output_dir, "{0}-%03d{1}"
-                                  .format(output_prefix, input_extension))
-    cmd = ["convert", input_image,
-           "-crop", "{0}x{1}".format(output_width, output_height),
-           output_pattern]
-    # Execute the ImageMagick command
-    magick = ImageMagickWrapper(cmd)
-    magick()
-    return sorted(glob.glob(output_pattern.replace("%03d", "*")))
+    # Create a animaton with the generated surface
+    qcname = "profile_as_texture"
+    snaps.extend(
+        pvtk.record(ren, outdir, qcname, n_frames=36, az_ang=10, animate=True,
+                    delay=10))
+
+    return snaps
