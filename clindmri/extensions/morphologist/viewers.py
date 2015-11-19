@@ -10,7 +10,7 @@
 # System import
 from __future__ import print_function
 import nibabel.gifti.giftiio as gio
-import numpy
+import os
 
 # Clindmri import
 import clindmri.plot.pvtk as pvtk
@@ -71,8 +71,14 @@ class LabelsOnPick(object):
 
 
 def display_folds(folds_file, labels, weights, white_file=None,
-                  interactive=False):
+                  interactive=True, snap=False, animate=False, outdir=None,
+                  name="folds", actor_ang=(0., 0., 0.)):
     """ Display the folds computed by morphologist.
+
+    The scene supports one feature activated via the keystroke:
+
+    * 'p': Pick the data at the current mouse point. This will pop-up a window
+      with information on the current pick (ie. the fold name). 
 
     Parameters
     ----------
@@ -84,8 +90,19 @@ def display_folds(folds_file, labels, weights, white_file=None,
         a mapping between a mesh label and its wheight in [0, 1].
     white_file: str (optional, default None)
         if specified the white surface will be displayed.
-    interactive: bool (optional, default False)
+    interactive: bool (optional, default True)
         if True display the renderer.
+    snap: bool (optional, default False)
+        if True create a snap of the scene: need a valid outdir.
+    animate: bool (optional, default False)
+        if True create a gif 360 degrees animation of the scene: need a valid
+        outdir.
+    outdir: str (optional, default None)
+        an existing directory.
+    name: str (optional, default 'folds')
+        the basename of the generated files.
+    actor_ang: 3-uplet (optinal, default (0, 0, 0))
+        the actors x, y, z position (in degrees).
     """
     # Load the folds file
     image = gio.read(folds_file)
@@ -117,6 +134,9 @@ def display_folds(folds_file, labels, weights, white_file=None,
         actor = pvtk.surface(surf.vertices, surf.triangles,
                              surf.labels + weight)
         actor.label = label
+        actor.RotateX(actor_ang[0])
+        actor.RotateY(actor_ang[1])
+        actor.RotateZ(actor_ang[2])
         pvtk.add(ren, actor)
 
     # Add the white surface if specified
@@ -130,8 +150,11 @@ def display_folds(folds_file, labels, weights, white_file=None,
         triangles = image.darrays[1].data
         surf = TriSurface(vectices, triangles, labels=None)
         actor = pvtk.surface(surf.vertices, surf.triangles, surf.labels,
-                             opacity=1, set_lut=True)
+                             opacity=1, set_lut=False)
         actor.label = "white"
+        actor.RotateX(actor_ang[0])
+        actor.RotateY(actor_ang[1])
+        actor.RotateZ(actor_ang[2])
         pvtk.add(ren, actor)
 
     # Show the renderer
@@ -139,8 +162,22 @@ def display_folds(folds_file, labels, weights, white_file=None,
         actor = pvtk.text("!!!!", font_size=15, position=(10, 10),
                           is_visible=False)
         pvtk.add(ren, actor)
-        obs = LabelsOnPick(actor, to_keep_actors=["white"])
+        obs = LabelsOnPick(actor, static_position=True,
+                           to_keep_actors=["white"])
         pvtk.show(ren, title="morphologist folds", observers=[obs])
+
+    # Create a snap
+    if snap:
+        if not os.path.isdir(outdir):
+            raise ValueError("'{0}' is not a valid directory.".format(outdir))
+        pvtk.record(ren, outdir, name, n_frames=1)
+
+    # Create an animation
+    if animate:
+        if not os.path.isdir(outdir):
+            raise ValueError("'{0}' is not a valid directory.".format(outdir))
+        pvtk.record(ren, outdir, name, n_frames=36, az_ang=10, animate=True,
+                    delay=25)
 
 
 def parse_graph(graph_file):
