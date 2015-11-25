@@ -10,6 +10,9 @@
 # System import
 import os
 import nibabel
+import numpy
+import glob
+from operator import itemgetter
 
 # Clindmri imports
 from clindmri.tractography.fsl import probtrackx2
@@ -45,7 +48,7 @@ def get_profile(ico_order, nodif_file, nodifmask_file, seed_file,
         path prefix for bedpostX model samples files injected in probtrackx2
         (eg., fsl.bedpostX/merged).
     outdir: str (mandatory)
-        output directory.
+        the output directory.
     t1_file : str (mandatory)
         T1 image file used to align the produced probabilitic tractography map
         to the T1 space.
@@ -99,6 +102,76 @@ def get_profile(ico_order, nodif_file, nodifmask_file, seed_file,
         textures[hemi] = prob_texture_file
 
     return proba_file, textures
+
+
+def get_connectogram(profilesdir):
+    """ Concatenate the conectivity profiles in a matrix.
+
+    Parameters
+    ----------
+    profilesdir: str (mandatory)
+        the directory with subfolders of the form '<hemi>_<seed_vertice>'
+        containing the profiles of interest.
+
+    Returns
+    -------
+    connectogram: array
+        the connectogram array with sorted profiles as rows (according to the
+        profile seeding vertice index). Profiles are formed with the right and
+        left hemisphere probabilistic tractography volume projections in this
+        order.
+    seed_vertices: array
+        the connectogram rows associated seed vertices indices.
+    """
+    # List and sort the profile subfolders
+    rhtextures = glob.glob(os.path.join(profilesdir, "*", "rh.*.mgz"))
+    rhtextures = [(int(texture.split(os.sep)[-2].split("_")[1]), texture) 
+                  for texture in rhtextures]
+    rhtextures = sorted(rhtextures, key=itemgetter(0))
+
+    # Construct the connectogram
+    connectogram = []
+    seed_vertices = []
+    for seed_vertice, rhtexture in rhtextures:
+
+        # Store the current seed vertice
+        seed_vertices.append(seed_vertice)
+
+        # Check if a left hemi texture has been computed
+        lhtextures = glob.glob(
+            os.path.join(profilesdir,"*_{0}".format(seed_vertice), "lh.*.mgz"))
+        textures = [rhtexture]
+        if len(lhtextures) == 1:
+            textures.append(lhtextures[0])
+
+        # Concatenate the right and left texture in a row
+        profile = []
+        for hemitexture in textures:
+            
+            # Load the hemi profile
+            profile_array = nibabel.load(hemitexture).get_data()
+            profile_dim = profile_array.ndim
+            profile_shape = profile_array.shape
+            if profile_dim != 3:
+                raise ValueError(
+                    "Expected profile texture array of dimension 3 not "
+                    "'{0}'".format(profile_dim))
+            if (profile_shape[1] != 1) or (profile_shape[2] != 1):
+                raise ValueError(
+                    "Expected profile texture array of shape (*, 1, 1) not "
+                    "'{0}'.".format(profile_shape))
+            texture = profile_array.ravel()
+            profile.extend(texture.tolist())
+
+        # Add this profile to the connectogram
+        connectogram.append(profile)
+
+    # Create a connectogram and rows indices arrays
+    connectogram = numpy.asarray(connectogram)
+    seed_vertices = numpy.asarray(seed_vertices)
+
+    return connectogram, seed_vertices
+    
 
 
 def qc_profile(nodif_file, proba_file, proba_texture,  ico_order,

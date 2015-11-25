@@ -592,11 +592,14 @@ def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
         mapper.SetColorModeToMapScalars()
         mapper.SetScalarRange(0, nb_of_labels)
         mapper.SetScalarModeToUsePointData()
+    else:
+        mapper.ScalarVisibilityOff()
     
     # Create the actor
     actor = vtk.vtkActor()
     actor.SetMapper(mapper)
     actor.GetProperty().SetOpacity(opacity)
+    actor.GetProperty().SetColor(0.9, 0.9, 0.9)
 
     return actor
     

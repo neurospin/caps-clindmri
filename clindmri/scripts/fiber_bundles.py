@@ -44,6 +44,7 @@ display_amount = 20000
 rfactor = 3
 speed_factor = 1
 min_length = 10
+actor_ang = (-90, 0, -90)
 
 
 """
@@ -185,9 +186,14 @@ if use_vtk:
     ren = pvtk.ren()
     colors = line_colors(fibers)
     actor = pvtk.tubes(fibers, colors)
+    actor.RotateX(actor_ang[0])
+    actor.RotateY(actor_ang[1])
+    actor.RotateZ(actor_ang[2])
     pvtk.add(ren, actor)
     ren.SetBackground(1, 1, 1)
     pvtk.record(ren, qcdir, "fibers", az_ang=45, n_frames=2)
+    pvtk.record(ren, qcdir, "fibers", n_frames=36, az_ang=10, animate=True,
+                delay=25)
     pvtk.show(ren)
     pvtk.clear(ren)
 
@@ -216,7 +222,7 @@ else:
     with open(cluster_file) as open_file:
         clusters = json.load(open_file)
 
-if use_vtk:
+if 1: #use_vtk:
     ren = pvtk.ren()
     colors = numpy.ones((len(fibers),))
     nb_clusters = len(clusters)
@@ -224,11 +230,17 @@ if use_vtk:
         indices = item["indices"]
         colors[indices] = numpy.random.rand()
     actor = pvtk.line(fibers, colors.tolist())
+    actor.RotateX(actor_ang[0])
+    actor.RotateY(actor_ang[1])
+    actor.RotateZ(actor_ang[2])
     pvtk.add(ren, actor)
     ren.SetBackground(1, 1, 1)
-    pvtk.record(ren, qcdir, "clusters", az_ang=45, n_frames=2)
+    #pvtk.record(ren, qcdir, "clusters", az_ang=45, n_frames=2)
+    pvtk.record(ren, qcdir, "clusters", n_frames=36, az_ang=10, animate=True,
+                delay=25)
     pvtk.show(ren)
     pvtk.clear(ren)
+    print(stop)
 
 
 """
