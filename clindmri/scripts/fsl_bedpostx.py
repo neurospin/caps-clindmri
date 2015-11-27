@@ -49,10 +49,8 @@ orientations.
 
 **Steps**
 
-1 - To obtain what is brain and what isn't, we generate a brain mask using BET
-    on the corrected b0 data.
-2 - Estimating fibre orientations using model-based deconvolution using
-    Bedpostx
+1 - Obtain what is brain and what isn't using BET on the corrected b0 data.
+2 - Estimate fibre orientations using FSL Bedpostx model-based deconvolution.
 
 **Input files**
 
@@ -76,50 +74,6 @@ python $HOME/git/clindmri/scripts/fsl_bedpostx.py
     -d /volatile/imagen/dmritest/fsl
     -s 000043561374
     -e
-
-**Local multi-processing**
-
-from hopla import hopla
-import os
-myhome = os.environ["HOME"]
-status, exitcodes = hopla(
-    os.path.join(myhome, "git", "caps-clindmri", "clindmri", "scripts",
-                 "fsl_bedpostx.py"),
-    c="/i2bm/local/fsl-5.0.9/etc/fslconf/fsl.sh",
-    d="/volatile/imagen/dmritest/fsl",
-    s=["000043561374", "000085724167", "000052904972"],
-    f=["", "", ""]
-    g=["", "", ""]
-    b=["", "", ""]
-    e=True,
-    hopla_iterative_kwargs=["s", "f", "g", "b"],
-    hopla_cpus=3,
-    hopla_logfile="/volatile/imagen/dmritest/fsl/bedpostx.log",
-    hopla_verbose=1)
-
-**Cluster multi-processing**
-
-from hopla.converter import hopla
-import os
-
-myhome = os.environ["HOME"]
-status, exitcodes = hopla(
-    os.path.join(myhome, "git", "caps-clindmri", "clindmri", "scripts",
-                 "fsl_bedpostx.py"),
-    c="/i2bm/local/fsl-5.0.9/etc/fslconf/fsl.sh",
-    d="/volatile/imagen/dmritest/fsl",
-    s=["000043561374", "000085724167", "000052904972"],
-    f=["", "", ""]
-    g=["", "", ""]
-    b=["", "", ""]
-    e=True,
-    hopla_iterative_kwargs=["s", "f", "g", "b"],
-    hopla_cpus=3,
-    hopla_logfile="/volatile/imagen/dmritest/fsl/bedpostx.log",
-    hopla_verbose=1, hopla_cluster=True,
-    hopla_cluster_logdir="$HOME/test/log",
-    hopla_cluster_python_cmd="/usr/bin/python2.7",
-    hopla_cluster_queue="Cati_LowPrio"))
 """
 
 
@@ -203,12 +157,11 @@ image.
 Non-diffusion-weighted mask
 ---------------------------
 
-For probabalistic tractography, we need to generate a mask within which we
-constrain tractography. We first select the first non-diffusion weighted
-volume of the DTI sequence and then use 'bet2' on this image with a fractional
-intensity threshold of 0.25 (this is generally a robust threshold to
-remove unwanted tissue from a non-diffusion weighted image) and the 'm' option
-that creates a binary 'nodif_brain_mask' image.
+We need to generate a mask on which the model is estimated. We first select the
+first non-diffusion weighted volume of the DTI sequence and then use 'bet2' on
+this image with a fractional intensity threshold of 0.25 (this is generally a
+robust threshold to remove unwanted tissue from a non-diffusion weighted image)
+and the 'm' option that creates a binary 'nodif_brain_mask' image.
 """
 
 # get the b0 file
@@ -256,9 +209,9 @@ plot_image(b0_file, contour_file=mask_file, snap_file=snap_file, name="bet")
 Generating PDFs
 ---------------
 
-We use 'bedpostx' to generate PDFs of the diffusion direction and get on
-with tractography. 'bedpostx' takes about 5 hours of compute time. This routine
-need specific files that are checked with the 'bedpostx_datacheck' command.
+We use 'bedpostx' to generate PDFs of the diffusion direction. 'bedpostx' takes
+about 5 hours of compute time. This routine need specific files that are
+checked with the 'bedpostx_datacheck' command.
 """
 
 # copy all necessary files in the same repertory for the bedpostx execution
