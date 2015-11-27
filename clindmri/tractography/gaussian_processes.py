@@ -26,7 +26,7 @@ from .bounded_thinplate import innerproduct_thinplate3d
 #     1- cov_fun_name: The name of the covariance function.
 #     2- cov_fun_module: The name of the module in which the covariance
 #        function can be found. This must be somewhere on your PYTHONPATH.
-#     3- extra_cov_params: A dictionary whose keys are the extra parameters 
+#     3- extra_cov_params: A dictionary whose keys are the extra parameters
 #        the covariance function takes, and whose values are brief sentences
 #        explaining the roles of those parameters. This dictionary will be used
 #        to generate the docstring of the bundle.
@@ -44,7 +44,7 @@ fiber_deltas = lambda f: numpy.sqrt(((f[1:] - f[:-1]) ** 2).sum(1))
 class FiberGP(object):
     """ Single fiber as a gaussian process (GP).
 
-    The GP of a fiber ~ the blurred indicator function (BIF) of a fiber is 
+    The GP of a fiber ~ the blurred indicator function (BIF) of a fiber is
     characterized by the BIF for a smooth trajectory as a GP with covariance
     Cs (geometric) and by the anisotrpoic blurring of a smooth function as a
     GP with covariance Cd (diffusion).
@@ -73,8 +73,8 @@ class FiberGP(object):
         # Check that we have a 3d fiber object
         if fiber.shape[1] != 3 or fiber.ndim != 2:
             raise ValueError(
-                "Unsupported fiber representation with shape '{0}', must be of "
-                "the form '(N, 3)' where N is the number of fiber "
+                "Unsupported fiber representation with shape '{0}', must be "
+                "of the form '(N, 3)' where N is the number of fiber "
                 "samples.".format(fiber.shape))
 
         # Set the geometric covariance function
@@ -110,7 +110,7 @@ class FiberGP(object):
         self.gpd = None
         self.covs_matrix = None
         self.covd_matrix = None
-        self.create_gps()  
+        self.create_gps()
 
     def create_gps(self):
         """ Create the smoothness GP gps and the diffusion-associated
@@ -132,7 +132,7 @@ class FiberGP(object):
         # Some parameters needed to compute the inner product
         self._invcovs_matrix = numpy.linalg.inv(self.covs_matrix)
         self.alphas = numpy.asmatrix(
-            numpy.dot(numpy.ones(len(self._fiber)), self._invcovs_matrix )).T
+            numpy.dot(numpy.ones(len(self._fiber)), self._invcovs_matrix)).T
 
         # Normally-distributed observations on gaussian process distribution
         self.gps = gp.observe(
@@ -151,7 +151,7 @@ class FiberGP(object):
                box 2 in the direction d must be less than or equal to the sum
                of the radius of 1 in the d direction and the radius of 2 in
                the d direction, d in {x, y, z}.
-    
+
         Parmaeters
         ----------
         bbox1, bbox2: array (2, 3)
@@ -177,8 +177,9 @@ class FiberGP(object):
 
         # Compute the intersection
         if is_intersected:
-            return numpy.vstack((numpy.vstack((bbox1[0],bbox2[0])).max(axis=0),
-                                 numpy.vstack((bbox1[1],bbox2[1])).min(axis=0)))
+            return numpy.vstack(
+                (numpy.vstack((bbox1[0], bbox2[0])).max(axis=0),
+                 numpy.vstack((bbox1[1], bbox2[1])).min(axis=0)))
         else:
             return None
 
@@ -211,7 +212,7 @@ class FiberGP(object):
         # Compute the fiber point to point distance matrix
         difference = (fiber2[numpy.newaxis, ..., :] -
                       fiber1[..., numpy.newaxis, :])
-        distmatrix = numpy.sqrt((difference ** 2).sum(axis=-1))      
+        distmatrix = numpy.sqrt((difference ** 2).sum(axis=-1))
 
         # Compute analytically the integral of the inner product
         if fiber1 is fiber2:
@@ -282,8 +283,6 @@ class FiberGP(object):
         dist: array (n(n-1)/2,)
             a condensed fiber to fiber distance matrix.
         """
-        from clindmri.clustering.metrics import mam_distances
-
         # Method parameters
         nb_fibers = len(fibers)
         condensed_matrix_size = int(nb_fibers * (nb_fibers - 1) / 2)
@@ -461,4 +460,3 @@ def constant_mean(x, val=0):
     for GPs.
     """
     return numpy.zeros(x.shape[:-1], dtype=float) + val
-

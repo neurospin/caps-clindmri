@@ -23,7 +23,7 @@ def bundle_representative_track_scene(tracks, representative_track_indx):
 
     Parameters
     ----------
-    tracks : sequence (N, ) 
+    tracks : sequence (N, )
        of tracks as arrays, shape (N1,3) .. (Nm,3).
     representative_track_indx: int
        index of the representative track of the bundle.
@@ -34,8 +34,8 @@ def bundle_representative_track_scene(tracks, representative_track_indx):
         the scene actors.
     """
     bundle_actor = pvtk.line(tracks, 1)
-    representative_track_actor = pvtk.line(tracks[representative_track_indx], 0,
-                                           linewidth=2)
+    representative_track_actor = pvtk.line(
+        tracks[representative_track_indx], 0, linewidth=2)
     return [bundle_actor, representative_track_actor]
 
 

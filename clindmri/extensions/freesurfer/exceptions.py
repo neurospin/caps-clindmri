@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2013 - 2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -18,10 +18,10 @@ class FreeSurferError(Exception):
 class FreeSurferRuntimeError(FreeSurferError):
     """ Error thrown when call to the FreeSurfer software failed.
     """
-    def __init__(self, algorithm_name, parameter_file, error=None):
+    def __init__(self, algorithm_name, parameters, error=None):
         message = (
-            "FreeSurfer call for '{0}' failed, with parameters: '{1}' "
-            "failed: {2}.".format(algorithm_name, parameter_file, error))
+            "FreeSurfer call for '{0}' failed, with parameters: '{1}'.Error:: "
+            "{2}.".format(algorithm_name, parameters, error))
         super(FreeSurferRuntimeError, self).__init__(message)
 
 
@@ -31,4 +31,3 @@ class FreeSurferConfigurationError(FreeSurferError):
     def __init__(self, command_name):
         message = "FreeSurfer command '{0}' not found.".format(command_name)
         super(FreeSurferConfigurationError, self).__init__(message)
-

@@ -18,9 +18,10 @@ from .exceptions import FreeSurferConfigurationError
 
 
 class FSWrapper(object):
-    """ Parent class for the wrapping of FreeSurfer functions. 
-    """   
-    def __init__(self, cmd, shfile="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Parent class for the wrapping of FreeSurfer functions.
+    """
+    def __init__(self, cmd,
+                 shfile="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
         """ Initialize the FSWrapper class by setting properly the
         environment.
 
@@ -39,11 +40,10 @@ class FSWrapper(object):
         """ Run the FreeSurfer command.
         """
         # Check Freesurfer has been configured so the command can be found
-        process = subprocess.Popen(
-                    ["which", self.cmd[0]],
-                    env=self.environment,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
+        process = subprocess.Popen(["which", self.cmd[0]],
+                                   env=self.environment,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
         self.stdout, self.stderr = process.communicate()
         self.exitcode = process.returncode
         if self.exitcode != 0:
@@ -62,7 +62,7 @@ class FSWrapper(object):
         self.stdout, self.stderr = process.communicate()
         self.exitcode = process.returncode
 
-    def _environment(self) :
+    def _environment(self):
         """ Return a dictionary of the environment needed by FreeSurfer
         binaries.
         """
@@ -72,7 +72,7 @@ class FSWrapper(object):
         # Configure FreeSurfer
         if env is None:
 
-            # FreeSurfer home directory    
+            # FreeSurfer home directory
             fs_home = os.environ.get("FREESURFER_HOME", None)
             env = {}
             if fs_home is not None:
@@ -86,6 +86,6 @@ class FSWrapper(object):
 
         # Load configuration
         else:
-            env = json.loads(env)  
+            env = json.loads(env)
 
         return env

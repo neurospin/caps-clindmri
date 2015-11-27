@@ -8,7 +8,6 @@
 ##########################################################################
 
 # System import
-import os
 import numpy
 from scipy.weave import ext_tools
 
@@ -26,16 +25,16 @@ def build_bounded_thinplate_module():
     # Calling 'pymc' conventions for new covariance:
     #   1- C: A Fortran-contiguous (column  major) array of dimension
     #      (x.shape[0], y.shape[0]). This should be overwritten in-place.
-    #   2- x, y: Arrays of input locations. These will be regularized: they 
+    #   2- x, y: Arrays of input locations. These will be regularized: they
     #      will be two-dimensional, with the first index iterating over points
     #      and the second over coordinates.
-    #   3- cmin=0, cmax=-1: Optional arguments. If non-default values are 
+    #   3- cmin=0, cmax=-1: Optional arguments. If non-default values are
     #      provided, only the slice C[:,cmin:cmax] of C should be overwritten.
     #   4- symm=False: An optional argument indicating whether x and y are the
-    #      same array. If True, C will be square and only the upper triangle of 
+    #      same array. If True, C will be square and only the upper triangle of
     #      C should be overwritten.
     #   5- R: an extra argument needed for the fiber GP computation.
-    thinplate3d_code=r"""
+    thinplate3d_code = r"""
     //thinplate3d(C, R, cmin, cmax, symm)
     if (cmax == -1) {
         cmax = Nc[1];
@@ -83,7 +82,7 @@ def build_bounded_thinplate_module():
             }
       }
     }
-    else { 
+    else {
         for(int j=0; j<Nc[1]; j++) {
             for(int i=0; i<Nc[0]; i++) {
                 C2(i, j) = covIntegralThinPlateR3Normalized(C2(i, j), Q, R,
@@ -109,7 +108,7 @@ def build_bounded_thinplate_module():
                 t = (2. * d3 - 3. * R * d2 + R3) / R3;
             }
             else {
-                t = 0.0e0; 
+                t = 0.0e0;
             }
         }
         return t;
@@ -124,7 +123,8 @@ def build_bounded_thinplate_module():
         double w, double Q, double R, const double* Qs, const double* Rs);
 
     double covIntegralThinPlateR3Normalized(double w, double Q, double R,
-                                            const double* Qs, const double* Rs) {
+                                            const double* Qs,
+                                            const double* Rs) {
         if (w == 0) {
             return acos(-1.0e0) * double(Qs[3]) * double(84 * Rs[3] - 81 * R *
                    Qs[2] + 35 * Qs[3]) / double(Rs[3]) / 0.315e3;
@@ -150,7 +150,7 @@ def build_bounded_thinplate_module():
                    pow(w, 4) - 60 * Qs[3] * pow(w, 6) - 4 * pow(w, 9)) /
                    double(Qs[3]) / double(Rs[3]) / 0.1575e4;
         }
-        else { 
+        else {
             return acos(-1.0e0) * double(Qs[3]) * double(-135 * Qs[2] * w *
                    R - 420 * pow(w, 3) * R + 140 * w * Rs[3] + 180 * Qs[2] *
                    pow(w, 2) + 280 * pow(w, 4) + 8 * Qs[4]) / double(w) /
@@ -160,7 +160,7 @@ def build_bounded_thinplate_module():
 
     double covIntTP3NRminusQLTw(double w, double Q, double R,
                                 const double* Qs, const double* Rs) {
-        if ( w <= Q ) { 
+        if ( w <= Q ) {
             return  -0.40e1 / 0.525e3 * M_PI * (pow(w, 10) / 0.2e1 + (-0.5e1 /
                     0.8e1 * R - 0.5e1 / 0.8e1 * Q) * pow(w, 9) - 0.135e3 /
                     0.64e2 * pow(w, 8) * R * Q + (0.5e1 / 0.2e1 * Rs[3] +
@@ -243,13 +243,14 @@ def build_bounded_thinplate_module():
 
     # We need an extension function that calls this C function to do this.
     # This is possible by including the above code snippet as 'support code'
-    # and then calling it from the extension function. 
+    # and then calling it from the extension function.
     func = ext_tools.ext_function("thinplate3d_mat", thinplate3d_code,
                                   thinplate_arguments)
     mod.add_function(func)
-    func = ext_tools.ext_function("innerproduct_thinplate3d",
+    func = ext_tools.ext_function(
+        "innerproduct_thinplate3d",
         innerproduct_thinplate3d_code, innerproduct_arguments)
-    mod.add_function(func) 
+    mod.add_function(func)
     mod.customize.add_support_code(thinplate_support_code)
     mod.customize.add_support_code(
         innerproduct_thinplate3d_normalized_support_code)

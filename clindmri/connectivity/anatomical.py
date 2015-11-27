@@ -19,7 +19,7 @@ from clindmri.extensions.fsl import flirt2aff
 
 def diffusion_connectivity_matrix(track_file, label_file, outdir,
                                   symmetric=True):
-    """ Counts the tracks that start and end at each label pair in the 
+    """ Counts the tracks that start and end at each label pair in the
     diffusion space.
 
     Parameters
@@ -87,7 +87,7 @@ def diffusion_connectivity_matrix(track_file, label_file, outdir,
 def anatomical_connectivity_matrix(track_file, label_file, t1_file,
                                    diffusion_file, trf_file,  outdir,
                                    symmetric=True):
-    """ Counts the tracks that start and end at each label pair in the 
+    """ Counts the tracks that start and end at each label pair in the
     anatomical space.
 
     Parameters

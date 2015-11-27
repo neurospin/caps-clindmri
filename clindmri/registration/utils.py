@@ -42,5 +42,5 @@ def extract_image(in_file, index, out_file=None):
     extracted_array = image.get_data()[..., index]
     extracted_image = nibabel.Nifti1Image(extracted_array, affine)
     nibabel.save(extracted_image, out_file)
-    
+
     return out_file

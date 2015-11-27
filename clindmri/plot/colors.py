@@ -40,5 +40,5 @@ def line_colors(streamlines):
     for track in streamlines:
         orient = track[-1] - track[0]
         orient = numpy.abs(orient / numpy.linalg.norm(orient))
-        colors.append(orient) 
+        colors.append(orient)
     return colors

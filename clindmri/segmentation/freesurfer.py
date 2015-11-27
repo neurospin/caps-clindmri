@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2013-2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -29,16 +29,19 @@ from clindmri.registration.utils import extract_image
 
 
 """
-create a registration matrix between the conformed space (orig.mgz) and the native anatomical (rawavg.mgz) 
+create a registration matrix between the conformed space (orig.mgz) and the
+native anatomical (rawavg.mgz)
 
-tkregister2 --mov rawavg.mgz --targ orig.mgz --reg register.native.dat --noedit --regheader
+tkregister2 --mov rawavg.mgz --targ orig.mgz --reg register.native.dat
+--noedit --regheader
 
-map the surface to the native space: 
+map the surface to the native space:
 
-mri_surf2surf --sval-xyz pial --reg register.native.dat rawavg.mgz --tval lh.pial.native --tval-xyz --hemi lh --s subjectname
-
-
+mri_surf2surf --sval-xyz pial --reg register.native.dat rawavg.mgz --tval
+lh.pial.native --tval-xyz --hemi lh --s subjectname
 """
+
+
 def recon_all(fsdir, anatfile, sid, output_directory=None,
               fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Performs all the FreeSurfer cortical reconstruction process.
@@ -75,7 +78,7 @@ def recon_all(fsdir, anatfile, sid, output_directory=None,
     * Cortical Parcellation - Desikan_Killiany and Christophe (Labeling)
     * Cortical Parcellation Statistics
     * Cortical Ribbon Mask
-    * Cortical Parcellation mapping to Aseg 
+    * Cortical Parcellation mapping to Aseg
 
     <unit>
         <input name="fsdir" type="Directory" description="The
@@ -156,10 +159,10 @@ def aparcstats2table(fsdir, output_directory=None,
 
             statfile = os.path.join(
                 fsoutdir, "aparc_stats_{0}_{1}.csv".format(hemi, meas))
-            statfiles.append(statfile)  
-            cmd = ["aparcstats2table", "--subjects"] + subjects + ["--hemi", 
-                   hemi, "--meas", meas, "--tablefile", statfile,
-                   "--delimiter", "comma", "--parcid-only"]
+            statfiles.append(statfile)
+            cmd = ["aparcstats2table", "--subjects"] + subjects + [
+                "--hemi", hemi, "--meas", meas, "--tablefile", statfile,
+                "--delimiter", "comma", "--parcid-only"]
 
             recon = FSWrapper(cmd, shfile=fsconfig)
             recon()
@@ -217,9 +220,9 @@ def asegstats2table(fsdir, output_directory=None,
 
     # Call freesurfer
     statfile = os.path.join(fsoutdir, "aseg_stats_volume.csv")
-    statfiles.append(statfile)  
-    cmd = ["asegstats2table", "--subjects"] + subjects + ["--meas", "volume",
-           "--tablefile", statfile, "--delimiter", "comma"]
+    statfiles.append(statfile)
+    cmd = ["asegstats2table", "--subjects"] + subjects + [
+        "--meas", "volume", "--tablefile", statfile, "--delimiter", "comma"]
     recon = FSWrapper(cmd, shfile=fsconfig)
     recon()
     if recon.exitcode != 0:
@@ -295,7 +298,7 @@ def mri_convert(fsdir, regex, output_directory=None, reslice=True,
             cmd += ["--reslice_like", reference_file]
             basename = basename + ".native"
         converted_file = os.path.join(outdir, basename + ".nii.gz")
-        niftifiles.append(converted_file) 
+        niftifiles.append(converted_file)
         cmd += [inputfile, converted_file]
 
         # Execute the FS command
@@ -347,7 +350,7 @@ def mri_vol2surf(hemi, volume_file, texture_file, ico_order, dat_file, fsdir,
                          "['white', 'pial']".format(surface_name))
     if ico_order < 0 or ico_order > 7:
         raise ValueError("'Ico order '{0}' is not in 0-7 "
-                         "range.".format(orders))
+                         "range.".format(ico_order))
 
     # Construct the FS vol2surf command
     cmd = ["mri_vol2surf", "--src", volume_file, "--out", texture_file,
@@ -364,9 +367,10 @@ def mri_vol2surf(hemi, volume_file, texture_file, ico_order, dat_file, fsdir,
             recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
 
 
-def resample_cortical_surface(fsdir, regex, output_directory=None,
-                              orders=[4, 5, 6, 7], surface_name="white",
-                              fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+def resample_cortical_surface(
+        fsdir, regex, output_directory=None, orders=[4, 5, 6, 7],
+        surface_name="white",
+        fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Resamples one cortical surface onto an icosahedron.
 
     Resample the white or pial FreeSurfer cotical surface using the
@@ -469,15 +473,16 @@ def resample_cortical_surface(fsdir, regex, output_directory=None,
                 if recon.exitcode != 0:
                     raise FreeSurferRuntimeError(
                         recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
-    
+
     # Remove duplicate annotation files
     annotfiles = list(set(annotfiles))
 
     return resamplefiles, annotfiles
 
 
-def conformed_to_native_space(fsdir, regex, output_directory=None,
-                              fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+def conformed_to_native_space(
+        fsdir, regex, output_directory=None,
+        fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Create a registration matrix between the conformed space (orig.mgz)
     and the native anatomical (rawavg.mgz).
 
@@ -535,13 +540,14 @@ def conformed_to_native_space(fsdir, regex, output_directory=None,
     return trffiles
 
 
-def surf_convert(fsdir, t1files, surffiles, output_directory=None, rm_orig=False,
+def surf_convert(fsdir, t1files, surffiles, output_directory=None,
+                 rm_orig=False,
                  fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
     """ Export FreeSurfer surfaces to the native space.
 
     Note that all the vetices are given in the index coordinate system.
     The subjecy id in the t1 and surf files must appear in the -3 position:
-        xxx/subject_id/convert/t1.nii.gz 
+        xxx/subject_id/convert/t1.nii.gz
 
     <unit>
         <input name="fsdir" type="Directory" description="The
@@ -558,7 +564,7 @@ def surf_convert(fsdir, t1files, surffiles, output_directory=None, rm_orig=False
             configuration batch."/>
         <output name="csurffiles" type="List_File" description="The converted
             surfaces in the native space."/>
-    </unit>  
+    </unit>
     """
     # Create a t1 subject map
     t1map = {}
@@ -599,7 +605,7 @@ def surf_convert(fsdir, t1files, surffiles, output_directory=None, rm_orig=False
         if rm_orig:
             os.remove(fname)
 
-    return csurffiles   
+    return csurffiles
 
 
 def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
@@ -609,7 +615,7 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
     outputs.
 
     The subjecy id in the input files must appear in the -3 position:
-        xxx/subject_id/convert/t1.nii.gz 
+        xxx/subject_id/convert/t1.nii.gz
 
     Steps:
 
@@ -618,7 +624,7 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
     * t1-surfaces overlays
 
     actor_ang: float (optional, default 0)
-        the actor rotation in the z direction.   
+        the actor rotation in the z direction.
 
     <unit>
         <input name="t1files" type="List_File" description="The
@@ -641,7 +647,7 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
             configuration batch."/>
         <output name="qcfiles" type="List_File" description="The quality check
             snaps."/>
-    </unit>    
+    </unit>
     """
     import clindmri.plot.pvtk as pvtk
     from clindmri.plot.slicer import plot_image
@@ -676,20 +682,20 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
 
             # Get the triangular mesh
             basename = os.path.basename(fname).replace(
-                name, "aparc.annot").replace(".native", "") 
+                name, "aparc.annot").replace(".native", "")
             annotfile = os.path.join(os.path.dirname(fname), basename)
             if annotfile not in annotfiles:
                 raise ValueError(
                     "Annotation file '{0}' can't be found.".format(annotfile))
             surface = TriSurface.load(fname, annotfile=annotfile)
-            
+
             # Construct the surfaces binarized volume
             binarizedfile = os.path.join(qcdir, qcname + ".nii.gz")
             overlay = numpy.zeros(t1_image.shape, dtype=numpy.uint)
             indices = numpy.round(surface.vertices).astype(int).T
-            indices[0, numpy.where(indices[0]>=t1_image.shape[0])] = 0
-            indices[1, numpy.where(indices[1]>=t1_image.shape[1])] = 0
-            indices[2, numpy.where(indices[2]>=t1_image.shape[2])] = 0
+            indices[0, numpy.where(indices[0] >= t1_image.shape[0])] = 0
+            indices[1, numpy.where(indices[1] >= t1_image.shape[1])] = 0
+            indices[2, numpy.where(indices[2] >= t1_image.shape[2])] = 0
             overlay[indices.tolist()] = 1
             overlay_image = nibabel.Nifti1Image(overlay, t1_image.get_affine())
             nibabel.save(overlay_image, binarizedfile)
@@ -698,8 +704,8 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
                        name=qcname, overlay_cmap="cold_hot")
             qcfiles.append(snap_file)
 
-            # Create a vtk surface actor of the cortex surface with the associated
-            # labels
+            # Create a vtk surface actor of the cortex surface with the
+            # associated labels
             ctab = [item["color"] for _, item in surface.metadata.items()]
             actor = pvtk.surface(
                 surface.vertices, surface.triangles, surface.labels, ctab)
@@ -721,7 +727,7 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
         os.path.dirname(fsconfig), "FreeSurferColorLUT.txt"))
     cmap = []
     nb_values = numpy.asarray(fs_lut_colors.keys()).max()
-    cmap = numpy.zeros((nb_values , 4), dtype=numpy.single)
+    cmap = numpy.zeros((nb_values, 4), dtype=numpy.single)
     for key, color in fs_lut_colors.items():
         if key > 0:
             cmap[key - 1, :3] = color
@@ -731,7 +737,7 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
     # Compute t1-images overlays
     for name, files in [("aseg", asegfiles), ("wm", wmfiles)]:
         for fname in files:
-        
+
             # Get the t1 reference image
             subject_id = fname.split("/")[-3]
             t1file = t1map[subject_id]
@@ -744,8 +750,8 @@ def qc(t1files, wmfiles, asegfiles, whitefiles, pialfiles, annotfiles,
 
             # Troncate the color map based on the label max
             array = nibabel.load(fname).get_data()
-            order = sorted(set(array.flatten()))  
-            ccmap = cmap[order[1] :order[-1] + 1]
+            order = sorted(set(array.flatten()))
+            ccmap = cmap[order[1]: order[-1] + 1]
 
             # Overlay the current image with the t1 image
             qcname = "t1-{0}".format(name)
@@ -885,7 +891,8 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
                         index += shift_lh
                     seed_array[numpy.where(hemi_label_array == index)] = 1
                     seed_file = os.path.join(
-                        seedsdir, "{0}-{1}.nii.gz".format(hemi, item["region"]))
+                        seedsdir,
+                        "{0}-{1}.nii.gz".format(hemi, item["region"]))
                     seed_image = nibabel.Nifti1Image(seed_array, dest_affine)
                     nibabel.save(seed_image, seed_file)
                     seed_array[...] = 0
@@ -897,10 +904,9 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
         mask_file = os.path.join(outdir, prefix + "_mask.nii.gz")
         mask_image = nibabel.Nifti1Image(mask_array, dest_affine)
         nibabel.save(mask_image, mask_file)
-    label_array = label_array["lh"] + label_array["rh"]     
+    label_array = label_array["lh"] + label_array["rh"]
     label_file = os.path.join(outdir, prefix + "_gyri_labels.nii.gz")
     label_image = nibabel.Nifti1Image(label_array, dest_affine)
     nibabel.save(label_image, label_file)
 
     return mask_file, label_file, seeds, reg_file, trf_file
-

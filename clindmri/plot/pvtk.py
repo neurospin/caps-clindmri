@@ -178,7 +178,7 @@ def record(ren, outdir, prefix, cam_pos=None, cam_focal=None,
         render = vtk.vtkRenderLargeImage()
         render.SetInput(ren)
         render.SetMagnification(1)
-        render.Update()  
+        render.Update()
         writer.SetInputConnection(render.GetOutputPort())
         current_prefix = prefix
         if n_frames > 1:
@@ -283,31 +283,31 @@ def tensor(coeff, order, position=(0, 0, 0),
 
 
 def line(lines, colors, lut=None, opacity=1, linewidth=1):
-    """ Create a line actor for one or more lines.    
-    
+    """ Create a line actor for one or more lines.
+
     Parameters
     ----------
     lines : list
         a list of array representing a line as 3d points (N, 3)
     colors : a float or a list of float
         0 <= scalar <= 1 to associate a color to the bloc of lines or
-        a list of scalar to associate different color to lines.       
+        a list of scalar to associate different color to lines.
     opacity : float (default = 1)
         the transparency of the bloc of lines: 0 <= transparency <= 1.
     linewidth : float (default = 1)
-        the line thickness.              
-    
+        the line thickness.
+
     Returns
     ----------
     actor: vtkActor
-        the bloc of lines actor.    
+        the bloc of lines actor.
     """
     # Consteruct le lookup table if necessary
     if lut is None:
-		lut = vtk.vtkLookupTable()
-		lut.SetHueRange(0.667, 0.0)
-		lut.Build()
-    
+        lut = vtk.vtkLookupTable()
+        lut.SetHueRange(0.667, 0.0)
+        lut.Build()
+
     # If one line is passed as a numpy array, create virtually a list around
     # this structure
     if not isinstance(lines, types.ListType):
@@ -316,12 +316,12 @@ def line(lines, colors, lut=None, opacity=1, linewidth=1):
     # If one color is passed, create virtually a list around this structure
     if not isinstance(colors, types.ListType):
         colors = [colors] * len(lines)
-      
+
     # Create vtk structures
     vtk_points = vtk.vtkPoints()
     vtk_line = vtk.vtkCellArray()
     vtk_scalars = vtk.vtkFloatArray()
-  
+
     # Go through all lines for the rendering
     point_id = 0
     for line, scalar in zip(lines, colors):
@@ -336,11 +336,11 @@ def line(lines, colors, lut=None, opacity=1, linewidth=1):
         for point_position in range(nb_of_points - 1):
 
             # Get the segment [p0, p1]
-            p0 = line[point_position] 
+            p0 = line[point_position]
             p1 = line[point_position + 1]
 
             # Set line points
-            vtk_points.InsertNextPoint(p0)               
+            vtk_points.InsertNextPoint(p0)
             vtk_points.InsertNextPoint(p1)
 
             # Set color property
@@ -348,33 +348,33 @@ def line(lines, colors, lut=None, opacity=1, linewidth=1):
             vtk_scalars.InsertNextTuple1(scalars[point_position])
             vtk_scalars.InsertNextTuple1(scalars[point_position])
 
-            # Set line segment         
+            # Set line segment
             vtk_line.InsertNextCell(2)
             vtk_line.InsertCellPoint(point_id)
             vtk_line.InsertCellPoint(point_id + 1)
-                    
-            point_id += 2            
+
+            point_id += 2
 
     # Create the line polydata
     polydata = vtk.vtkPolyData()
     polydata.SetPoints(vtk_points)
     polydata.SetLines(vtk_line)
     polydata.GetPointData().SetScalars(vtk_scalars)
-  
+
     # Create the line mapper
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInput(polydata)
     mapper.SetLookupTable(lut)
-    mapper.SetColorModeToMapScalars() 
-    mapper.SetScalarRange(0.0, 1.0)  
+    mapper.SetColorModeToMapScalars()
+    mapper.SetScalarRange(0.0, 1.0)
     mapper.SetScalarModeToUsePointData()
-       
+
     # Create the line actor
-    actor=vtk.vtkActor()
+    actor = vtk.vtkActor()
     actor.SetMapper(mapper)
     actor.GetProperty().SetOpacity(opacity)
     actor.GetProperty().SetLineWidth(linewidth)
-    
+
     return actor
 
 
@@ -388,11 +388,11 @@ def tubes(lines, colors, opacity=1, linewidth=0.15, tube_sides=8,
     lines : list
         a list of array representing a line as 3d points (N, 3)
     colors : array (N, 3)
-        rgb colors.       
+        rgb colors.
     opacity : float (default = 1)
         the transparency of the bloc of lines: 0 <= transparency <= 1.
     linewidth : float (default = 1)
-        the line thickness. 
+        the line thickness.
     tube_sides: int
         the tube resolution.
     lod: bool
@@ -400,8 +400,8 @@ def tubes(lines, colors, opacity=1, linewidth=0.15, tube_sides=8,
     lod_points: int
         number of points to be used when LOD is in effect.
     lod_points_size: int
-        size of points when lod is in effect.            
-    
+        size of points when lod is in effect.
+
     Returns
     ----------
     actor: vtkActor or vtkLODActor
@@ -474,7 +474,7 @@ def tubes(lines, colors, opacity=1, linewidth=0.15, tube_sides=8,
     return profile
 
 
-def dots(points, color=(1,0,0), psize=1, opacity=1):
+def dots(points, color=(1, 0, 0), psize=1, opacity=1):
     """ Create one or more 3d dot points.
 
     Returns
@@ -482,30 +482,31 @@ def dots(points, color=(1,0,0), psize=1, opacity=1):
     actor: vtkActor
         one actor handling all the points.
     """
-    if points.ndim==2:
-        points_no=points.shape[0]
+    if points.ndim == 2:
+        points_no = points.shape[0]
     else:
-        points_no=1
+        points_no = 1
 
     polyVertexPoints = vtk.vtkPoints()
     polyVertexPoints.SetNumberOfPoints(points_no)
     aPolyVertex = vtk.vtkPolyVertex()
     aPolyVertex.GetPointIds().SetNumberOfIds(points_no)
 
-    cnt=0
-    if points.ndim>1:
+    cnt = 0
+    if points.ndim > 1:
         for point in points:
             polyVertexPoints.InsertPoint(cnt, point[0], point[1], point[2])
             aPolyVertex.GetPointIds().SetId(cnt, cnt)
-            cnt+=1
+            cnt += 1
     else:
         polyVertexPoints.InsertPoint(cnt, points[0], points[1], points[2])
         aPolyVertex.GetPointIds().SetId(cnt, cnt)
-        cnt+=1
+        cnt += 1
 
     aPolyVertexGrid = vtk.vtkUnstructuredGrid()
     aPolyVertexGrid.Allocate(1, 1)
-    aPolyVertexGrid.InsertNextCell(aPolyVertex.GetCellType(), aPolyVertex.GetPointIds())
+    aPolyVertexGrid.InsertNextCell(aPolyVertex.GetCellType(),
+                                   aPolyVertex.GetPointIds())
 
     aPolyVertexGrid.SetPoints(polyVertexPoints)
     aPolyVertexMapper = vtk.vtkDataSetMapper()
@@ -573,7 +574,7 @@ def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
         lut.SetNanColor(1, 0, 0, 1)
     # This creates a blue to red lut.
     else:
-        nb_of_labels = 256
+        nb_of_labels = 255
         lut.SetHueRange(0.667, 0.0)
         lut.SetNumberOfColors(nb_of_labels)
         lut.Build()
@@ -594,7 +595,7 @@ def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
         mapper.SetScalarModeToUsePointData()
     else:
         mapper.ScalarVisibilityOff()
-    
+
     # Create the actor
     actor = vtk.vtkActor()
     actor.SetMapper(mapper)
@@ -602,4 +603,3 @@ def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
     actor.GetProperty().SetColor(0.9, 0.9, 0.9)
 
     return actor
-    

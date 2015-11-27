@@ -125,7 +125,7 @@ def get_connectogram(profilesdir):
     """
     # List and sort the profile subfolders
     rhtextures = glob.glob(os.path.join(profilesdir, "*", "rh.*.mgz"))
-    rhtextures = [(int(texture.split(os.sep)[-2].split("_")[1]), texture) 
+    rhtextures = [(int(texture.split(os.sep)[-2].split("_")[1]), texture)
                   for texture in rhtextures]
     rhtextures = sorted(rhtextures, key=itemgetter(0))
 
@@ -138,8 +138,8 @@ def get_connectogram(profilesdir):
         seed_vertices.append(seed_vertice)
 
         # Check if a left hemi texture has been computed
-        lhtextures = glob.glob(
-            os.path.join(profilesdir,"*_{0}".format(seed_vertice), "lh.*.mgz"))
+        lhtextures = glob.glob(os.path.join(
+            profilesdir, "*_{0}".format(seed_vertice), "lh.*.mgz"))
         textures = [rhtexture]
         if len(lhtextures) == 1:
             textures.append(lhtextures[0])
@@ -147,7 +147,7 @@ def get_connectogram(profilesdir):
         # Concatenate the right and left texture in a row
         profile = []
         for hemitexture in textures:
-            
+
             # Load the hemi profile
             profile_array = nibabel.load(hemitexture).get_data()
             profile_dim = profile_array.ndim
@@ -171,7 +171,6 @@ def get_connectogram(profilesdir):
     seed_vertices = numpy.asarray(seed_vertices)
 
     return connectogram, seed_vertices
-    
 
 
 def qc_profile(nodif_file, proba_file, proba_texture,  ico_order,
