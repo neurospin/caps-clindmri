@@ -1,11 +1,14 @@
 #! /usr/bin/env python
 ##########################################################################
-# NSAP - Copyright (C) CEA, 2013 - 2015
+# NSAP - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 # for details.
 ##########################################################################
+
+# System import
+import os
 
 # Clindmri import
 from clindmri.extensions.fsl import FSLWrapper
@@ -13,7 +16,7 @@ from clindmri.extensions.fsl.exceptions import FSLRuntimeError
 
 
 def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
-         c=None, t=None, e=None):
+         c=None, t=None, e=None, shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command bet2.
 
     The basic usage is:
@@ -48,17 +51,18 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
     outline_file: str
         the brain surface outline overlaid onto original image.
     inskull_mask_file, inskull_mesh_file,
-    outskull_mask_file, outskull_mesh_file,
+    outskull_mask_file, outskull_mesh_file, 
     outskin_mask_file, outskin_mesh_file,
     skull_mask_file: str
         rough skull image.
+    shfile: str (optional, default NeuroSpin path)
+        the path to the FSL 'fsl.sh' configuration file.
     """
     # Call bet2
-    fslprocess = FSLWrapper("bet2")
+    fslprocess = FSLWrapper("bet2", shfile=shfile)
     fslprocess()
     if fslprocess.exitcode != 0:
-        raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
-                              fslprocess.stderr)
+        raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]))
 
     # Format outputs
     image_ext = fslprocess.output_ext[fslprocess.environment["FSLOUTPUTTYPE"]]
@@ -67,7 +71,7 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
         mask_file = output + "_mask" + image_ext
     mesh_file = None
     if e is not None:
-        mesh_file = output + "_mesh.vtk"
+        mesh_file = basename + "_mesh.vtk"
     outline_file = None
     if o is not None:
         outline_file = output + "_outline" + image_ext
@@ -77,7 +81,7 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
     outskull_mesh_file = None
     outskin_mask_file = None
     outskin_mesh_file = None
-    skull_mask_file = None
+    skull_mask_file = None    
     if s is not None:
         inskull_mask_file = output + "_inskull_mask" + image_ext
         inskull_mesh_file = output + "_inskull_mesh" + image_ext
@@ -85,10 +89,10 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
         outskull_mesh_file = output + "_outskull_mesh" + image_ext
         outskin_mask_file = output + "_outskin_mask" + image_ext
         outskin_mesh_file = output + "_outskin_mesh" + image_ext
-        skull_mask_file = output + "_skull_mask" + image_ext
+        skull_mask_file = output + "_skull_mask" + image_ext 
     if n is not None:
-        output = None
+        output = None 
 
     return (output, mask_file, mesh_file, outline_file, inskull_mask_file,
-            inskull_mesh_file, outskull_mask_file, outskull_mesh_file,
+            inskull_mesh_file, outskull_mask_file, outskull_mesh_file, 
             outskin_mask_file, outskin_mesh_file, skull_mask_file)

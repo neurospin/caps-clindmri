@@ -19,7 +19,8 @@ from clindmri.extensions.fsl.exceptions import FSLRuntimeError
 def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
                 nsteps=2000, cthr=0.2, loopcheck=None, onewaycondition=None,
                 usef=None, simple=None, seedref=None, steplength=0.5,
-                fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=None):
+                fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=None,
+                shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command probtrackx2.
 
     Single voxel
@@ -145,6 +146,11 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
         --fibst     Force a starting fibre for tracking - default=1, i.e.
                     first fibre orientation. Only works if randfib==0
         --rseed     Random seed
+        
+    Parameters
+    ----------
+    shfile: str (optional, default NeuroSpin path)
+        the path to the FSL 'fsl.sh' configuration file.
 
     Returns
     -------
@@ -154,7 +160,8 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
         a voxel-by-target connection matrix.
     """
     # Call bedpostx
-    fslprocess = FSLWrapper("probtrackx2 --opd --forcedir", optional="ALL")
+    fslprocess = FSLWrapper("probtrackx2 --opd --forcedir", shfile=shfile,
+                            optional="ALL")
     fslprocess()
     if fslprocess.exitcode != 0:
         raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
@@ -169,7 +176,8 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
     return proba_files, network_file
 
 
-def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None):
+def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None,
+             shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command bedpostx.
 
     Usage: bedpostx <input> [options]
@@ -193,6 +201,11 @@ def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None):
     Type 'xfibres --help' for a list of available options
     Default options will be bedpostx default (see above), and not xfibres
     default.
+    
+    Parameters
+    ----------
+    shfile: str (optional, default NeuroSpin path)
+        the path to the FSL 'fsl.sh' configuration file.
 
     Returns
     -------
@@ -217,7 +230,7 @@ def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None):
         loaded into fslview for easy viewing of diffusion directions
     """
     # Call bedpostx
-    fslprocess = FSLWrapper("bedpostx")
+    fslprocess = FSLWrapper("bedpostx", shfile=shfile)
     fslprocess()
     if fslprocess.exitcode != 0:
         raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
@@ -237,10 +250,17 @@ def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None):
             dyads)
 
 
-def bedpostx_datacheck(input):
+def bedpostx_datacheck(input, shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps bedpostx_datacheck
 
     Usage: bedpostx_datacheck input
+    
+    Parameters
+    ----------
+    input: str (mandatory)
+        the folder to check.
+    shfile: str (optional, default NeuroSpin path)
+        the path to the FSL 'fsl.sh' configuration file.
 
     Returns
     -------
@@ -248,7 +268,7 @@ def bedpostx_datacheck(input):
         True if all the data are present in the input directory
     """
     # Call bedpostx_datacheck
-    fslprocess = FSLWrapper("bedpostx_datacheck")
+    fslprocess = FSLWrapper("bedpostx_datacheck", shfile=shfile)
     fslprocess()
     if fslprocess.exitcode != 0:
         raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),

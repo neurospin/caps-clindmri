@@ -28,7 +28,6 @@ except:
 
 # clindmri modules
 from clindmri.segmentation.fsl import bet2
-from clindmri.plot.slicer import plot_image
 from clindmri.tractography.fsl import bedpostx
 from clindmri.registration.utils import extract_image
 from clindmri.tractography.fsl import bedpostx_datacheck
@@ -122,7 +121,15 @@ parser.add_argument(
 parser.add_argument(
     "-s", "--subjectid", dest="subjectid", required=True,
     help="the subject identifier.")
+parser.add_argument(
+    "--graph", dest="graphics", action="store_true",
+    help="if activated compute quality controls on the FreeSurfer outputs.")
 args = parser.parse_args()
+
+
+# Import graphics modules if necessary
+if args.graphics:
+    from clindmri.plot.slicer import plot_image
 
 
 """
@@ -180,8 +187,9 @@ if not os.path.isdir(qcdir):
     os.makedirs(qcdir)
 
 # create a pdf snap of the b0 image
-snap_file = os.path.join(qcdir, "nodif.pdf")
-plot_image(b0_file, snap_file=snap_file, name="nodif")
+if args.graphics:
+    snap_file = os.path.join(qcdir, "nodif.pdf")
+    plot_image(b0_file, snap_file=snap_file, name="nodif")
 
 # generate a brain mask on the corrected b0 data
 b0_brain_file = os.path.join(subjdir, "nodif_brain")
@@ -194,15 +202,17 @@ if len(bet_files) == 0:
         b0_file,
         b0_brain_file,
         m=True,
-        f=0.25)
+        f=0.25,
+        shfile=args.config)
 else:
     mask_file = sorted(bet_files)[0]
     if not os.path.isfile(mask_file):
         raise IOError("FileDoesNotExist: '{0}'.".format(mask_file))
 
 # create a pdf snap of the brain mask
-snap_file = os.path.join(qcdir, "bet.pdf")
-plot_image(b0_file, contour_file=mask_file, snap_file=snap_file, name="bet")
+if args.graphics:
+    snap_file = os.path.join(qcdir, "bet.pdf")
+    plot_image(b0_file, contour_file=mask_file, snap_file=snap_file, name="bet")
 
 
 """
@@ -226,7 +236,7 @@ if len(os.listdir(bedpostx_outdir)) == 0:
                  bedpostx_indir, "data." + data_ext))
     shutil.copy2(args.bvecs_file, os.path.join(bedpostx_indir, "bvecs"))
     shutil.copy2(args.bvals_file, os.path.join(bedpostx_indir, "bvals"))
-    if not bedpostx_datacheck(bedpostx_indir):
+    if not bedpostx_datacheck(bedpostx_indir, shfile=args.config):
         raise IOError("'{0}' does not contain the data expected by "
                       "'bedpostx'.".format(bedpostx_indir))
 
@@ -234,7 +244,8 @@ if len(os.listdir(bedpostx_outdir)) == 0:
     (bedpostx_outdir, merged_th, merged_ph,
      merged_f, mean_th, mean_ph,
      mean_f, dyads) = bedpostx(
-        bedpostx_indir)
+        bedpostx_indir,
+        shfile=args.config)
 else:
     merged_files = glob.glob(os.path.join(bedpostx_outdir, "merged*"))
     if len(merged_files) == 0:

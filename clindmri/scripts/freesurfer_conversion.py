@@ -64,7 +64,7 @@ python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_conversion.py \
     -d /volatile/imagen/dmritest/001/processed \
     -s fs \
     -e \
-    -g
+    --graph
 
 Local multi-processing:
 
@@ -136,7 +136,7 @@ parser.add_argument(
     "-s", "--subjectid", dest="subjectid", required=True,
     help="the subject identifier.")
 parser.add_argument(
-    "-g", "--graph", dest="graphics", action="store_true",
+    "--graph", dest="graphics", action="store_true",
     help="if activated compute quality controls on the FreeSurfer outputs.")
 args = parser.parse_args()
 
