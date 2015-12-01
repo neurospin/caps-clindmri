@@ -182,9 +182,10 @@ if not os.path.isfile(b0_file):
         out_file=b0_file)
 
 # Get the qc output directory
-qcdir = os.path.join(subjdir, "qc")
-if not os.path.isdir(qcdir):
-    os.makedirs(qcdir)
+if args.graphics:
+    qcdir = os.path.join(subjdir, "qc")
+    if not os.path.isdir(qcdir):
+        os.makedirs(qcdir)
 
 # create a pdf snap of the b0 image
 if args.graphics:
