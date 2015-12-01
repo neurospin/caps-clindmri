@@ -31,7 +31,7 @@ class FSLWrapper(object):
     def __init__(self, name, shfile="/etc/fsl/5.0/fsl.sh", optional=None):
         """ Initialize the FSLWrapper class by setting properly the
         environment.
-
+        
         Parameters
         ----------
         name: str (mandatory)
@@ -50,6 +50,9 @@ class FSLWrapper(object):
 
     def __call__(self):
         """ Run the FSL command.
+
+        Note that the command is built from the parent frame and that the
+        'shfile' parameter is reserved.
         """
         # Update the command to execute
         self._update_command()
@@ -109,6 +112,10 @@ class FSLWrapper(object):
 
         # Update the command
         for parameter_name in args:
+        
+            # Skip 'shfile' parameter
+            if parameter_name == "shfile":
+                continue
 
             # Get parameter value
             parameter_value = values[parameter_name]
