@@ -14,10 +14,13 @@ import os
 import shutil
 
 # Bredala import
-import bredala
-bredala.USE_PROFILER = False
-bredala.register("clindmri.segmentation.freesurfer", names=["aparcstats2table",
-    "asegstats2table"])
+try:
+    import bredala
+    bredala.USE_PROFILER = False
+    bredala.register("clindmri.segmentation.freesurfer",
+                     names=["aparcstats2table", "asegstats2table"])
+except:
+    pass
 
 # Clindmri import
 from clindmri.segmentation.freesurfer import aparcstats2table
@@ -37,17 +40,18 @@ Generate text/ascii tables of FreeSurfer parcellation stats data
 'aseg.stats' and '?h.aparc.stats'. This can then be easily imported into a
 spreadsheet and/or stats program.
 
-The statistics are generated in a 'stats' sub folde of the FreeSurfer
+The statistics are generated in a 'stats' sub folder of the FreeSurfer
 'SUBJECTS_DIR' directory.
 
 Command:
 
-python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_stats.py 
+python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_stats.py
     -v 2
     -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh
     -d /neurospin/imagen/FU2/processed/freesurfer
     -e
 """
+
 
 def is_file(filearg):
     """ Type for argparse - checks that file exists but does not open.
@@ -56,6 +60,7 @@ def is_file(filearg):
         raise argparse.ArgumentError(
             "The file '{0}' does not exist!".format(filearg))
     return filearg
+
 
 def is_directory(dirarg):
     """ Type for argparse - checks that directory exists.
@@ -71,7 +76,7 @@ parser.add_argument(
     "-v", "--verbose", dest="verbose", type=int, choices=[0, 1, 2], default=0,
     help="increase the verbosity level: 0 silent, [1, 2] verbose.")
 parser.add_argument(
-    "-e", "--errase", dest="errase", action="store_true",
+    "-e", "--erase", dest="erase", action="store_true",
     help="if activated, clean the subject folder.")
 parser.add_argument(
     "-c", "--config", dest="fsconfig", metavar="FILE", required=True,
@@ -91,12 +96,14 @@ if args.verbose > 0:
     print("[info] Directory: {0}.".format(args.fsdir))
 fsdir = args.fsdir
 statsdir = os.path.join(fsdir, "stats")
-if os.path.isdir(statsdir) and args.errase:
+if os.path.isdir(statsdir) and args.erase:
     shutil.rmtree(statsdir)
+if not os.path.isdir(statsdir):
+    os.makedirs(statsdir)
 
 
 """
-Summuraize all the subjects' statistics
+Summarize all the subjects' statistics
 """
 statfiles = aparcstats2table(fsdir, fsconfig=args.fsconfig)
 statfiles.extend(asegstats2table(fsdir, fsconfig=args.fsconfig))

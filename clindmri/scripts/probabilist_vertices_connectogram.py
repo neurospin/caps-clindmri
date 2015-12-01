@@ -16,18 +16,21 @@ import glob
 import numpy
 
 # Bredala import
-import bredala
-bredala.USE_PROFILER = False
-bredala.register("clindmri.connectivity.fsl",
-                 names=["get_profile", "qc_profile"])
-bredala.register("clindmri.tractography.fsl", names=["probtrackx2"])
-bredala.register("clindmri.registration.fsl", names=["flirt"])
-bredala.register("clindmri.segmentation.freesurfer", names=["mri_vol2surf"])
+try:
+    import bredala
+    bredala.USE_PROFILER = False
+    bredala.register("clindmri.connectivity.fsl",
+                     names=["get_profile", "qc_profile"])
+    bredala.register("clindmri.tractography.fsl", names=["probtrackx2"])
+    bredala.register("clindmri.registration.fsl", names=["flirt"])
+    bredala.register("clindmri.segmentation.freesurfer",
+                     names=["mri_vol2surf"])
+except:
+    pass
 
 # Clindmri imports
 from clindmri.connectivity.fsl import get_profile
 from clindmri.connectivity.fsl import qc_profile
-from clindmri.extensions.freesurfer import read_cortex_surface_segmentation
 from clindmri.extensions.freesurfer.reader import TriSurface
 from clindmri.extensions.freesurfer.reader import apply_affine_on_mesh
 from clindmri.registration.fsl import flirt
@@ -76,21 +79,24 @@ List options
 Example
 -------
 
->> python $HOME/git/caps-clindmri/clindmri/scripts/probabilist_vertices_connectogram.py \
-          -v 2 \
-          -e \
-          -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh \
-          -d /volatile/imagen/dmritest/001/processed \
-          -s fs \
-          -b /volatile/imagen/dmritest/001/processed/probaconnect/bedpostx.bedpostX \
-          -a /volatile/imagen/dmritest/001/processed/probaconnect/t1-1mm-1-001.nii.gz \
-          -n /volatile/imagen/dmritest/001/processed/probaconnect/nodif.nii.gz \
-          -o /volatile/imagen/dmritest/001/processed/probaconnect/proba_vertices_connectivity \
-          -i 7 \
-          --hemi rh \
-          --indices 1 \
-          -g
+>> python $HOME/git/caps-clindmri/clindmri/scripts/
+        probabilist_vertices_connectogram.py \
+  -v 2 \
+  -e \
+  -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh \
+  -d /volatile/imagen/dmritest/001/processed \
+  -s fs \
+  -b /volatile/imagen/dmritest/001/processed/probaconnect/bedpostx.bedpostX \
+  -a /volatile/imagen/dmritest/001/processed/probaconnect/t1-1mm-1-001.nii.gz \
+  -n /volatile/imagen/dmritest/001/processed/probaconnect/nodif.nii.gz \
+  -o /volatile/imagen/dmritest/001/processed/probaconnect/
+          proba_vertices_connectivity \
+  -i 7 \
+  --hemi rh \
+  --indices 1 \
+  -g
 """
+
 
 def is_file(filearg):
     """ Type for argparse - checks that file exists but does not open.
@@ -99,6 +105,7 @@ def is_file(filearg):
         raise argparse.ArgumentError(
             "The file '{0}' does not exist!".format(filearg))
     return filearg
+
 
 def is_directory(dirarg):
     """ Type for argparse - checks that directory exists.
@@ -149,8 +156,8 @@ parser.add_argument(
 parser.add_argument(
     "-i", "--icoorder", dest="ico_order", default=7, type=int,
     choices=range(8),
-    help=("specifies the order of the icosahedral tesselation (in [0, 7]) used "
-          "to define the surface resolution."))
+    help=("specifies the order of the icosahedral tesselation (in [0, 7]) "
+          "used to define the surface resolution."))
 parser.add_argument(
     "--hemi", dest="hemi", default="rh", choices=["lh", "rh"],
     help="select the hemisphere to be processed.")
@@ -253,7 +260,7 @@ if dat_file is None:
                          "script.".format(dat_file))
 
 
-""" 
+"""
 If no '.trf' file is provided, register the nodif image on the t1 image
 to get it.
 """
@@ -264,7 +271,7 @@ if trf_file is None:
           cost="normmi", dof=6)
 
 
-""" 
+"""
 Launch the tractography on the requested point of the cortical surface on the
 selected hemisphere
 """
@@ -311,4 +318,3 @@ for index in vertices_indices:
             qc_profile(nodif_file, proba_file, textures[index],
                        ico_order, fsdir, subjectid, qcdir, fsconfig,
                        actor_ang=(0., 0., 0.)))
-

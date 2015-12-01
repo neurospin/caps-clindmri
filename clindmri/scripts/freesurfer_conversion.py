@@ -14,11 +14,14 @@ import os
 import shutil
 
 # Bredala import
-import bredala
-bredala.USE_PROFILER = False
-bredala.register("clindmri.segmentation.freesurfer", names=["mri_convert",
-                 "resample_cortical_surface", "conformed_to_native_space",
-                 "surf_convert", "qc"])
+try:
+    import bredala
+    bredala.USE_PROFILER = False
+    bredala.register("clindmri.segmentation.freesurfer", names=["mri_convert",
+                     "resample_cortical_surface", "conformed_to_native_space",
+                     "surf_convert", "qc"])
+except:
+    pass
 
 # Clindmri import
 from clindmri.segmentation.freesurfer import mri_convert
@@ -33,7 +36,7 @@ doc = """
 Freesurfer inspection
 ~~~~~~~~~~~~~~~~~~~~~
 
-Inspect the results returned by the FreeSurfer cortical reconstruction 
+Inspect the results returned by the FreeSurfer cortical reconstruction
 pipeline.
 
 Steps:
@@ -41,7 +44,7 @@ Steps:
 1. Nifti conversions: aseg - aparc+aseg - aparc.a2009s+aseg - wm - t1.
    Export FreeSurfer '.mgz' images of interest in Nifti format. These
    images are resliced like the 'rawavg.mgz' file, have a '.native'
-   suffix and are stored in a 'convert' folder. 
+   suffix and are stored in a 'convert' folder.
 2. Registration matrix: between the conformed space (orig.mgz)
    and the native anatomical (rawavg.mgz).
 3. Surface conversions: resample the white or pial FreeSurfer
@@ -70,7 +73,7 @@ import os
 myhome = os.environ["HOME"]
 status, exitcodes = hopla(
     os.path.join(myhome, "git", "caps-clindmri", "clindmri", "scripts",
-                 "freesurfer_conversion.py"), 
+                 "freesurfer_conversion.py"),
     c="/i2bm/local/freesurfer/SetUpFreeSurfer.sh",
     d="/volatile/imagen/dmritest/freesurfer",
     s=["000043561374", "000085724167", "000052904972"],
@@ -97,6 +100,7 @@ status, exitcodes = hopla(
     hopla_cluster_queue="Cati_LowPrio")
 """
 
+
 def is_file(filearg):
     """ Type for argparse - checks that file exists but does not open.
     """
@@ -104,6 +108,7 @@ def is_file(filearg):
         raise argparse.ArgumentError(
             "The file '{0}' does not exist!".format(filearg))
     return filearg
+
 
 def is_directory(dirarg):
     """ Type for argparse - checks that directory exists.
@@ -218,11 +223,10 @@ if args.graphics:
         print("[info] Start quality control...")
     whitefiles = surfaces["lh.white"] + surfaces["rh.white"]
     pialfiles = surfaces["lh.pial"] + surfaces["rh.pial"]
+    # actor_ang=[90., 180., 0.]
     qcfiles = qc(
-        niftifiles["rawavg"], niftifiles["wm"], niftifiles["aseg"],  whitefiles,
-        pialfiles, annotations, actor_ang=[0., 0., 0.], #[90., 180., 0.],
+        niftifiles["rawavg"], niftifiles["wm"], niftifiles["aseg"],
+        whitefiles, pialfiles, annotations, actor_ang=[0., 0., 0.],
         output_directory=None, fsconfig=args.fsconfig)
     if args.verbose > 1:
         print("[result] QC: {0}.".format(qcfiles))
-        
-    

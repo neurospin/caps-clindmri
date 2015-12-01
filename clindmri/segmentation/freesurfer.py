@@ -13,6 +13,8 @@ import glob
 import nibabel
 import numpy
 import json
+import csv
+import shutil
 from nibabel import freesurfer
 
 # Clindmri import
@@ -105,7 +107,7 @@ def recon_all(fsdir, anatfile, sid, output_directory=None,
     recon()
     if recon.exitcode != 0:
         raise FreeSurferRuntimeError(
-            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr + recon.stdout)
     subjfsdir = os.path.join(fsdir, sid)
 
     return subjfsdir
@@ -168,7 +170,8 @@ def aparcstats2table(fsdir, output_directory=None,
             recon()
             if recon.exitcode != 0:
                 raise FreeSurferRuntimeError(
-                    recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+                    recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr +
+                    recon.stdout)
 
     # Restore the FreeSurfer working directory
     if fscwd is not None:
@@ -227,13 +230,130 @@ def asegstats2table(fsdir, output_directory=None,
     recon()
     if recon.exitcode != 0:
         raise FreeSurferRuntimeError(
-            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr +
+            recon.stdout)
 
     # Restore the FreeSurfer working directory
     if fscwd is not None:
         os.environ["SUBJECTS_DIR"] = fscwd
 
     return statfiles
+
+
+def textures2table(regex, ico_order, fsdir, output_directory=None,
+                   keep_individual_textures=False, save_mode="numpy",
+                   fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Generate text/ascii tables of freesurfer textures data. This can then
+    be easily imported into a spreadsheet and/or stats program. Note that
+    all the subject texture vertices need to be resampled in a common space.
+
+    Parameters
+    ----------
+    regex: str (mandatory)
+        a regular expression used to locate the files to be converted from
+        the 'fsdir' directory.
+    ico_order: int (mandatory)
+        icosahedron order in [0, 7] that will be used to generate the cortical
+        surface texture at a specific tessalation (the corresponding cortical
+        surface can be resampled using the
+        'clindmri.segmentation.freesurfer.resample_cortical_surface' function).
+    fsdir: str (mandatory)
+        FreeSurfer subjects directory 'SUBJECTS_DIR'.
+    output_directory: str (optional, default None)
+        a folder where some information about the processing could
+        be written.
+    keep_individual_textures: bool (optional, default False)
+        if True, keep the individual resampled subject textures on disk.
+    save_mode: str (optional, default 'numpy')
+        save result in 'csv' or in 'numpy' or 'all'. In CSV format we keep
+        only 4 digits and in Numpy format we save several single arrays into
+        a single file.
+    fsconfig: str (optional)
+        the FreeSurfer '.sh' config file.
+
+    Returns
+    -------
+    textures_files: list of str
+        a list of file containing the selected subjects summary texture values.
+    """
+    # Check input parameters
+    if save_mode not in ["numpy", "csv", "all"]:
+        raise ValueError("'{0}' is not a valid save option must be "
+                         "in ['numpy', 'csv', 'all']".format(save_mode))
+
+    # Get the requested subject textures from the regex
+    textures = glob.glob(os.path.join(fsdir, regex))
+    if output_directory is not None:
+        path = os.path.join(output_directory, "textrues.json")
+        with open(path, "w") as open_file:
+            json.dump(textures, open_file, indent=4)
+
+    # Resample each texture file
+    basename = os.path.basename(regex)
+    fsoutdir = os.path.join(fsdir, "textures")
+    surfacesdir = os.path.join(fsoutdir, basename)
+    if not os.path.isdir(surfacesdir):
+        os.makedirs(surfacesdir)
+    textures_map = {}
+    for texturefile in textures:
+
+        # Get the subject id
+        sid = texturefile.replace(fsdir, "")
+        sid = sid.lstrip(os.sep).split(os.sep)[0]
+
+        # Get the hemisphere
+        hemi = basename.split(".")[0]
+
+        # Create the destination resamples texture file
+        resampled_texturefile = os.path.join(surfacesdir, "{0}_{1}.mgz".format(
+            sid, basename))
+
+        # Reasmple the surface
+        mri_surf2surf(hemi, texturefile, resampled_texturefile,
+                      ico_order=ico_order, fsdir=fsdir, sid=sid,
+                      fsconfig=fsconfig)
+
+        # Check that the resampled texture has the expected size
+        profile_array = nibabel.load(resampled_texturefile).get_data()
+        profile_dim = profile_array.ndim
+        profile_shape = profile_array.shape
+        if profile_dim != 3:
+            raise ValueError(
+                "Expected profile texture array of dimension 3 not "
+                "'{0}'".format(profile_dim))
+        if (profile_shape[1] != 1) or (profile_shape[2] != 1):
+            raise ValueError(
+                "Expected profile texture array of shape (*, 1, 1) not "
+                "'{0}'.".format(profile_shape))
+
+        # Organize the resampled textures in a single file
+        if sid in textures_map:
+            raise ValueError("Subject '{0}' already treated. Check the intput "
+                             "'regex'.".format(sid))
+        textures_map[sid] = profile_array.ravel().astype(numpy.single)
+
+    # Remove surfaces folder
+    if not keep_individual_textures:
+        shutil.rmtree(surfacesdir)
+
+    # Save textures in CSV or in Numpy
+    textures_files = []
+    if save_mode in ["csv", "all"]:
+        textures_file = os.path.join(fsoutdir, basename + ".csv")
+        with open(textures_file, "wb") as open_file:
+            csv_writer = csv.writer(open_file, delimiter=",")
+            for sid in sorted(textures_map.keys()):
+                row = [sid]
+                row.extend(
+                    ["{0:.4f}".format(elem) for elem in textures_map[sid]])
+                csv_writer.writerow(row)
+        textures_files.append(textures_file)
+    if save_mode in ["numpy", "all"]:
+        textures_file = os.path.join(fsoutdir, basename + ".npz")
+        numpy.savez(textures_file, **textures_map)
+        textures_files.append(textures_file)
+
+    return textures_files
 
 
 def mri_convert(fsdir, regex, output_directory=None, reslice=True,
@@ -306,7 +426,8 @@ def mri_convert(fsdir, regex, output_directory=None, reslice=True,
         recon()
         if recon.exitcode != 0:
             raise FreeSurferRuntimeError(
-                recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+                recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr +
+                recon.stdout)
 
     return niftifiles
 
@@ -326,7 +447,7 @@ def mri_vol2surf(hemi, volume_file, texture_file, ico_order, dat_file, fsdir,
     volume_file: str (mandatory)
         input volume path.
     texture_file: str (mandatory)
-        output path.
+        output texture file.
     ico_order: int (mandatory)
         icosahedron order in [0, 7] that will be used to generate the cortical
         surface texture at a specific tessalation (the corresponding cortical
@@ -340,11 +461,14 @@ def mri_vol2surf(hemi, volume_file, texture_file, ico_order, dat_file, fsdir,
     sid: str (mandatory)
         FreeSurfer subject identifier.
     surface_name: str (optional, default 'white')
-        The surface we  want to resample ('white' or 'pial')."
+        The surface we  want to resample ('white' or 'pial').
     fsconfig: str (optional)
         The FreeSurfer '.sh' config file.
     """
     # Check input parameters
+    if hemi not in ["lh", "rh"]:
+        raise ValueError("'{0}' is not a valid hemisphere value which must be "
+                         "in ['lh', 'rf']".format(hemi))
     if surface_name not in ["white", "pial"]:
         raise ValueError("'{0}' is not a valid surface value which must be in "
                          "['white', 'pial']".format(surface_name))
@@ -364,7 +488,61 @@ def mri_vol2surf(hemi, volume_file, texture_file, ico_order, dat_file, fsdir,
     recon()
     if recon.exitcode != 0:
         raise FreeSurferRuntimeError(
-            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr + recon.stdout)
+
+
+def mri_surf2surf(hemi, input_surface_file, output_surface_file, ico_order,
+                  fsdir, sid,
+                  fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Resample surface vertices.
+
+    Wrapper around the FreeSurfer 'mri_surf2surf' command to create the
+    described texture.
+
+    Parameters
+    ----------
+    hemi: str (mandatory)
+        hemisphere ('lh' or 'rh').
+    input_surface_file: str (mandatory)
+        input surface path.
+    output_surface_file: str (mandatory)
+        output '.mgz' surface path.
+    ico_order: int (mandatory)
+        icosahedron order in [0, 7] that will be used to generate the cortical
+        surface texture at a specific tessalation (the corresponding cortical
+        surface can be resampled using the
+        'clindmri.segmentation.freesurfer.resample_cortical_surface' function).
+    fsdir: str (mandatory)
+        FreeSurfer subjects directory 'SUBJECTS_DIR'.
+    sid: str (mandatory)
+        FreeSurfer subject identifier.
+    fsconfig: str (optional)
+        The FreeSurfer '.sh' config file.
+    """
+    # Check input parameters
+    if hemi not in ["lh", "rh"]:
+        raise ValueError("'{0}' is not a valid hemisphere value which must be "
+                         "in ['lh', 'rf']".format(hemi))
+    if ico_order < 0 or ico_order > 7:
+        raise ValueError("'Ico order '{0}' is not in 0-7 "
+                         "range.".format(ico_order))
+
+    # Set the output surface extension if necessary
+    if not output_surface_file.endswith(".mgz"):
+        output_surface_file += ".mgz"
+
+    # Define FreeSurfer command
+    cmd = ["mri_surf2surf", "--hemi", hemi, "--srcsurfval", input_surface_file,
+           "--srcsubject", sid, "--trgsubject", "ico", "--trgicoorder",
+           str(ico_order), "--trgsurfval", output_surface_file, "--sd", fsdir,
+           "--trg_type", "mgz"]
+
+    # Execute the FS command
+    recon = FSWrapper(cmd, shfile=fsconfig)
+    recon()
+    if recon.exitcode != 0:
+        raise FreeSurferRuntimeError(
+            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr + recon.stdout)
 
 
 def resample_cortical_surface(
@@ -453,7 +631,8 @@ def resample_cortical_surface(
             recon()
             if recon.exitcode != 0:
                 raise FreeSurferRuntimeError(
-                    recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+                    recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr +
+                    recon.stdout)
 
             # Construct the FS label map command
             annotfile = os.path.join(convertdir, "{0}.aparc.annot.{1}".format(
@@ -472,7 +651,8 @@ def resample_cortical_surface(
                 recon()
                 if recon.exitcode != 0:
                     raise FreeSurferRuntimeError(
-                        recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+                        recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr +
+                        recon.stdout)
 
     # Remove duplicate annotation files
     annotfiles = list(set(annotfiles))
@@ -535,7 +715,8 @@ def conformed_to_native_space(
         recon()
         if recon.exitcode != 0:
             raise FreeSurferRuntimeError(
-                recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr)
+                recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr +
+                recon.stdout)
 
     return trffiles
 

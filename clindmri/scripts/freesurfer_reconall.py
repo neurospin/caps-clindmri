@@ -14,9 +14,12 @@ import os
 import shutil
 
 # Bredala import
-import bredala
-bredala.USE_PROFILER = False
-bredala.register("clindmri.segmentation.freesurfer", names=["recon_all"])
+try:
+    import bredala
+    bredala.USE_PROFILER = False
+    bredala.register("clindmri.segmentation.freesurfer", names=["recon_all"])
+except:
+    pass
 
 # Clindmri import
 from clindmri.segmentation.freesurfer import recon_all
@@ -65,11 +68,11 @@ Steps:
 28- Cortical Parcellation - Desikan_Killiany and Christophe (Labeling)
 29- Cortical Parcellation Statistics
 30- Cortical Ribbon Mask
-31- Cortical Parcellation mapping to Aseg 
+31- Cortical Parcellation mapping to Aseg
 
 Command:
 
-python $HOME/git/clindmri/scripts/freesurfer_reconall.py 
+python $HOME/git/clindmri/scripts/freesurfer_reconall.py
     -v 2
     -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh
     -d /volatile/imagen/dmritest/freesurfer
@@ -84,7 +87,7 @@ import os
 myhome = os.environ["HOME"]
 status, exitcodes = hopla(
     os.path.join(myhome, "git", "caps-clindmri", "clindmri", "scripts",
-                 "freesurfer_reconall.py"), 
+                 "freesurfer_reconall.py"),
     c="/i2bm/local/freesurfer/SetUpFreeSurfer.sh",
     d="/volatile/imagen/dmritest/freesurfer",
     s=["000043561374", "000085724167", "000052904972"],
@@ -103,7 +106,7 @@ import os
 myhome = os.environ["HOME"]
 status, exitcodes = hopla(
     os.path.join(myhome, "git", "caps-clindmri", "clindmri", "scripts",
-                 "freesurfer_reconall.py"), 
+                 "freesurfer_reconall.py"),
     c="/i2bm/local/freesurfer/SetUpFreeSurfer.sh",
     d="/volatile/imagen/dmritest/freesurfer",
     s=["000043561374", "000085724167", "000052904972"],
@@ -118,6 +121,7 @@ status, exitcodes = hopla(
     hopla_cluster_queue="Cati_LowPrio"))
 """
 
+
 def is_file(filearg):
     """ Type for argparse - checks that file exists but does not open.
     """
@@ -125,6 +129,7 @@ def is_file(filearg):
         raise argparse.ArgumentError(
             "The file '{0}' does not exist!".format(filearg))
     return filearg
+
 
 def is_directory(dirarg):
     """ Type for argparse - checks that directory exists.
