@@ -203,7 +203,7 @@ if len(bet_files) == 0:
         b0_brain_file,
         m=True,
         f=0.25,
-        shfile=args.config)
+        shfile=args.fslconfig)
 else:
     mask_file = sorted(bet_files)[0]
     if not os.path.isfile(mask_file):
@@ -236,7 +236,7 @@ if len(os.listdir(bedpostx_outdir)) == 0:
                  bedpostx_indir, "data." + data_ext))
     shutil.copy2(args.bvecs_file, os.path.join(bedpostx_indir, "bvecs"))
     shutil.copy2(args.bvals_file, os.path.join(bedpostx_indir, "bvals"))
-    if not bedpostx_datacheck(bedpostx_indir, shfile=args.config):
+    if not bedpostx_datacheck(bedpostx_indir, shfile=args.fslconfig):
         raise IOError("'{0}' does not contain the data expected by "
                       "'bedpostx'.".format(bedpostx_indir))
 
@@ -245,7 +245,7 @@ if len(os.listdir(bedpostx_outdir)) == 0:
      merged_f, mean_th, mean_ph,
      mean_f, dyads) = bedpostx(
         bedpostx_indir,
-        shfile=args.config)
+        shfile=args.fslconfig)
 else:
     merged_files = glob.glob(os.path.join(bedpostx_outdir, "merged*"))
     if len(merged_files) == 0:
