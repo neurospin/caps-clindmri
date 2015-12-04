@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2013-2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -64,14 +64,14 @@ orientations.
 
 **Command**
 
-python $HOME/git/clindmri/scripts/fsl_bedpostx.py
-    -v 2
-    -c /i2bm/local/fsl-5.0.9/etc/fslconf/fsl.sh
-    -f /volatile/imagen/dmritest/001/raw/hardi-b1500-1-001.nii.gz
-    -g /volatile/imagen/dmritest/001/raw/hardi-b1500-1-001.bvec
-    -b /volatile/imagen/dmritest/001/raw/hardi-b1500-1-001.bval
-    -d /volatile/imagen/dmritest/fsl
-    -s 000043561374
+python $HOME/git/clindmri/scripts/fsl_bedpostx.py \
+    -v 2 \
+    -c /i2bm/local/fsl-5.0.9/etc/fslconf/fsl.sh \
+    -f /volatile/imagen/dmritest/001/raw/hardi-b1500-1-001.nii.gz \
+    -g /volatile/imagen/dmritest/001/raw/hardi-b1500-1-001.bvec \
+    -b /volatile/imagen/dmritest/001/raw/hardi-b1500-1-001.bval \
+    -d /volatile/imagen/dmritest/fsl \
+    -s 000043561374 \
     -e
 """
 
