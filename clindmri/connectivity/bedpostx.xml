@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline version="1.0">
+    <docstring>
+		Inputs:
+			- paths to preprocessed dwi (Nifti) with associated .bval and .bvec
+
+		Steps:
+			- computation of T2 brain mask (i.e. computation of a mask for a DW volume where bvalue is 0)
+			- estimation of a probabilist diffusion model with bedpostx from FSL
+
+		Outputs: bedpostx_outdir
+    </docstring>
+    <units>
+
+        <unit name="bet2_nodif_brain">
+            <module>clindmri.connectivity.connectogram.bet2_nodif_brain</module>
+
+            <set name="qc" value="True" />
+
+            <iterinput name="outdir" />
+            <iterinput name="dwi"    />
+            <iterinput name="bval"   />
+
+            <iteroutput name="nodif_brain"      />
+            <iteroutput name="nodif_brain_mask" />
+
+            <set name="iternodif_brain" value="None" />
+        </unit>
+
+		<unit name="bedpostx_diffusion_model">
+			<module>clindmri.connectivity.connectogram.bedpostx_diffusion_model</module>
+
+			<iterinput name="outdir"           />
+			<iterinput name="dwi"              />
+			<iterinput name="bval"             />
+			<iterinput name="bvec"             />
+			<iterinput name="nodif_brain_mask" />
+
+			<iteroutput name="bedpostx_dir"    />
+		</unit>
+
+    </units>
+    <links>
+
+        <!-- Inputs: bet2_nodif_brain -->
+        <link source="outdirs" destination="bet2_nodif_brain.iteroutdir" />
+        <link source="dwis"    destination="bet2_nodif_brain.iterdwi"    />
+        <link source="bvals"   destination="bet2_nodif_brain.iterbval"   />
+
+        <!-- Inputs: bedpostx_diffusion_model -->
+        <link source="outdirs"                               destination="bedpostx_diffusion_model.iteroutdir"           />
+        <link source="dwis"                                  destination="bedpostx_diffusion_model.iterdwi"              />
+        <link source="bvals"                                 destination="bedpostx_diffusion_model.iterbval"             />
+        <link source="bvecs"                                 destination="bedpostx_diffusion_model.iterbvec"             />
+        <link source="bet2_nodif_brain.iternodif_brain_mask" destination="bedpostx_diffusion_model.iternodif_brain_mask" />
+
+        <!-- Pipeline outputs -->
+        <link source="bedpostx_diffusion_model.iterbedpostx_dir" destination="bedpostx_dirs" />
+
+    </links>
+
+    <positions>
+        <position unit="inputs"                   x="-404" y="131" />
+        <position unit="bet2_nodif_brain"         x="-105" y="-18" />
+        <position unit="bedpostx_diffusion_model" x="218" y="131" />
+        <position unit="outputs"                  x="497"  y="257" />
+    </positions>
+
+    <zoom level="1"/>
+</pipeline>

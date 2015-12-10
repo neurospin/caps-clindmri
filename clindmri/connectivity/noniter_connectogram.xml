@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline version="1.0">
+    <docstring>
+        OBSOLETE
+		Inputs:
+			- preprocessed brain-only volume with bvalue=0
+			- subject id and Freesurfer 'SUBJECTS_DIR'
+            - outdir: where to output.
+            - cortical atlas: Desikan (default) or Destrieux
+            - add_subcortical: if True include subcortical regions
+
+		Steps:
+            - Call Freesurfer bbregister command, to register the DWI to the T1
+            - Create tracto and seed masks for probtrackx2
+			- Compute connectogram with probtrackx2
+
+    </docstring>
+    <units>
+
+        <unit name="register_diffusion_to_anatomy">
+			<module>clindmri.connectivity.connectogram.register_diffusion_to_anatomy</module>
+
+            <set name="fsl_init" value="'/etc/fsl/5.0/fsl.sh'" />
+            <set name="subdir"   value="'dif_to_anat'"         />
+		</unit>
+
+        <unit name="qc_dif2anat_registration">
+            <module>clindmri.connectivity.connectogram.qc_dif2anat_registration</module>
+
+            <set name="subdir" value="'qc'" />
+            <set name="qc_dir" value="None" />
+        </unit>
+
+		<unit name="create_masks_for_tractography">
+			<module>clindmri.connectivity.connectogram.create_masks_for_tractography</module>
+		</unit>
+
+        <unit name="qc_tractography_masks">
+            <module>clindmri.connectivity.connectogram.qc_tractography_masks</module>
+
+            <set name="subdir" value="'qc'" />
+            <set name="qc_dir" value="None" />
+        </unit>
+
+		<unit name="probtrackx2_connectogram">
+			<module>clindmri.connectivity.connectogram.probtrackx2_connectogram</module>
+
+            <set name="subdir" value="'probtrackx2'" />
+		</unit>
+
+        <unit name="qc_connectogram">
+			<module>clindmri.connectivity.connectogram.qc_connectogram</module>
+
+            <set name="subdir" value="'qc'" />
+            <set name="qc_dir" value="None" />
+		</unit>
+
+    </units>
+    <links>
+
+        <!-- Inputs: register_diffusion_to_anatomy -->
+        <link source="outdir"          destination="register_diffusion_to_anatomy.outdir"          />
+        <link source="nodif_brain"     destination="register_diffusion_to_anatomy.nodif_brain"     />
+        <link source="subject_id"      destination="register_diffusion_to_anatomy.subject_id"      />
+        <link source="fs_subjects_dir" destination="register_diffusion_to_anatomy.fs_subjects_dir" />
+
+        <!-- Inputs: qc_dif2anat_registration -->
+        <link source="outdir"                                     destination="qc_dif2anat_registration.outdir"          />
+        <link source="nodif_brain"                                destination="qc_dif2anat_registration.nodif_brain"     />
+        <link source="register_diffusion_to_anatomy.dif2anat_dat" destination="qc_dif2anat_registration.dif2anat_dat"    />
+        <link source="subject_id"                                 destination="qc_dif2anat_registration.subject_id"      />
+        <link source="fs_subjects_dir"                            destination="qc_dif2anat_registration.fs_subjects_dir" />
+
+		<!-- Inputs: create_masks_for_tractography -->
+        <link source="outdir"                                     destination="create_masks_for_tractography.outdir"           />
+        <link source="nodif_brain"                                destination="create_masks_for_tractography.nodif_brain"      />
+        <link source="register_diffusion_to_anatomy.dif2anat_dat" destination="create_masks_for_tractography.dif2anat_dat"     />
+        <link source="subject_id"                                 destination="create_masks_for_tractography.subject_id"       />
+        <link source="cortical_atlas"                             destination="create_masks_for_tractography.cortical_atlas"   />
+        <link source="add_subcortical"                            destination="create_masks_for_tractography.add_subcortical"  />
+        <link source="tracto_mask_type"                           destination="create_masks_for_tractography.tracto_mask_type" />
+        <link source="fs_subjects_dir"                            destination="create_masks_for_tractography.fs_subjects_dir"  />
+
+        <!-- Inputs: qc_tractography_masks -->
+        <link source="outdir"                                    destination="qc_tractography_masks.outdir"          />
+        <link source="nodif_brain"                               destination="qc_tractography_masks.nodif_brain"     />
+        <link source="create_masks_for_tractography.tracto_mask" destination="qc_tractography_masks.tracto_mask"     />
+        <link source="create_masks_for_tractography.seed_masks"  destination="qc_tractography_masks.seed_masks"      />
+        <link source="subject_id"                                destination="qc_tractography_masks.subject_id"      />
+        <link source="cortical_atlas"                            destination="qc_tractography_masks.cortical_atlas"  />
+        <link source="fs_subjects_dir"                           destination="qc_tractography_masks.fs_subjects_dir" />
+
+		<!-- Inputs: probtrackx2_connectogram -->
+        <link source="outdir"                                    destination="probtrackx2_connectogram.outdir"       />
+		<link source="create_masks_for_tractography.seed_masks"  destination="probtrackx2_connectogram.seed_masks"   />
+		<link source="create_masks_for_tractography.tracto_mask" destination="probtrackx2_connectogram.tracto_mask"  />
+		<link source="bedpostx_dir"                              destination="probtrackx2_connectogram.bedpostx_dir" />
+        <link source="nsamples"                                  destination="probtrackx2_connectogram.nsamples"     />
+        <link source="nsteps"                                    destination="probtrackx2_connectogram.nsteps"       />
+
+        <!-- Inputs: qc_connectogram -->
+        <link source="outdir"                                    destination="qc_connectogram.outdir"         />
+        <link source="create_masks_for_tractography.tracto_mask" destination="qc_connectogram.tracto_mask"    />
+        <link source="probtrackx2_connectogram.proba_matrix"     destination="qc_connectogram.proba_matrix"   />
+        <link source="probtrackx2_connectogram.network_matrix"   destination="qc_connectogram.network_matrix" />
+        <link source="create_masks_for_tractography.seed_masks"  destination="qc_connectogram.seed_masks"     />
+
+        <!-- Pipeline outputs -->
+        <!-- Nothing -->
+
+    </links>
+    <positions>
+        <position unit="inputs"                        x="2"    y="64"   />
+        <position unit="register_diffusion_to_anatomy" x="252"  y="-249" />
+        <position unit="qc_dif2anat_registration"      x="564"  y="-189" />
+        <position unit="create_masks_for_tractography" x="398"  y="375"  />
+        <position unit="qc_tractography_masks"         x="953"  y="476"  />
+        <position unit="probtrackx2_connectogram"      x="935"  y="114"  />
+        <position unit="qc_connectogram"               x="1243" y="-163" />
+        <position unit="outputs"                       x="1393" y="339"  />
+    </positions>
+    <zoom level="1"/>
+</pipeline>
