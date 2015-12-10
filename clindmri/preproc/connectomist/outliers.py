@@ -35,20 +35,20 @@ def dwi_outlier_detection(output_directory,
     </unit>
     """
 
-    algorithm_name = "DWI-Outlier-Detection"
+    algorithm = "DWI-Outlier-Detection"
 
-    parameters_value = {'rawDwiDirectory':     raw_dwi_directory,
-                        'roughMaskDirectory':  rough_mask_directory,
-                        'outputWorkDirectory': output_directory,
-                        '_subjectName': '',
-                        'discardedOrientationList': '',
-                        'outlierFactor': 3.0}
+    parameters_dict = {'rawDwiDirectory':     raw_dwi_directory,
+                       'roughMaskDirectory':  rough_mask_directory,
+                       'outputWorkDirectory': output_directory,
+                       '_subjectName': '',
+                       'discardedOrientationList': '',
+                       'outlierFactor': 3.0}
 
-    parameter_file = create_parameter_file(algorithm_name,
-                                           parameters_value,
+    parameter_file = create_parameter_file(algorithm, parameters_dict,
                                            output_directory)
-    run_connectomist(algorithm_name, parameter_file)
+    run_connectomist(algorithm, parameter_file, output_directory)
 
     # Capsul needs the output name to be different from input arguments
     outliers_directory = output_directory
+
     return outliers_directory

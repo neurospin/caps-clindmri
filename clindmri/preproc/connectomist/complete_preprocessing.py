@@ -21,80 +21,78 @@ from .export_results          import export_results
 
 def complete_preprocessing(output_directory,
                            subject_id,
-                           path_dwi,
-                           path_bval,
-                           path_bvec,
+                           dwi,
+                           bval,
+                           bvec,
                            manufacturer,
                            delta_TE,
                            partial_fourier_factor,
                            parallel_acceleration_factor,
-                           path_b0_magnitude,
-                           path_b0_phase             = None,
-                           invertX                   = True,
-                           invertY                   = False,
-                           invertZ                   = False,
-                           negative_sign             = False,
-                           echo_spacing              = None,
-                           EPI_factor                = None,
-                           b0_field                  = 3.0,
-                           water_fat_shift_per_pixel = 4.68,
-                           delete_steps              = False):
+                           b0_magnitude,
+                           b0_phase        = None,
+                           invertX         = True,
+                           invertY         = False,
+                           invertZ         = False,
+                           negative_sign   = False,
+                           echo_spacing    = None,
+                           EPI_factor      = None,
+                           b0_field        = 3.0,
+                           water_fat_shift = 4.68,
+                           delete_steps    = False):
     """
     Function that runs all preprocessing tabs from Connectomist.
 
     Parameters
     ----------
-    output_directory:  Str, path to folder where all the preprocessing will be done.
-    subject_id:        Str, subject identifier.
-    path_dwi           Str, path to input Nifti DW data.
-    path_bval:         Str, path to Nifti's associated .bval file.
-    path_bvec:         Str, path to Nifti's associated .bval file.
-    manufacturer:      Str, manufacturer name (e.g. "Siemens", "GE"...).
-    delta_TE:          Float, difference in seconds between the 2 echoes in B0
-                       magnitude map acquisition.
+    output_directory: Str, path to folder where all the preprocessing will be done.
+    subject_id:       Str, subject identifier.
+    dwi               Str, path to input Nifti DW data.
+    bval:             Str, path to Nifti's associated .bval file.
+    bvec:             Str, path to Nifti's associated .bval file.
+    manufacturer:     Str, manufacturer name (e.g. "Siemens", "GE"...).
+    delta_TE:         Float, difference in seconds between the 2 echoes in B0
+                      magnitude map acquisition.
     partial_fourier_factor:
-                       Float (]0;1]), percentage of k-space plane acquired.
+                      Float (]0;1]), percentage of k-space plane acquired.
     parallel_acceleration_factor:
-                       Int, nb of parallel acquisition in k-space plane.
-    path_b0_magnitude: Str, path to B0 magnitude map, also contains phase for GE.
-    path_b0_phase:     Str, not for GE, path to B0 phase map.
-    invertX:           Bool, if True invert x-axis in diffusion model.
-    invertY:           Bool, same as invertX but for y-axis.
-    invertZ:           Bool, same as invertX but for z-axis.
-    negative_sign:     Bool, if True invert direction of unwarping in
-                       susceptibility-distortion correction.
-    echo_spacing:      Float, not for Philips, acquisition time in ms between
-                       2 centers of 2 consecutively acquired lines in k-space.
-    EPI_factor:        Int, nb of echoes after one RF pulse, i.e. echo train length.
-    b0_field:          Float, Philips only, B0 field intensity, by default 3.0.
-    water_fat_shift_per_pixel:
-                       Float, Philips only, default 4.68Hz
-    delete_steps:      Bool, if True remove all intermediate files and
-                       directories at the end of preprocessing, to keep only
-                       4 files:
-                       preprocessed Nifti + bval + bvec + outliers.py
+                      Int, nb of parallel acquisition in k-space plane.
+    b0_magnitude:     Str, path to B0 magnitude map, also contains phase for GE.
+    b0_phase:         Str, not for GE, path to B0 phase map.
+    invertX:          Bool, if True invert x-axis in diffusion model.
+    invertY:          Bool, same as invertX but for y-axis.
+    invertZ:          Bool, same as invertX but for z-axis.
+    negative_sign:    Bool, if True invert direction of unwarping in
+                      susceptibility-distortion correction.
+    echo_spacing:     Float, not for Philips, acquisition time in ms between
+                      2 centers of 2 consecutively acquired lines in k-space.
+    EPI_factor:       Int, nb of echoes after one RF pulse, i.e. echo train length.
+    b0_field:         Float, Philips only, B0 field intensity, by default 3.0.
+    water_fat_shift:  Float, Philips only, default 4.68 pixels.
+    delete_steps:     Bool, if True remove all intermediate files and
+                      directories at the end of preprocessing, to keep only
+                      4 files:
+                      preprocessed Nifti + bval + bvec + outliers.py
 
     Returns
     -------
-    path_preprocessed_dwi, path_preprocessed_bval, path_preprocessed_bvec: 
-        Paths to output files.
+    preproc_dwi, preproc_bval, preproc_bvec: Paths to output files.
 
     <unit>
-        <output name="path_preprocessed_dwi"       type="File"      />
-        <output name="path_preprocessed_bval"      type="File"      />
-        <output name="path_preprocessed_bvec"      type="File"      />
+        <output name="preproc_dwi"                 type="File"      />
+        <output name="preproc_bval"                type="File"      />
+        <output name="preproc_bvec"                type="File"      />
 
         <input name="output_directory"             type="Directory" />
         <input name="subject_id"                   type="Str"       />
-        <input name="path_dwi"                     type="File"      />
-        <input name="path_bval"                    type="File"      />
-        <input name="path_bvec"                    type="File"      />
+        <input name="dwi"                          type="File"      />
+        <input name="bval"                         type="File"      />
+        <input name="bvec"                         type="File"      />
         <input name="manufacturer"                 type="Str"       />
         <input name="delta_TE"                     type="Float"     />
         <input name="partial_fourier_factor"       type="Float"     />
         <input name="parallel_acceleration_factor" type="Float"     />
-        <input name="path_b0_magnitude"            type="File"      />
-        <input name="path_b0_phase"                type="File"      />
+        <input name="b0_magnitude"                 type="File"      />
+        <input name="b0_phase"                     type="File"      />
         <input name="invertX"                      type="Bool"      />
         <input name="invertY"                      type="Bool"      />
         <input name="invertZ"                      type="Bool"      />
@@ -102,7 +100,7 @@ def complete_preprocessing(output_directory,
         <input name="echo_spacing"                 type="Float"     />
         <input name="EPI_factor"                   type="Int"       />
         <input name="b0_field"                     type="Float"     />
-        <input name="water_fat_shift_per_pixel"    type="Float"     />
+        <input name="water_fat_shift"              type="Float"     />
         <input name="delete_steps"                 type="Bool"      />
     </unit>
     """
@@ -113,12 +111,12 @@ def complete_preprocessing(output_directory,
     # Step 1 - Import files to Connectomist and choose q-space model
     raw_dwi_directory = os.path.join(output_directory, "01-Import_and_qspace_model")
     dwi_data_import_and_qspace_sampling(raw_dwi_directory,
-                                        path_dwi,
-                                        path_bval,
-                                        path_bvec,
+                                        dwi,
+                                        bval,
+                                        bvec,
                                         manufacturer,
-                                        path_b0_magnitude,
-                                        path_b0_phase,
+                                        b0_magnitude,
+                                        b0_phase,
                                         invertX,
                                         invertY,
                                         invertZ,
@@ -145,13 +143,13 @@ def complete_preprocessing(output_directory,
                                            delta_TE,
                                            partial_fourier_factor,
                                            parallel_acceleration_factor,
-                                           path_b0_magnitude,
-                                           path_b0_phase,
+                                           b0_magnitude,
+                                           b0_phase,
                                            negative_sign,
                                            echo_spacing,
                                            EPI_factor,
                                            b0_field,
-                                           water_fat_shift_per_pixel)
+                                           water_fat_shift)
 
     # Step 5 - Eddy current and motion correction
     eddy_motion_directory = os.path.join(output_directory, "05-Eddy_current_and_motion")
@@ -161,7 +159,7 @@ def complete_preprocessing(output_directory,
                                            susceptibility_directory)
 
     # Step 6 - Export result as a Nifti with a .bval and a .bvec
-    path_preprocessed_dwi, path_preprocessed_bval, path_preprocessed_bvec = \
+    preproc_dwi, preproc_bval, preproc_bvec = \
         export_results(output_directory,
                        raw_dwi_directory,
                        rough_mask_directory,
@@ -170,4 +168,4 @@ def complete_preprocessing(output_directory,
                        eddy_motion_directory,
                        delete_steps)
 
-    return path_preprocessed_dwi, path_preprocessed_bval, path_preprocessed_bvec
+    return preproc_dwi, preproc_bval, preproc_bvec

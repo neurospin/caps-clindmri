@@ -22,8 +22,7 @@ using the parallel_preprocessing() function.
 """
 
 from .manufacturers import MANUFACTURERS
-from .exceptions    import (ConnectomistError, ConnectomistRuntimeError,
-                            BadManufacturerNameError, MissingParametersError,
-                            BadFileError)
+from .exceptions    import (ConnectomistError, BadManufacturerNameError,
+                            MissingParametersError, BadFileError)
 from .complete_preprocessing import complete_preprocessing
 from .parallel_preprocessing import parallel_preprocessing

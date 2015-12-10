@@ -20,15 +20,6 @@ class ConnectomistError(Exception):
         super(ConnectomistError, self).__init__(message)
 
 
-class ConnectomistRuntimeError(ConnectomistError):
-    """ Error thrown when call to the Connectomist software failed.
-    """
-    def __init__(self, algorithm_name, parameter_file):
-        message = "Connectomist call for %s failed, with parameters: %s." \
-                  % (algorithm_name, parameter_file)
-        super(ConnectomistRuntimeError, self).__init__(message)
-
-
 class BadManufacturerNameError(ConnectomistError):
     """ Error thrown when an incorrect manufacturer name is detected.
     """

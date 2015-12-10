@@ -32,9 +32,9 @@ def dwi_rough_mask_extraction(output_directory, raw_dwi_directory):
     </unit>
     """
 
-    algorithm_name = "DWI-Rough-Mask-Extraction"
+    algorithm = "DWI-Rough-Mask-Extraction"
 
-    parameters_value = {
+    parameters_dict = {
         # ---------------------------------------------------------------------
         # Used parameters
         'outputWorkDirectory': output_directory,
@@ -92,11 +92,11 @@ def dwi_rough_mask_extraction(output_directory, raw_dwi_directory):
         'strategyRoughMaskFromT2':    1
     }
 
-    parameter_file = create_parameter_file(algorithm_name,
-                                           parameters_value,
+    parameter_file = create_parameter_file(algorithm, parameters_dict,
                                            output_directory)
-    run_connectomist(algorithm_name, parameter_file)
+    run_connectomist(algorithm, parameter_file, output_directory)
 
     # Capsul needs the output name to be different from input arguments
     rough_mask_directory = output_directory
+
     return rough_mask_directory

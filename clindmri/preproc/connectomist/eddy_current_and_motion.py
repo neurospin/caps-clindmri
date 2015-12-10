@@ -8,12 +8,7 @@
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html for details.
 ##########################################################################
 
-import os
-import time
-
-from .exceptions import ConnectomistError
-from .utils      import create_parameter_file, run_connectomist
-
+from .utils import create_parameter_file, run_connectomist
 
 
 def dwi_eddy_current_and_motion_correction(output_directory,
@@ -44,9 +39,9 @@ def dwi_eddy_current_and_motion_correction(output_directory,
     </unit>
     """
 
-    algorithm_name = "DWI-Eddy-Current-And-Motion-Correction"
+    algorithm = "DWI-Eddy-Current-And-Motion-Correction"
 
-    parameters_value = {
+    parameters_dict = {
         # ---------------------------------------------------------------------
         # Used parameters
         "rawDwiDirectory":              raw_dwi_directory,
@@ -128,32 +123,12 @@ def dwi_eddy_current_and_motion_correction(output_directory,
             "optimizerParametersRotationY":     2
         }
     }
-    
-    output_t2 = os.path.join(output_directory, "t2_wo_eddy_current_and_motion.ima")
-    output_dw = os.path.join(output_directory, "dw_wo_eddy_current_and_motion.ima")
 
-    nb_tries = 3  # Number of times to try if it fails
-    nb_tried = 0
-    success  = False
-    while nb_tried < nb_tries:
-        nb_tried += 1
+    parameter_file = create_parameter_file(algorithm, parameters_dict,
+                                           output_directory)
+    run_connectomist(algorithm, parameter_file, output_directory)
 
-        parameter_file = create_parameter_file(algorithm_name,
-                                               parameters_value,
-                                               output_directory)
-        run_connectomist(algorithm_name, parameter_file)
-
-        if os.path.isfile(output_t2) and os.path.isfile(output_dw):
-            success = True
-            break
-        else:
-            time.sleep(10)  # wait 10 sec before retrying
-
-    if not success:
-        raise ConnectomistError("Eddy current and motion correction failed. "
-                                "Missing output file(s): %s or/and %s"
-                                % (output_t2, output_dw))
-    
     # Capsul needs the output name to be different from input arguments
     eddy_motion_directory = output_directory
+
     return eddy_motion_directory

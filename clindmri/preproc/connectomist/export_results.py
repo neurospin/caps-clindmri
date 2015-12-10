@@ -43,12 +43,12 @@ def export_results(export_directory,
 
     Returns
     -------
-    path_dwi, path_bval, path_bvec: (Str, Str, Str) paths to output files.
+    dwi, bval, bvec: (Str, Str, Str) paths to output files.
 
     <unit>
-        <output name="path_dwi"                type="File"      />
-        <output name="path_bval"               type="File"      />
-        <output name="path_bvec"               type="File"      />
+        <output name="dwi"                     type="File"      />
+        <output name="bval"                    type="File"      />
+        <output name="bvec"                    type="File"      />
 
         <input name="export_directory"         type="Directory" />
         <input name="raw_dwi_directory"        type="Directory" />
@@ -66,20 +66,20 @@ def export_results(export_directory,
     # Step 1 - Concatenate preprocessed T2 and preprocessed DW volumes
 
     # Set input and output paths (Gis files) without extension (.ima)
-    path_t2    = os.path.join(eddy_motion_directory, "t2_wo_eddy_current_and_motion.ima")
-    path_dw    = os.path.join(eddy_motion_directory, "dw_wo_eddy_current_and_motion.ima")
-    path_t2_dw = os.path.join(eddy_motion_directory, "t2_dw_wo_eddy_current_and_motion.ima")
+    t2    = os.path.join(eddy_motion_directory, "t2_wo_eddy_current_and_motion.ima")
+    dw    = os.path.join(eddy_motion_directory, "dw_wo_eddy_current_and_motion.ima")
+    t2_dw = os.path.join(eddy_motion_directory, "t2_dw_wo_eddy_current_and_motion.ima")
 
     # Check existence of input files
-    for path in path_t2, path_dw:
+    for path in t2, dw:
         if not os.path.isfile(path):
             raise BadFileError(path)
 
     # Apply concatenation: result is a Gis file
-    concatenate_volumes([path_t2, path_dw], path_t2_dw)
+    concatenate_volumes([t2, dw], t2_dw)
 
     # Step 2 - Convert to Nifti
-    path_dwi = gis_to_nifti(path_t2_dw, os.path.join(export_directory, "dwi.nii.gz"))
+    dwi = gis_to_nifti(t2_dw, os.path.join(export_directory, "dwi.nii.gz"))
 
     # Step 3 - Create .bval and .bvec (with corrected directions)
 
@@ -88,7 +88,7 @@ def export_results(export_directory,
     # diffusion weighted data.
     try:
         # The .ima.minf is a text file that defines a python dict
-        path_minf = path_dw + ".minf"
+        path_minf = dw + ".minf"
         exec_dict = dict()  # To store variables created by execfile() call.
         execfile(path_minf, exec_dict)
 
@@ -107,27 +107,28 @@ def export_results(export_directory,
     bvalues = np.concatenate(([0], bvalues))
 
     # Create "dwi.bval"
-    path_bval = os.path.join(export_directory, "dwi.bval")
-    np.savetxt(path_bval, bvalues, newline=" ", fmt="%d")
+    bval = os.path.join(export_directory, "dwi.bval")
+    np.savetxt(bval, bvalues, newline=" ", fmt="%d")
 
     # Get gradient directions and create .bvec file
     directions = np.array(exec_dict["attributes"]["diffusion_gradient_orientations"])
 
     # Normalize vectors
-    norms      = np.linalg.norm(directions, axis=0)
-    directions = directions / norms
+    magnitudes = np.linalg.norm(directions, axis=1)
+    for i, vector in enumerate(directions):
+        directions[i, :] = directions[i, :] / magnitudes[i]
 
     # Add null vector for direction corresponding to b=0
     directions = np.concatenate(([[0, 0, 0]], directions))
 
     # Create "dwi.bvec"
-    path_bvec = os.path.join(export_directory, "dwi.bvec")
-    np.savetxt(path_bvec, directions.T, fmt="%.10f")
-    
+    bvec = os.path.join(export_directory, "dwi.bvec")
+    np.savetxt(bvec, directions.T, fmt="%.10f")
+
     # Export outliers.py
     path_outliers_py = os.path.join(outliers_directory, "outliers.py")
     shutil.copy(path_outliers_py, export_directory)
-    
+
     # Delete intermediate files and directories if requested,
     if delete_steps:
         intermediate_directories = [raw_dwi_directory,
@@ -138,4 +139,4 @@ def export_results(export_directory,
         for directory in intermediate_directories:
             shutil.rmtree(directory)
 
-    return path_dwi, path_bval, path_bvec
+    return dwi, bval, bvec

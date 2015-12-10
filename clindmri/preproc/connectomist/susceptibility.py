@@ -27,7 +27,7 @@ def dwi_susceptibility_artifact_correction(output_directory,
                                            echo_spacing              = None,
                                            EPI_factor                = None,
                                            b0_field                  = 3.0,
-                                           water_fat_shift_per_pixel = 4.68):
+                                           water_fat_shift           = 4.68):
     """
     Wrapper to Connectomist's "Susceptibility" tab.
 
@@ -48,7 +48,7 @@ def dwi_susceptibility_artifact_correction(output_directory,
     EPI_factor:           Int, nb of echoes after one excitation (90 degrees),
                           i.e. echo train length.
     b0_field:             Float, Philips only, B0 field intensity, by default 3.0.
-    water_fat_shift_per_pixel: Float, Philips only, default 4.68Hz
+    water_fat_shift:      Float, Philips only, default 4.68 pixels.
 
     <unit>
         <output name="susceptibility_directory"    type="Directory" />
@@ -64,12 +64,12 @@ def dwi_susceptibility_artifact_correction(output_directory,
         <input name="echo_spacing"                 type="Float"     />
         <input name="EPI_factor"                   type="Int"       />
         <input name="b0_field"                     type="Float"     />
-        <input name="water_fat_shift_per_pixel"    type="Float"     />
+        <input name="water_fat_shift"              type="Float"     />
     </unit>
     """
 
-    path_b0_magnitude = os.path.join(raw_dwi_directory, "b0_magnitude.ima")
-    path_b0_phase     = os.path.join(raw_dwi_directory, "b0_phase.ima")
+    b0_magnitude = os.path.join(raw_dwi_directory, "b0_magnitude.ima")
+    b0_phase     = os.path.join(raw_dwi_directory, "b0_phase.ima")
 
     try:
         parameter_file = os.path.join(raw_dwi_directory, "acquisition_parameters.py")
@@ -79,9 +79,9 @@ def dwi_susceptibility_artifact_correction(output_directory,
     except:
         raise BadFileError(parameter_file)
 
-    algorithm_name = "DWI-Susceptibility-Artifact-Correction"
+    algorithm = "DWI-Susceptibility-Artifact-Correction"
 
-    parameters_value = {
+    parameters_dict = {
         # ---------------------------------------------------------------------
         # Paths parameters
         'rawDwiDirectory':              raw_dwi_directory,
@@ -194,8 +194,8 @@ def dwi_susceptibility_artifact_correction(output_directory,
             "brukerDeltaTE":                       delta_TE,
             "brukerPartialFourierFactor":          partial_fourier_factor,
             "brukerParallelAccelerationFactor":    parallel_acceleration_factor,
-            "brukerFileNameFirstEchoB0Magnitude":  path_b0_magnitude,
-            "brukerFileNameB0PhaseDifference":     path_b0_phase,
+            "brukerFileNameFirstEchoB0Magnitude":  b0_magnitude,
+            "brukerFileNameB0PhaseDifference":     b0_phase,
             "brukerPhaseNegativeSign":             2 if negative_sign else 0,
             'brukerEchoSpacing':                   echo_spacing
         },
@@ -203,7 +203,7 @@ def dwi_susceptibility_artifact_correction(output_directory,
             "geDeltaTE":                           delta_TE,
             "gePartialFourierFactor":              partial_fourier_factor,
             "geParallelAccelerationFactor":        parallel_acceleration_factor,
-            "geFileNameDoubleEchoB0MagnitudePhaseRealImaginary": path_b0_magnitude,
+            "geFileNameDoubleEchoB0MagnitudePhaseRealImaginary": b0_magnitude,
             "gePhaseNegativeSign":                 2 if negative_sign else 0,
             "geEchoSpacing":                       echo_spacing
 
@@ -212,19 +212,19 @@ def dwi_susceptibility_artifact_correction(output_directory,
             "philipsDeltaTE":                      delta_TE,
             "philipsPartialFourierFactor":         partial_fourier_factor,
             "philipsParallelAccelerationFactor":   parallel_acceleration_factor,
-            "philipsFileNameFirstEchoB0Magnitude": path_b0_magnitude,
-            "philipsFileNameB0PhaseDifference":    path_b0_phase,
+            "philipsFileNameFirstEchoB0Magnitude": b0_magnitude,
+            "philipsFileNameB0PhaseDifference":    b0_phase,
             "philipsPhaseNegativeSign":            2 if negative_sign else 0,
             "philipsEPIFactor":                    EPI_factor,
             "philipsStaticB0Field":                b0_field,
-            "philipsWaterFatShiftPerPixel":        water_fat_shift_per_pixel
+            "philipsWaterFatShiftPerPixel":        water_fat_shift
         },
         "Siemens": {
             "siemensDeltaTE":                       delta_TE,
             "siemensPartialFourierFactor":          partial_fourier_factor,
             "siemensParallelAccelerationFactor":    parallel_acceleration_factor,
-            "siemensFileNameDoubleEchoB0Magnitude": path_b0_magnitude,
-            "siemensFileNameB0PhaseDifference":     path_b0_phase,
+            "siemensFileNameDoubleEchoB0Magnitude": b0_magnitude,
+            "siemensFileNameB0PhaseDifference":     b0_phase,
             "siemensPhaseNegativeSign":             2 if negative_sign else 0,
             "siemensEchoSpacing":                   echo_spacing
         }
@@ -237,17 +237,18 @@ def dwi_susceptibility_artifact_correction(output_directory,
                           if args_map[manufacturer][p] is None]
 
     if len(missing_parameters) > 0:
-        raise MissingParametersError(algorithm_name, missing_parameters)
+        raise MissingParametersError(algorithm, missing_parameters)
 
     # Set given parameters
     for p in required_parameters:
-        parameters_value[p] = args_map[manufacturer][p]
+        parameters_dict[p] = args_map[manufacturer][p]
 
-    parameter_file = create_parameter_file(algorithm_name,
-                                           parameters_value,
+    parameter_file = create_parameter_file(algorithm,
+                                           parameters_dict,
                                            output_directory)
-    run_connectomist(algorithm_name, parameter_file)
+    run_connectomist(algorithm, parameter_file, output_directory)
 
     # Capsul needs the output name to be different from input arguments
     susceptibility_directory = output_directory
+
     return susceptibility_directory
