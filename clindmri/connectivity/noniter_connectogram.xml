@@ -92,9 +92,11 @@
 
 		<!-- Inputs: probtrackx2_connectogram -->
         <link source="outdir"                                    destination="probtrackx2_connectogram.outdir"       />
+        <link source="bedpostx_dir"                              destination="probtrackx2_connectogram.bedpostx_dir" />
 		<link source="create_masks_for_tractography.seed_masks"  destination="probtrackx2_connectogram.seed_masks"   />
 		<link source="create_masks_for_tractography.tracto_mask" destination="probtrackx2_connectogram.tracto_mask"  />
-		<link source="bedpostx_dir"                              destination="probtrackx2_connectogram.bedpostx_dir" />
+        <link source="create_masks_for_tractography.stop_mask"   destination="probtrackx2_connectogram.stop_mask"    />
+        <link source="create_masks_for_tractography.avoid_mask"  destination="probtrackx2_connectogram.avoid_mask"   />
         <link source="nsamples"                                  destination="probtrackx2_connectogram.nsamples"     />
         <link source="nsteps"                                    destination="probtrackx2_connectogram.nsteps"       />
 

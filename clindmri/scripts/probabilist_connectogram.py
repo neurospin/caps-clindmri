@@ -135,7 +135,7 @@ def main(outdir,
     logger.info("Creation of seed and tractography masks...")
     logger.info("Cortical atlas: %s" % cortical_atlas)
     logger.info("Include subcortical regions: %s" % str(add_subcortical))
-    seed_masks, tracto_mask = \
+    seed_masks, tracto_mask, stop_mask, avoid_mask = \
         create_masks_for_tractography(outdir           = outdir,
                                       nodif_brain      = nodif_brain,
                                       dif2anat_dat     = dif2anat_dat,
@@ -160,9 +160,11 @@ def main(outdir,
     logger.info("Tractography mask: %s" % tracto_mask)
     proba_matrix, network_matrix = \
         probtrackx2_connectogram(outdir       = outdir,
+                                 bedpostx_dir = bedpostx_dir,
                                  seed_masks   = seed_masks,
                                  tracto_mask  = tracto_mask,
-                                 bedpostx_dir = bedpostx_dir,
+                                 stop_mask    = stop_mask,
+                                 avoid_mask   = avoid_mask,
                                  subdir       = "probtrackx2",
                                  nsamples     = nsamples,
                                  nsteps       = nsteps)

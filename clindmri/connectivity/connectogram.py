@@ -21,10 +21,8 @@ from clindmri.tractography.fsl                 import bedpostx, probtrackx2
 from clindmri.extensions.freesurfer.wrappers   import FSWrapper
 from clindmri.extensions.freesurfer.exceptions import FreeSurferRuntimeError
 from clindmri.extensions.configuration         import environment
-from clindmri.plot.slicer                      import (plot_image, plot_matrix,
-                                                       animate_image)
+from clindmri.plot.slicer                      import plot_image, animate_image
 
-import matplotlib
 import matplotlib.pyplot as plt
 
 from scipy.ndimage.morphology import binary_dilation
@@ -169,7 +167,7 @@ def qc_dif2anat_registration(outdir,
     nb_slices_in_z = nibabel.load(nodif_brain).get_shape()[2]
 
     # Snap shot for registration checking
-    t1_to_dif_png = os.path.join(outdir, "t1_to_dif.png")
+    t1_to_dif_png = os.path.join(outdir, "t1_to_dif_slices.png")
     plot_image(t1_to_dif,
                edge_file  = nodif_brain,
                snap_file  = t1_to_dif_png,
@@ -272,10 +270,14 @@ def create_masks_for_tractography(outdir,
 
         <output name="seed_masks"      type="List" content="File" />
         <output name="tracto_mask"     type="File"                />
+        <output name="stop_mask"       type="File"                />
+        <output name="avoid_mask"      type="File"                />
 
     </unit>
     """
 
+    # -------------------------------------------------------------------------
+    # Check arguments
     if tracto_mask_type not in TractoMaskTypes.choices:
         raise ValueError("Bad argument 'tracto_mask_type': {}, should be in {}"
                          .format(tracto_mask_type, TractoMaskTypes.choices))
@@ -288,6 +290,9 @@ def create_masks_for_tractography(outdir,
                              "environment variable for Freesurfer or pass it "
                              "as an argument.")
 
+    # -------------------------------------------------------------------------
+    # Set the paths according to the requested options
+
     subject_dir = os.path.join(fs_subjects_dir, subject_id)
 
     # Create a subdirectory for cortical masks in outdir, if not existing
@@ -295,10 +300,11 @@ def create_masks_for_tractography(outdir,
     if not os.path.isdir(cortical_masks_dir):
         os.mkdir(cortical_masks_dir)
 
-    # Create a subdirectory for subcortical masks in outdir, if not existing
-    subcortical_masks_dir = os.path.join(outdir, "subcortical_masks")
-    if not os.path.isdir(subcortical_masks_dir):
-        os.mkdir(subcortical_masks_dir)
+    # Create a subdirectory for other masks in outdir, if not existing
+    # It is used for subcortical masks, 'stop' mask , 'avoid' mask...
+    other_masks_dir = os.path.join(outdir, "other_masks")
+    if not os.path.isdir(other_masks_dir):
+        os.mkdir(other_masks_dir)
 
     # Set the right paths according to the chosen cortical atlas
     if cortical_atlas == "Desikan":
@@ -311,7 +317,8 @@ def create_masks_for_tractography(outdir,
         raw_cortical_LUT = APARC_A2009S_ASEG_RAW_LUT
     else:
         raise ValueError("Bad 'cortical_atlas' name: {}".format(cortical_atlas))
-
+    
+    # -------------------------------------------------------------------------
     # Project cortical segmentation in diffusion
     cmd = ["mri_vol2vol", "--mov", nodif_brain, "--targ", cortical_seg,
            "--inv", "--interp", "nearest", "--o", cortical_seg2dif,
@@ -320,12 +327,14 @@ def create_masks_for_tractography(outdir,
     fsprocess()  # Run
     if fsprocess.exitcode != 0:
         raise FreeSurferRuntimeError(cmd[0], " ".join(cmd[1:]))
+    
+    # ------------------------------------------------------------------------
+    # Project subcortical segmentation in diffusion
 
     # Set paths for subcortical segmentation, and the projection in diffusion
     subcortical_seg     = os.path.join(subject_dir, "mri/aseg.mgz")
-    subcortical_seg2dif = os.path.join(subcortical_masks_dir, "aseg2dif.nii.gz")
-
-    # Project subcortical segmentation in diffusion
+    subcortical_seg2dif = os.path.join(other_masks_dir, "aseg2dif.nii.gz")
+    
     cmd = ["mri_vol2vol", "--mov", nodif_brain, "--targ", subcortical_seg,
            "--inv", "--interp", "nearest", "--o", subcortical_seg2dif,
            "--reg", dif2anat_dat, "--no-save-reg"]
@@ -333,10 +342,11 @@ def create_masks_for_tractography(outdir,
     fsprocess()  # Run
     if fsprocess.exitcode != 0:
         raise FreeSurferRuntimeError(cmd[0], " ".join(cmd[1:]))
-
+    
+    # -------------------------------------------------------------------------
     # Create the tracto, according to the requested tracto mask type
     if tracto_mask_type == TractoMaskTypes.wm:
-        tracto_mask = os.path.join(subcortical_masks_dir, "wm_mask.nii.gz")
+        tracto_mask = os.path.join(other_masks_dir, "wm_mask.nii.gz")
         cmd = ["mri_binarize", "--i", subcortical_seg2dif, "--wm",
                "--o", tracto_mask]
 
@@ -346,7 +356,7 @@ def create_masks_for_tractography(outdir,
             raise FreeSurferRuntimeError(cmd[0], " ".join(cmd[1:]))
 
     elif tracto_mask_type == TractoMaskTypes.wm_dilated_1vox_6conn:
-        wm_mask = os.path.join(subcortical_masks_dir, "wm_mask.nii.gz")
+        wm_mask = os.path.join(other_masks_dir, "wm_mask.nii.gz")
         cmd = ["mri_binarize", "--i", subcortical_seg2dif, "--wm", "--o", wm_mask]
 
         fsprocess = FSWrapper(cmd)
@@ -357,7 +367,7 @@ def create_masks_for_tractography(outdir,
         tracto_mask = dilate_mask_by_one_voxel(wm_mask)
 
     elif tracto_mask_type == TractoMaskTypes.wm_dilated_1vox_14conn:
-        tracto_mask = os.path.join(subcortical_masks_dir, "wm_mask_dilated_1vox_14conn.nii.gz")
+        tracto_mask = os.path.join(other_masks_dir, "wm_mask_dilated_1vox_14conn.nii.gz")
         cmd = ["mri_binarize", "--i", subcortical_seg2dif, "--wm",
                "--dilate", str(1), "--o", tracto_mask]
 
@@ -372,13 +382,16 @@ def create_masks_for_tractography(outdir,
     else:
         raise ValueError("'tracto_mask_type': {}, should be in {}"
                          .format(tracto_mask_type, TractoMaskTypes.choices))
+    
+    # -------------------------------------------------------------------------
 
     # List to accumulate all paths to the created masks
     # Creating multiple lists helps ordering the masks
     left_cortical_masks, right_cortical_masks = [], []
     left_subcortical_masks, right_subcortical_masks = [], []
 
-    # Parse the cortical Look Up Table and create mask volumes
+    # -------------------------------------------------------------------------
+    # Parse the cortical Look Up Table and create cortical mask volumes
     for line in raw_cortical_LUT:
         lh_ctx_int_label, lh_ctx_str_label, _, _, _, _ = line.strip().split()
 
@@ -416,7 +429,34 @@ def create_masks_for_tractography(outdir,
             raise FreeSurferRuntimeError(cmd[0], " ".join(cmd[1:]))
         right_cortical_masks.append(path_rh_mask)
 
-    # If user has requested subcortical masks
+    # -------------------------------------------------------------------------
+    # Create "avoid" mask: mask of the ventricles
+    
+    avoid_mask = os.path.join(other_masks_dir, "ventricles.nii.gz")
+    cmd = ["mri_binarize", "--i", subcortical_seg2dif, "--ventricles",
+           "--o", avoid_mask]
+    fsprocess = FSWrapper(cmd)
+    fsprocess()  # Run
+    if fsprocess.exitcode != 0:
+        raise FreeSurferRuntimeError(cmd[0], " ".join(cmd[1:]))
+
+    # -------------------------------------------------------------------------
+    # Create tracto stop mask: cortex + ganglia
+    stop_mask = os.path.join(other_masks_dir, "cortex_and_ganglia.nii.gz")
+    stop_mask_labels = ["3", "42"]  # Initialization with cortex labels
+    for line in ASEG_RAW_LUT:  # Add ganglio labels to the list
+        label = line.strip().split()[0]
+        stop_mask_labels.append(label)
+    cmd = ["mri_binarize", "--i", subcortical_seg2dif,
+           "--match", " ".join(stop_mask_labels),
+           "--o", stop_mask]
+    fsprocess = FSWrapper(cmd)
+    fsprocess()  # Run
+    if fsprocess.exitcode != 0:
+        raise FreeSurferRuntimeError(cmd[0], " ".join(cmd[1:]))
+
+    # -------------------------------------------------------------------------
+    # If user has requested subcortical masks: create them
     if add_subcortical:
 
         # Parse the cortical Look Up Table and create mask volumes
@@ -424,7 +464,7 @@ def create_masks_for_tractography(outdir,
             int_label, str_label, _, _, _, _ = line.strip().split()
 
             # Create left mask
-            path_mask = os.path.join(subcortical_masks_dir, str_label + ".nii.gz")
+            path_mask = os.path.join(other_masks_dir, str_label + ".nii.gz")
             cmd = ["mri_binarize", "--i", subcortical_seg2dif,
                    "--match", int_label, "--o", path_mask]
             fsprocess = FSWrapper(cmd)
@@ -436,12 +476,16 @@ def create_masks_for_tractography(outdir,
             else:
                 right_subcortical_masks.append(path_mask)
 
+    # -------------------------------------------------------------------------
+
     seed_masks  = (left_cortical_masks + left_subcortical_masks +
                    right_cortical_masks + right_subcortical_masks)
 
-    return seed_masks, tracto_mask
+    return seed_masks, tracto_mask, stop_mask, avoid_mask
 
 
+# To complete with more snap shots, in particular aseg2dif.nii.gz with colors
+# + ventricles (avoid mask) + stop mask (cortex + ganglia)
 def qc_tractography_masks(outdir,
                           nodif_brain,
                           tracto_mask,
@@ -649,12 +693,14 @@ def bedpostx_diffusion_model(outdir, dwi, bval, bvec, nodif_brain_mask):
 
 
 def probtrackx2_connectogram(outdir,
+                             bedpostx_dir,
                              seed_masks,
                              tracto_mask,
-                             bedpostx_dir,
-                             subdir   = "probtrackx2",
-                             nsamples = 5000,
-                             nsteps   = 2000,
+                             stop_mask  = None,
+                             avoid_mask = None,
+                             subdir     = "probtrackx2",
+                             nsamples   = 5000,
+                             nsteps     = 2000,
                              #cthr=0.2,
                              #loopcheck=None,
                              #onewaycondition=None,
@@ -673,9 +719,11 @@ def probtrackx2_connectogram(outdir,
         <output name="network_matrix" type="File"                />
 
         <input name="outdir"          type="Directory"           />
+        <input name="bedpostx_dir"    type="Directory"           />
         <input name="seed_masks"      type="List" content="File" />
         <input name="tracto_mask"     type="File"                />
-        <input name="bedpostx_dir"    type="Directory"           />
+        <input name="stop_mask"       type="File"                />
+        <input name="avoid_mask"      type="File"                />
         <input name="subdir"          type="Str"                 />
         <input name="nsamples"        type="Int"                 />
         <input name="nsteps"          type="Int"                 />
@@ -827,13 +875,6 @@ def qc_connectogram(outdir,
                name         = "fiber density map",
                overlay_cmap = "cold_hot",
                cut_coords   = nb_slices_in_z/2)
-
-    # Snap shot for connectogram
-    connectogram_png = os.path.join(outdir, "connectogram_nolabels.png")
-    plot_matrix(network_matrix,
-                snap_file=connectogram_png,
-                name="Connectogram",
-                transform=np.log1p)
 
     # Second connectogram snap shot as PNG with cortex region labels
     plot_connectogram(outdir, network_matrix, seed_masks, transform=np.log1p)
