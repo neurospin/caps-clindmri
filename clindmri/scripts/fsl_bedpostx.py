@@ -57,10 +57,28 @@ orientations.
   corresponding to the respective b-value.
 - The *.bvec files contain a 3x1 vector for each gradient, indicating the
   gradient direction.
-- The diffuson dta: ith volume in the data corresponds to a measurement
+- The diffuson data: ith volume in the data corresponds to a measurement
   obtained after applying a diffusion-sensitising gradient with a b-value given
-  by th ith entry in *.bval and a gradient direction given by the ith vector in
-  *.bvec
+  by the ith entry in *.bval and a gradient direction given by the ith vector
+  in *.bvec
+
+**Output files**
+
+For every model parameter a distribution of values is estimated.
+- mean_*samples.nii.gz files: the mean of this distribution is saved for every
+  parameter.
+- merged_*samples.nii.gz files: for the parameters used for tractography
+  (e.g. orientations), samples from these distributions are saved.
+For each fibre compartment an orientation and a volume fraction is estimated.
+The orientation is described in spherical coordinates by two angles, theta and
+phi.
+
+For example the files:
+- (mean_f2samples.nii.gz, mean_th2samples.nii.gz, mean_ph2samples.nii.gz)
+  describe the means values of the distributions estimated for the volume
+  fraction and orientation of fibre 2.
+- (merged_f2samples.nii.gz, merged_ph2samples.nii.gz,merged_th2samples.nii.gz)
+  describe samples from these distributions.
 
 **Command**
 
