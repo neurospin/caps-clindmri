@@ -43,13 +43,13 @@ doc = """
 FSL Bedpostx
 ~~~~~~~~~~~~
 
-Performs a parametric deconvolution of the diffusion signal to fibre
+Performs a parametric deconvolution of the diffusion signal to fiber
 orientations.
 
 **Steps**
 
 1 - Obtain what is brain and what isn't using BET on the corrected b0 data.
-2 - Estimate fibre orientations using FSL Bedpostx model-based deconvolution.
+2 - Estimate fiber orientations using FSL Bedpostx model-based deconvolution.
 
 **Input files**
 
@@ -65,18 +65,19 @@ orientations.
 **Output files**
 
 For every model parameter a distribution of values is estimated.
-- mean_*samples.nii.gz files: the mean of this distribution is saved for every
-  parameter.
-- merged_*samples.nii.gz files: for the parameters used for tractography
-  (e.g. orientations), samples from these distributions are saved.
-For each fibre compartment an orientation and a volume fraction is estimated.
+- mean_*samples.nii.gz files: the mean of this distribution is saved for the
+  angular parameters (theta and phi) and the f anisotropy (3D volume).
+- merged_*samples.nii.gz files: contain the parameters used in the tractography
+  algorithm (e.g. orientations), samples from the theta, phi and f (4D image)
+  are saved.
+For each fiber compartment an orientation and a volume fraction is estimated.
 The orientation is described in spherical coordinates by two angles, theta and
 phi.
 
 For example the files:
 - (mean_f2samples.nii.gz, mean_th2samples.nii.gz, mean_ph2samples.nii.gz)
   describe the means values of the distributions estimated for the volume
-  fraction and orientation of fibre 2.
+  fraction and orientation of fiber 2.
 - (merged_f2samples.nii.gz, merged_ph2samples.nii.gz,merged_th2samples.nii.gz)
   describe samples from these distributions.
 
