@@ -41,12 +41,12 @@ def parallel_worker(work_queue, result_queue):
             break
         kwargs = new_work
         try:
-            path_nifti, path_bval, path_bvec = complete_preprocessing(**kwargs)
-            result_queue.put((path_nifti, path_bval, path_bvec))
+            dwi, bval, bvec = complete_preprocessing(**kwargs)
+            result_queue.put((dwi, bval, bvec))
         except ConnectomistError as e:
             result_queue.put(e.message)
         except Exception as e:
-            e.message += "\nUnknown error happened for %s" % kwargs["path_nifti"]
+            e.message += "\nUnknown error happened for %s" % kwargs["dwi"]
             e.message += "\n" + traceback.format_exc()
             result_queue.put(e.message)
 

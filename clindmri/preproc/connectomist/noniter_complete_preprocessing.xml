@@ -1,17 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline version="1.0">
     <docstring>
-        Diffusion image preprocessing
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-        Complete preprocessing of diffusion-weighted Nifti images using Connectomist.
-
-        Steps:
-
-        1. detection and correction of outlying slices
-        2. correction of susceptibility-induced distortions using B0 Maps
-        3. correction of Eddy currents and motion
-
+        Complete preprocessing of diffusion-weighted Nifti images using Connectomist:
+          - detection and correction of outlying slices
+          - correction of susceptibility-induced distortions using B0 Maps
+          - correction of Eddy currents and motion
         Outputs a corrected Nifti with associated .bval and .bvec with corrected gradient directions.
     </docstring>
     <units>
@@ -47,16 +40,16 @@
     <links>
 
 		<!-- Inputs: data_import_and_qspace_sampling -->
-		<link source="subject_id"        destination="import_and_qspace_model.subject_id"        />
-        <link source="path_dwi"          destination="import_and_qspace_model.path_dwi"          />
-        <link source="path_bval"         destination="import_and_qspace_model.path_bval"         />
-        <link source="path_bvec"         destination="import_and_qspace_model.path_bvec"         />
-        <link source="manufacturer"      destination="import_and_qspace_model.manufacturer"      />
-        <link source="path_b0_magnitude" destination="import_and_qspace_model.path_b0_magnitude" />
-        <link source="path_b0_phase"     destination="import_and_qspace_model.path_b0_phase"     />
-        <link source="invertX" 			 destination="import_and_qspace_model.invertX"           />
-        <link source="invertY" 			 destination="import_and_qspace_model.invertY"           />
-        <link source="invertZ" 			 destination="import_and_qspace_model.invertZ"           />
+		<link source="subject_id"   destination="import_and_qspace_model.subject_id"   />
+        <link source="dwi"          destination="import_and_qspace_model.dwi"          />
+        <link source="bval"         destination="import_and_qspace_model.bval"         />
+        <link source="bvec"         destination="import_and_qspace_model.bvec"         />
+        <link source="manufacturer" destination="import_and_qspace_model.manufacturer" />
+        <link source="b0_magnitude" destination="import_and_qspace_model.b0_magnitude" />
+        <link source="b0_phase"     destination="import_and_qspace_model.b0_phase"     />
+        <link source="invertX" 		destination="import_and_qspace_model.invertX"      />
+        <link source="invertY" 	    destination="import_and_qspace_model.invertY"      />
+        <link source="invertZ" 		destination="import_and_qspace_model.invertZ"      />
 
 		<!-- Inputs: rough_mask -->
         <link source="import_and_qspace_model.raw_dwi_directory" destination="rough_mask.raw_dwi_directory" />
@@ -73,7 +66,7 @@
         <link source="echo_spacing"                              destination="susceptibility.echo_spacing"                 />
         <link source="EPI_factor"                                destination="susceptibility.EPI_factor"                   />
         <link source="b0_field"                                  destination="susceptibility.b0_field"                     />
-        <link source="water_fat_shift_per_pixel"                 destination="susceptibility.water_fat_shift_per_pixel"    />
+        <link source="water_fat_shift"                           destination="susceptibility.water_fat_shift"              />
         <link source="import_and_qspace_model.raw_dwi_directory" destination="susceptibility.raw_dwi_directory"            />
         <link source="rough_mask.rough_mask_directory"           destination="susceptibility.rough_mask_directory"         />
         <link source="outliers.outliers_directory"               destination="susceptibility.outliers_directory"           />
@@ -93,9 +86,9 @@
 		<link source="delete_steps"                                  destination="export_results.delete_steps"             />
 
 		<!-- Pipeline outputs -->
-        <link source="export_results.path_dwi"  destination="path_preprocessed_dwi"  />
-        <link source="export_results.path_bval" destination="path_preprocessed_bval" />
-        <link source="export_results.path_bvec" destination="path_preprocessed_bvec" />
+        <link source="export_results.dwi"  destination="preproc_dwi"  />
+        <link source="export_results.bval" destination="preproc_bval" />
+        <link source="export_results.bvec" destination="preproc_bvec" />
 
     </links>
     <positions>
@@ -105,7 +98,7 @@
         <position unit="outliers"                x="970"  y="-133" />
         <position unit="susceptibility"          x="1147" y="604"  />
         <position unit="eddy_current_and_motion" x="1388" y="115"  />
-        <position unit="export_results"          x="1636" y="409"  />
+        <position unit="export_results"          x="1639" y="434"  />
         <position unit="outputs"                 x="1894" y="583"  />
     </positions>
     <zoom level="1"/>
