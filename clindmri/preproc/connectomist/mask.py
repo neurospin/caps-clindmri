@@ -12,22 +12,22 @@
 from .utils import create_parameter_file, run_connectomist
 
 
-def dwi_rough_mask_extraction(output_directory, raw_dwi_directory):
+def dwi_rough_mask_extraction(outdir, raw_dwi_dir):
     """
     Wrapper to Connectomist's "Rough mask" tab.
 
     Parameters
     ----------
-    output_directory:  Str, path to Connectomist output work directory.
-    raw_dwi_directory: Str, path to Connectomist Raw DWI folder.
+    outdir:  Str, path to Connectomist output work directory.
+    raw_dwi_dir: Str, path to Connectomist Raw DWI folder.
 
     <unit>
-        <output name="rough_mask_directory" type="Directory" description="Path
+        <output name="rough_mask_dir" type="Directory" description="Path
             to Connectomist output work directory"/>
 
-        <input name="output_directory" type="Directory" description="Path to
+        <input name="outdir" type="Directory" description="Path to
             Connectomist output work directory"/>
-        <input name="raw_dwi_directory" type="Directory" description="Path to
+        <input name="raw_dwi_dir" type="Directory" description="Path to
             Connectomist Raw DWI folder."/>
     </unit>
     """
@@ -37,8 +37,8 @@ def dwi_rough_mask_extraction(output_directory, raw_dwi_directory):
     parameters_dict = {
         # ---------------------------------------------------------------------
         # Used parameters
-        'outputWorkDirectory': output_directory,
-        'rawDwiDirectory':    raw_dwi_directory,
+        'outputWorkDirectory':      outdir,
+        'rawDwiDirectory':     raw_dwi_dir,
         # ---------------------------------------------------------------------
         # Parameters not used/handled by the code
         '_subjectName': '',
@@ -93,10 +93,10 @@ def dwi_rough_mask_extraction(output_directory, raw_dwi_directory):
     }
 
     parameter_file = create_parameter_file(algorithm, parameters_dict,
-                                           output_directory)
-    run_connectomist(algorithm, parameter_file, output_directory)
+                                           outdir)
+    run_connectomist(algorithm, parameter_file, outdir)
 
     # Capsul needs the output name to be different from input arguments
-    rough_mask_directory = output_directory
+    rough_mask_dir = outdir
 
-    return rough_mask_directory
+    return rough_mask_dir

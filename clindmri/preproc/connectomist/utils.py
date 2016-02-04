@@ -22,27 +22,27 @@ from .exceptions import ConnectomistError, BadFileError
 ###############################################################################
 
 
-def create_parameter_file(algorithm, parameters_dict, output_directory):
+def create_parameter_file(algorithm, parameters_dict, outdir):
     """
     Writes the .py file that Connectomist uses when working in command line.
 
     Parameters
     ----------
-    algorithm:        Str, name of Connectomist's tab.
-    parameters_dict:  Dict, parameter values for the tab.
-    output_directory: Str, path to directory where to write the parameter file.
-                      If not existing the directory is created.
+    algorithm:       Str, name of Connectomist's tab.
+    parameters_dict: Dict, parameter values for the tab.
+    outdir:          Str, path to directory where to write the parameter file.
+                     If not existing the directory is created.
 
     Returns
     -------
     parameter_file:   Str, path to the created parameter file.
     """
 
-    # If not existing create output_directory
-    if not os.path.isdir(output_directory):
-        os.mkdir(output_directory)
+    # If not existing create outdir
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
 
-    parameter_file = os.path.join(output_directory, "%s.py" % algorithm)
+    parameter_file = os.path.join(outdir, "%s.py" % algorithm)
 
     with open(parameter_file, "w") as f:
         f.write("algorithmName = '%s'\n" % algorithm)
@@ -54,7 +54,7 @@ def create_parameter_file(algorithm, parameters_dict, output_directory):
     return parameter_file
 
 
-def run_connectomist(algorithm, parameter_file, output_directory,
+def run_connectomist(algorithm, parameter_file, outdir,
                      path_connectomist=None, nb_tries=10):
     """
     Makes the command line call to run a specific tab from Connectomist.
@@ -63,7 +63,7 @@ def run_connectomist(algorithm, parameter_file, output_directory,
     ----------
     algorithm:         Str, name of Connectomist's tab.
     paramter_file:     Str, path to the parameter file for the tab.
-    output_directory:  Str, path to directory where the algorithm outputs.
+    outdir:            Str, path to directory where the algorithm outputs.
     path_connectomist: Str (optional), path to the Connectomist executable.
     nb_tries:          Int, nb of times to try an algorithm if it fails.
                        It often crashes when running in parallel. The reason
@@ -92,7 +92,7 @@ def run_connectomist(algorithm, parameter_file, output_directory,
     }
 
     # List filenames to be checked for this call
-    to_check = [os.path.join(output_directory, f) for f in files_to_check.get(algorithm, [])]
+    to_check = [os.path.join(outdir, f) for f in files_to_check.get(algorithm, [])]
 
     # Command to be run
     cmd = "%s -p %s -f %s" % (path_connectomist, algorithm, parameter_file)
@@ -121,7 +121,7 @@ def run_connectomist(algorithm, parameter_file, output_directory,
 # Wrappers to Ptk command line tools, may disappear in the future.
 ###############################################################################
 
-def nifti_to_gis(nifti, gis, nb_tries=10):
+def ptk_nifti_to_gis(nifti, gis, nb_tries=10):
     """
     Function that wraps the PtkNifti2GisConverter command line tool from
     Connectomist to make it capsul-isable.
@@ -195,7 +195,7 @@ def gz_compress(file_to_compress, clean=True):
         return gz_file
 
 
-def gis_to_nifti(gis, nifti, nb_tries=10):
+def ptk_gis_to_nifti(gis, nifti, nb_tries=10):
     """
     Function that wraps the PtkGis2NiftiConverter command line tool from
     Connectomist to make it capsul-isable.
@@ -248,7 +248,7 @@ def gis_to_nifti(gis, nifti, nb_tries=10):
         nb_tried += 1
         if os.path.isfile(nifti):
             if compress_to_gz:
-                nifti = compress_to_gz(nifti)
+                nifti = gz_compress(nifti)
             return nifti
         else:
             time.sleep(3)  # wait 3 sec before retrying
@@ -256,7 +256,7 @@ def gis_to_nifti(gis, nifti, nb_tries=10):
     raise ConnectomistError("Conversion gis_to_nifti failed, cmd:\n%s" % " ".join(cmd))
 
 
-def concatenate_volumes(path_inputs, path_output, axis="t", nb_tries=10):
+def ptk_concatenate_volumes(path_inputs, path_output, axis="t", nb_tries=10):
     """
     Function that wraps the PtkCat command line tool from Connectomist, with
     only the basic arguments. It allows concatenating volumes. In particular to
@@ -292,3 +292,74 @@ def concatenate_volumes(path_inputs, path_output, axis="t", nb_tries=10):
             time.sleep(3)  # wait 3 sec before retrying
 
     raise ConnectomistError("Failed to concatenate volumes, cmd:\n%s" % " ".join(cmd))
+
+
+def ptk_split_t2_and_diffusion(t2_dw_input, t2_output, dw_output, nb_tries=10):
+    """
+    Function meant to split a Gis file containing a T2 volume (first volume)
+    and diffusion-weigthed volumes (the other volumes) in 2 Gis files.
+    The separation is done using the PtkSubVolume command line tool from Connectomist.
+
+    Parameters
+    ----------
+    t2_dw_input: Str, path to input volume.
+    t2_output:   Str, path to output T2 volume.
+    dw_output:   Str, path to output diffusion-weighted volumes.
+    nb_tries:    Int, number of times to try the separation.
+                 The reason why it sometimes fails is not known.
+
+    Raises
+    ------
+    ConnectomistError: If call to PtkCat failed
+    """
+    # check input existence
+    if not os.path.isfile(t2_dw_input):
+        raise BadFileError(t2_dw_input)
+
+    # Check that input is a Gis file
+    if not t2_dw_input.endswith(".ima"):
+        raise ValueError("Input has to have '.ima' extension: {}".format(t2_dw_input))
+
+    if not t2_output.endswith(".ima"):
+        t2_output += ".ima"
+
+    if not dw_output.endswith(".ima"):
+        dw_output += ".ima"
+
+    # Step 1 - extract the T2 (nodif volume), assuming only one volume with bvalue=0
+    cmd_t2 = ["PtkSubVolume", "-i", t2_dw_input, "-o", t2_output, "-tIndices", "0",
+              "-verbose", "false", "-verbosePluginLoading", "false"]
+
+    # Run command line tool until it works or tried too many times
+    nb_tried = 0
+    while nb_tried < nb_tries:
+        subprocess.check_call(cmd_t2)
+        nb_tried += 1
+        if os.path.isfile(t2_output):
+            break
+        else:
+            time.sleep(3)  # wait 3 sec before retrying
+    else:
+        raise ConnectomistError("Failed to extract T2 (first volume) from {}"
+                                "\ncmd: {}".format(t2_dw_input, cmd_t2))
+
+    # Step 2 - extract the diffusion volumes
+    # assuming only all volumes except the first one are diffusion-weighted
+    cmd_dw = ["PtkSubVolume", "-i", t2_dw_input, "-o", dw_output, "-t", "1",
+              "-verbose", "false", "-verbosePluginLoading", "false"]
+
+    # Run command line tool until it works or tried too many times
+    nb_tried = 0
+    while nb_tried < nb_tries:
+        subprocess.check_call(cmd_dw)
+        nb_tried += 1
+        if os.path.isfile(dw_output):
+            break
+        else:
+            time.sleep(3)  # wait 3 sec before retrying
+    else:
+        raise ConnectomistError("Failed to extract DW (all volumes except the "
+                                 "first) from {}\ncmd: {}".format(t2_dw_input, cmd_dw))
+
+    return t2_output, dw_output
+

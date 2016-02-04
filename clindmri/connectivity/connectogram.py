@@ -166,24 +166,37 @@ def qc_dif2anat_registration(outdir,
 
     nb_slices_in_z = nibabel.load(nodif_brain).get_shape()[2]
 
-    # Snap shot for registration checking
-    t1_to_dif_png = os.path.join(outdir, "t1_to_dif_slices.png")
-    plot_image(t1_to_dif,
-               edge_file  = nodif_brain,
-               snap_file  = t1_to_dif_png,
-               name       = "T1 to diffusion + nodif brain contour",
-               cut_coords = nb_slices_in_z/2)
-
-    # Gif of the b0 volume (bvalue=0, nodif)
-    animate_image(nodif_brain, outdir=outdir, name="nodif_brain",
-                  cut_coords=nb_slices_in_z/2, clean=True)
-
     # Gif of the T1 in diffusion space with diffusion edges
     animate_image(t1_to_dif, edge_file=nodif_brain, outdir=outdir,
                   name="t1_to_dif", cut_coords=nb_slices_in_z/2, clean=True)
 
+    # First png: T1 registered in diffusion with nodif edges
+    t1_with_nodif_edges_png = os.path.join(outdir, "t1_with_nodif_edges.png")
+    plot_image(t1_to_dif,
+               edge_file  = nodif_brain,
+               snap_file  = t1_with_nodif_edges_png,
+               name       = "T1 in diffusion + edges of nodif",
+               cut_coords = nb_slices_in_z/2)
+
+    # Second png: nodif with edges of T1 registered in diffusion
+    nodif_with_t1_edges_png = os.path.join(outdir, "nodif_with_t1_edges.png")
+    plot_image(nodif_brain,
+               edge_file  = t1_to_dif,
+               snap_file  = nodif_with_t1_edges_png,
+               name       = "nodif + edges of registered T1",
+               cut_coords = nb_slices_in_z/2)
+
+#    # Third png: nodif with WM edges (from T1 segmentation)
+#    nodif_with_wm_edges_png = os.path.join(outdir, "nodif_with_wm_edges.png")
+#    plot_image(nodif_brain,
+#               edge_file  = t1_to_dif,
+#               snap_file  = nodif_with_t1_edges_png,
+#               name       = "nodif + edges of registered T1",
+#               cut_coords = nb_slices_in_z/2)
+
     # Return something for Capsul
     qc_dir = outdir
+
     return qc_dir
 
 
@@ -255,7 +268,8 @@ def create_masks_for_tractography(outdir,
                       Moreover the right and left white matter regions are much less
                       connected without dilation, therefore the connectogram shows
                       few interhemisphere connections with a simple white matter mask.
-    fs_subjects_dir:  To bypass the $SUBJECTS_DIR Freesurfer environment variable.
+    fs_subjects_dir:  If the Freesurfer $SUBJECTS_DIR environment variable is
+                      not set, or to bypass it, pass the path.
 
     <unit>
 
@@ -317,7 +331,7 @@ def create_masks_for_tractography(outdir,
         raw_cortical_LUT = APARC_A2009S_ASEG_RAW_LUT
     else:
         raise ValueError("Bad 'cortical_atlas' name: {}".format(cortical_atlas))
-    
+
     # -------------------------------------------------------------------------
     # Project cortical segmentation in diffusion
     cmd = ["mri_vol2vol", "--mov", nodif_brain, "--targ", cortical_seg,
@@ -327,14 +341,14 @@ def create_masks_for_tractography(outdir,
     fsprocess()  # Run
     if fsprocess.exitcode != 0:
         raise FreeSurferRuntimeError(cmd[0], " ".join(cmd[1:]))
-    
+
     # ------------------------------------------------------------------------
     # Project subcortical segmentation in diffusion
 
     # Set paths for subcortical segmentation, and the projection in diffusion
     subcortical_seg     = os.path.join(subject_dir, "mri/aseg.mgz")
     subcortical_seg2dif = os.path.join(other_masks_dir, "aseg2dif.nii.gz")
-    
+
     cmd = ["mri_vol2vol", "--mov", nodif_brain, "--targ", subcortical_seg,
            "--inv", "--interp", "nearest", "--o", subcortical_seg2dif,
            "--reg", dif2anat_dat, "--no-save-reg"]
@@ -342,7 +356,7 @@ def create_masks_for_tractography(outdir,
     fsprocess()  # Run
     if fsprocess.exitcode != 0:
         raise FreeSurferRuntimeError(cmd[0], " ".join(cmd[1:]))
-    
+
     # -------------------------------------------------------------------------
     # Create the tracto, according to the requested tracto mask type
     if tracto_mask_type == TractoMaskTypes.wm:
@@ -382,7 +396,7 @@ def create_masks_for_tractography(outdir,
     else:
         raise ValueError("'tracto_mask_type': {}, should be in {}"
                          .format(tracto_mask_type, TractoMaskTypes.choices))
-    
+
     # -------------------------------------------------------------------------
 
     # List to accumulate all paths to the created masks
@@ -431,7 +445,7 @@ def create_masks_for_tractography(outdir,
 
     # -------------------------------------------------------------------------
     # Create "avoid" mask: mask of the ventricles
-    
+
     avoid_mask = os.path.join(other_masks_dir, "ventricles.nii.gz")
     cmd = ["mri_binarize", "--i", subcortical_seg2dif, "--ventricles",
            "--o", avoid_mask]
