@@ -45,10 +45,10 @@ The statistics are generated in a 'stats' sub folder of the FreeSurfer
 
 Command:
 
-python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_stats.py
-    -v 2
-    -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh
-    -d /neurospin/imagen/FU2/processed/freesurfer
+python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_stats.py \
+    -v 2 \
+    -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh \
+    -d /neurospin/imagen/FU2/processed/freesurfer \
     -e
 """
 
