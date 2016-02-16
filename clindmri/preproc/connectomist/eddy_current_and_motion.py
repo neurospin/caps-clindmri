@@ -9,52 +9,55 @@
 ##########################################################################
 
 import os
-import time
+import numpy as np
 
-from .exceptions import ConnectomistError
-from .utils      import create_parameter_file, run_connectomist
+from .exceptions import BadFileError
+from .utils      import ptk_gis_to_nifti, ptk_concatenate_volumes
+
+from .utils import create_parameter_file, run_connectomist
 
 
-
-def dwi_eddy_current_and_motion_correction(output_directory,
-                                           raw_dwi_directory,
-                                           rough_mask_directory,
-                                           susceptibility_directory):
+def dwi_eddy_current_and_motion_correction(outdir,
+                                           raw_dwi_dir,
+                                           rough_mask_dir,
+                                           corrected_dir):
     """
     Wrapper to Connectomist's "Eddy current & motion" tab.
 
     Parameters
     ----------
-    output_directory:        Str, path to Connectomist output work directory.
-    raw_dwi_directory:       Str, path to Connectomist Raw DWI directory.
-    rough_mask_directory:    Str, path to Connectomist Rough Mask directory.
-    susceptbility_directory: Str, path to Connectomist Susceptibility directory.
+    outdir:         Str, path to Connectomist output work directory.
+    raw_dwi_dir:    Str, path to Connectomist Raw DWI directory.
+    rough_mask_dir: Str, path to Connectomist Rough Mask directory.
+    corrected_dir:  Str, path to Connectomist Susceptibility or Outlier directory.
+                    Depending whether you make Eddy Current correction before
+                    or after susceptibility correction.
 
     <unit>
-        <output name="eddy_motion_directory" type="Directory" />
+        <output name="eddy_motion_dir" type="Directory" />
 
-        <input name="output_directory" type="Directory" description="Path to
+        <input name="outdir" type="Directory" description="Path to
             Connectomist output work directory."/>
-        <input name="raw_dwi_directory" type="Directory" description="Path to
+        <input name="raw_dwi_dir" type="Directory" description="Path to
             Connectomist Raw DWI directory."/>
-        <input name="rough_mask_directory" type="Directory" description="Path
+        <input name="rough_mask_dir" type="Directory" description="Path
             to Connectomist Rough Mask directory."/>
-        <input name="susceptibility_directory" type="Directory" description="
-            Path to Connectomist Susceptibility directory."/>
+        <input name="corrected_dir" type="Directory" description="
+            Connectomist Susceptibility or Outlier directory."/>
     </unit>
     """
 
-    algorithm_name = "DWI-Eddy-Current-And-Motion-Correction"
+    algorithm = "DWI-Eddy-Current-And-Motion-Correction"
 
-    parameters_value = {
+    parameters_dict = {
         # ---------------------------------------------------------------------
         # Used parameters
-        "rawDwiDirectory":              raw_dwi_directory,
-        "roughMaskDirectory":        rough_mask_directory,
-        "correctedDwiDirectory": susceptibility_directory,
-        "outputWorkDirectory":           output_directory,
-        "eddyCurrentCorrection":                        2,
-        "motionCorrection":                             1,
+        "rawDwiDirectory":          raw_dwi_dir,
+        "roughMaskDirectory":    rough_mask_dir,
+        "correctedDwiDirectory":  corrected_dir,
+        "outputWorkDirectory":           outdir,
+        "eddyCurrentCorrection":              2,
+        "motionCorrection":                   1,
         # ---------------------------------------------------------------------
         # Parameters not used/handled by the code
         "_subjectName": "",
@@ -128,32 +131,103 @@ def dwi_eddy_current_and_motion_correction(output_directory,
             "optimizerParametersRotationY":     2
         }
     }
-    
-    output_t2 = os.path.join(output_directory, "t2_wo_eddy_current_and_motion.ima")
-    output_dw = os.path.join(output_directory, "dw_wo_eddy_current_and_motion.ima")
 
-    nb_tries = 3  # Number of times to try if it fails
-    nb_tried = 0
-    success  = False
-    while nb_tried < nb_tries:
-        nb_tried += 1
+    parameter_file = create_parameter_file(algorithm, parameters_dict,
+                                           outdir)
+    run_connectomist(algorithm, parameter_file, outdir)
 
-        parameter_file = create_parameter_file(algorithm_name,
-                                               parameters_value,
-                                               output_directory)
-        run_connectomist(algorithm_name, parameter_file)
-
-        if os.path.isfile(output_t2) and os.path.isfile(output_dw):
-            success = True
-            break
-        else:
-            time.sleep(10)  # wait 10 sec before retrying
-
-    if not success:
-        raise ConnectomistError("Eddy current and motion correction failed. "
-                                "Missing output file(s): %s or/and %s"
-                                % (output_t2, output_dw))
-    
     # Capsul needs the output name to be different from input arguments
-    eddy_motion_directory = output_directory
-    return eddy_motion_directory
+    eddy_motion_dir = outdir
+
+    return eddy_motion_dir
+
+
+def export_eddy_motion_results_to_nifti(eddy_motion_dir,
+                                        outdir   = None,
+                                        filename = "dwi"):
+    """
+    After Connectomist has done Eddy current and motion correction, convert
+    the result to Nifti with bval/bvec files (bvec with corrrected directions).
+
+    Parameters
+    ----------
+    eddy_motion_dir: Str, path to the Connectomist "Eddy current and motion"
+                     directory.
+    outdir:          Str, path to directory where to output:
+                         <outdir>/<filename>.nii.gz
+                         <outdir>/<filename>.bval
+                         <outdir>/<filename>.bvec
+                     By default <outdir> is <eddy_motion_dir>.
+    filename:        Str, to change output filenames, by default "dwi".
+    """
+    # Step 0 - Set outdir path and check directory existence
+    if outdir is None:
+        outdir = eddy_motion_dir
+    else:
+        if not os.path.isdir(outdir):  # If outdir does not exist, create it
+            os.makedirs(outdir)
+
+    # Step 1 - Concatenate preprocessed T2 and preprocessed DW volumes
+
+    # Set input and output paths (Gis files) without extension (.ima)
+    t2    = os.path.join(eddy_motion_dir, "t2_wo_eddy_current_and_motion.ima")
+    dw    = os.path.join(eddy_motion_dir, "dw_wo_eddy_current_and_motion.ima")
+    t2_dw = os.path.join(eddy_motion_dir, "t2_dw_wo_eddy_current_and_motion.ima")
+
+    # Check existence of input files
+    for path in t2, dw:
+        if not os.path.isfile(path):
+            raise BadFileError(path)
+
+    # Apply concatenation: result is a Gis file
+    ptk_concatenate_volumes([t2, dw], t2_dw)
+
+    # Step 2 - Convert to Nifti
+    dwi = ptk_gis_to_nifti(t2_dw, os.path.join(outdir, "%s.nii.gz" % filename))
+
+    # Step 3 - Create .bval and .bvec (with corrected directions)
+
+    # The new directions of gradients (modified by the Eddy current and motion
+    # correction) are found in the .ima.minf (Gis format) file associated to
+    # diffusion weighted data.
+    try:
+        # The .ima.minf is a text file that defines a python dict
+        path_minf = dw + ".minf"
+        exec_dict = dict()  # To store variables created by execfile() call.
+        execfile(path_minf, exec_dict)
+
+        # Verify dict structure by checking 2 keys.
+        if "bvalues" not in exec_dict["attributes"]:
+            raise Exception
+        if "diffusion_gradient_orientations" not in exec_dict["attributes"]:
+            raise Exception
+    except:
+        raise BadFileError(path_minf)
+
+    # Get bvalues and create .bval file
+    bvalues = np.array(exec_dict["attributes"]["bvalues"], dtype=np.int)
+
+    # Add 0 in bvalues for b=0 associated to T2
+    bvalues = np.concatenate(([0], bvalues))
+
+    # Create "dwi.bval"
+    bval = os.path.join(outdir, "%s.bval" % filename)
+    np.savetxt(bval, bvalues, newline=" ", fmt="%d")
+
+    # Get gradient directions to create .bvec file
+    directions = np.array(exec_dict["attributes"]["diffusion_gradient_orientations"])
+
+    # Normalize vectors
+    magnitudes = np.linalg.norm(directions, axis=1)
+    for i, vector in enumerate(directions):
+        directions[i, :] = directions[i, :] / magnitudes[i]
+
+    # Add null vector for direction corresponding to bvalue=0 volume
+    directions = np.concatenate(([[0, 0, 0]], directions))
+
+    # Create "dwi.bvec"
+    bvec = os.path.join(outdir, "%s.bvec" % filename)
+    np.savetxt(bvec, directions.T, fmt="%.10f")
+
+    return dwi, bval, bvec
+

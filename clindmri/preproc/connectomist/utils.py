@@ -12,86 +12,126 @@ import os
 import time
 import pprint
 import subprocess
+import gzip
+import shutil
 
-from .exceptions import ConnectomistError, ConnectomistRuntimeError, BadFileError
+from .exceptions import ConnectomistError, BadFileError
 
 ###############################################################################
 # UTILITY FUNCTIONS
 ###############################################################################
 
 
-def create_parameter_file(algorithm_name, parameters_value, output_directory):
+def create_parameter_file(algorithm, parameters_dict, outdir):
     """
     Writes the .py file that Connectomist uses when working in command line.
 
     Parameters
     ----------
-    algorithm_name:   Str, name of Connectomist's tab.
-    parameters_value: Dict, parameter values for the tab.
-    output_directory: Str, path to directory where to write the parameter file.
-                      If not existing the directory is created.
+    algorithm:       Str, name of Connectomist's tab.
+    parameters_dict: Dict, parameter values for the tab.
+    outdir:          Str, path to directory where to write the parameter file.
+                     If not existing the directory is created.
 
     Returns
     -------
     parameter_file:   Str, path to the created parameter file.
     """
 
-    # If not existing create output_directory
-    if not os.path.isdir(output_directory):
-        os.mkdir(output_directory)
+    # If not existing create outdir
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
 
-    parameter_file = os.path.join(output_directory, "%s.py" % algorithm_name)
+    parameter_file = os.path.join(outdir, "%s.py" % algorithm)
 
     with open(parameter_file, "w") as f:
-        f.write("algorithmName = '%s'\n" % algorithm_name)
+        f.write("algorithmName = '%s'\n" % algorithm)
 
         # Pretty text to write, without the first "{"
-        pretty_dict = pprint.pformat(parameters_value)[1:]
+        pretty_dict = pprint.pformat(parameters_dict)[1:]
         f.write("parameterValues = {\n " + pretty_dict)
 
     return parameter_file
 
 
-def run_connectomist(algorithm_name, parameter_file, connectomist_path=None):
+def run_connectomist(algorithm, parameter_file, outdir,
+                     path_connectomist=None, nb_tries=10):
     """
     Makes the command line call to run a specific tab from Connectomist.
 
     Parameters
     ----------
-    algorithm_name:    Str, name of Connectomist's tab.
+    algorithm:         Str, name of Connectomist's tab.
     paramter_file:     Str, path to the parameter file for the tab.
-    connectomist_path: Str (optional), path to the Connectomist executable.
+    outdir:            Str, path to directory where the algorithm outputs.
+    path_connectomist: Str (optional), path to the Connectomist executable.
+    nb_tries:          Int, nb of times to try an algorithm if it fails.
+                       It often crashes when running in parallel. The reason
+                       why it crashes is unknown.
 
     Raises
     ------
-    ConnectomistRuntimeError: If Connectomist call failed.
+    ConnectomistError: If Connectomist call failed.
     """
 
-    if not connectomist_path:
-        connectomist_path = "/i2bm/local/Ubuntu-14.04-x86_64/ptk/bin/connectomist"
+    if not path_connectomist:
+        path_connectomist = "/i2bm/local/Ubuntu-14.04-x86_64/ptk/bin/connectomist"
 
-    cmd = "%s -p %s -f %s" % (connectomist_path, algorithm_name, parameter_file)
-    try:
-        subprocess.check_call(cmd, shell=True)
-    except:
-        raise ConnectomistRuntimeError(algorithm_name, parameter_file)
+    # Map algorithm name to a list of files that should be created.
+    # It is meant to check that the call to Connectomist worked, because the
+    # exit code is 0 even when it fails.
+    files_to_check = {
+        "DWI-Data-Import-And-QSpace-Sampling":
+            ["t2.ima", "dw.ima", "acquisition_parameters.py"],
+        "DWI-Rough-Mask-Extraction": ["mask.ima"],
+        "DWI-Outlier-Detection": ["t2_wo_outlier.ima", "dw_wo_outlier.ima"],
+        "DWI-Susceptibility-Artifact-Correction":
+            ["t2_wo_susceptibility.ima", "dw_wo_susceptibility.ima"],
+        "DWI-Eddy-Current-And-Motion-Correction":
+            ["t2_wo_eddy_current_and_motion.ima", "dw_wo_eddy_current_and_motion.ima"]
+    }
+
+    # List filenames to be checked for this call
+    to_check = [os.path.join(outdir, f) for f in files_to_check.get(algorithm, [])]
+
+    # Command to be run
+    cmd = "%s -p %s -f %s" % (path_connectomist, algorithm, parameter_file)
+
+    # Run the command, multiple times if it fails.
+    nb_tried = 0
+    while nb_tried < nb_tries:
+        nb_tried += 1
+
+        try:
+            subprocess.check_call(cmd, shell=True)
+        except:
+            pass
+
+        success = all(map(os.path.isfile, to_check))
+        if success:
+            return
+        else:
+            time.sleep(3)  # wait 3 sec before retrying
+
+    # If the command failed nb_tries times, raise an exception
+    raise ConnectomistError("Connectomist call failed with cmd:\n%s" % cmd)
 
 
 ###############################################################################
 # Wrappers to Ptk command line tools, may disappear in the future.
 ###############################################################################
 
-def nifti_to_gis(path_nifti, path_gis, nb_tries=3):
+def ptk_nifti_to_gis(nifti, gis, nb_tries=10):
     """
     Function that wraps the PtkNifti2GisConverter command line tool from
     Connectomist to make it capsul-isable.
 
     Parameters
     ----------
-    path_nifti: Str, path to the input Nifti file to be converted.
-    path_gis:   Str, path without extension to the 3 output GIS files.
-    nb_tries:   Int, number of times to try the conversion.
-                The reason why it sometimes fails is not known.
+    nifti:    Str, path to the input Nifti file to be converted.
+    gis:      Str, path without extension to the 3 output GIS files.
+    nb_tries: Int, number of times to try the conversion. It often fails
+              when using parallel processing.
 
     Raises
     ------
@@ -101,93 +141,122 @@ def nifti_to_gis(path_nifti, path_gis, nb_tries=3):
         <output name="path_gis" type="File" description="Path to output
             .ima file (Gis format)."/>
 
-        <input name="path_nifti" type="File" description="Path to input Nifti file."/>
-        <input name="path_gis" type="Str" description="Path to the Gis .ima file.
+        <input name="nifti" type="File" description="Path to input Nifti file."/>
+        <input name="gis" type="Str" description="Path to the Gis .ima file.
             If no extension, .ima is added."/>
         <input name="nb_tries" type="Int"/>
     </unit>
     """
     # Check input existence
-    if not os.path.isfile(path_nifti):
-        raise BadFileError(path_nifti)
-    
+    if not os.path.isfile(nifti):
+        raise BadFileError(nifti)
+
     # Add extension if there is none
-    if not path_gis.endswith("ima"):
-        path_gis += ".ima"
-    
+    if not gis.endswith("ima"):
+        gis += ".ima"
+
     # Call command line tool
-    cmd = ["PtkNifti2GisConverter", "-i", path_nifti, "-o", path_gis,
+    cmd = ["PtkNifti2GisConverter", "-i", nifti, "-o", gis,
            "-verbose", "False", "-verbosePluginLoading", "False"]
     nb_tried = 0
     while nb_tried < nb_tries:
         subprocess.check_call(cmd)
         nb_tried += 1
-        if os.path.isfile(path_gis):
-            return path_gis
+        if os.path.isfile(gis):
+            return gis
         else:
-            time.sleep(10)  # wait 10 sec before retrying
+            time.sleep(3)  # wait 10 sec before retrying
 
     raise ConnectomistError("Conversion nifti_to_gis failed, cmd:\n%s" % " ".join(cmd))
 
 
-def gis_to_nifti(path_gis, path_nifti, nb_tries=3):
+def gz_compress(file_to_compress, clean=True):
+    """
+    Compress a file with gzip, the output path is the same but with ".gz" extension.
+    If 'clean' is True, the input file is deleted, to keep only the compressed
+    version.
+
+    The function raises ValueError if the input file does not exist and
+    Exception if the output compressed file is not created.
+    """
+    if not os.path.isfile(file_to_compress):
+        raise ValueError("File to compress does not exist: {}".format(file_to_compress))
+
+    gz_file = file_to_compress + ".gz"
+    with open(file_to_compress, 'rb') as f_in, gzip.open(gz_file, 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+
+    if clean:
+        os.remove(file_to_compress)
+
+    if not os.path.isfile(gz_file):
+        raise Exception("Failed to compress %s to %s" % (file_to_compress, gz_file))
+    else:
+        return gz_file
+
+
+def ptk_gis_to_nifti(gis, nifti, nb_tries=10):
     """
     Function that wraps the PtkGis2NiftiConverter command line tool from
     Connectomist to make it capsul-isable.
 
     Parameters
     ----------
-    path_gis:   Str, path to the Gis .ima file.
-    path_nifti: Str, path to the output Nifti file.
-    nb_tries:   Int, number of times to try the conversion.
-                The reason why it sometimes fails is not known.
+    gis:      Str, path to the Gis .ima file.
+    nifti:    Str, path to the output Nifti file.
+    nb_tries: Int, number of times to try the conversion. It often fails
+              when using parallel processing.
 
     Returns
     -------
-    path_nifti: path to output file.
+    nifti: path to output file.
 
     Raises
     ------
     ConnectomistError: If call to PtkGis2NiftiConverter failed nb_tries times.
 
     <unit>
-        <output name="path_nifti" type="File" />
+        <output name="nifti" type="File" />
 
-        <input name="path_gis"   type="Str" description="Path to the Gis .ima file."/>
-        <input name="path_nifti" type="File"  />
-        <input name="nb_tries"   type="Int"   />
+        <input name="gis"      type="Str"  />
+        <input name="nifti"    type="File" />
+        <input name="nb_tries" type="Int"  />
     </unit>
     """
     # Check input existence
-    if not os.path.isfile(path_gis):
-        raise BadFileError(path_gis)
+    if not os.path.isfile(gis):
+        raise BadFileError(gis)
 
     # The command line tool does not handle .gz properly
-    if path_nifti.endswith(".gz"):
-        path_nifti = path_nifti[:-3] # remove ".gz"
-    
+    compress_to_gz = False
+    if nifti.endswith(".gz"):
+        nifti = nifti[:-3] # remove ".gz"
+        compress_to_gz = True
+
     # Add .nii extension if not the case
-    if not path_nifti.endswith(".nii"):
-        path_nifti += ".nii"
+    if not nifti.endswith(".nii"):
+        nifti += ".nii"
 
     # Call command line tool:
     # it creates a Nifti + a .minf file (metainformation)
-    cmd = ["PtkGis2NiftiConverter", "-i", path_gis, "-o", path_nifti,
+    cmd = ["PtkGis2NiftiConverter", "-i", gis, "-o", nifti,
            "-verbose", "False", "-verbosePluginLoading", "False"]
 
     nb_tried = 0
     while nb_tried < nb_tries:
         subprocess.check_call(cmd)
         nb_tried += 1
-        if os.path.isfile(path_nifti):
-            return path_nifti
+        if os.path.isfile(nifti):
+            if compress_to_gz:
+                nifti = gz_compress(nifti)
+            return nifti
         else:
-            time.sleep(10)  # wait 10 sec before retrying
+            time.sleep(3)  # wait 3 sec before retrying
 
     raise ConnectomistError("Conversion gis_to_nifti failed, cmd:\n%s" % " ".join(cmd))
 
 
-def concatenate_volumes(path_inputs, path_output, axis="t", nb_tries=3):
+def ptk_concatenate_volumes(path_inputs, path_output, axis="t", nb_tries=10):
     """
     Function that wraps the PtkCat command line tool from Connectomist, with
     only the basic arguments. It allows concatenating volumes. In particular to
@@ -220,6 +289,77 @@ def concatenate_volumes(path_inputs, path_output, axis="t", nb_tries=3):
         if os.path.isfile(path_output):
             return path_output
         else:
-            time.sleep(10)  # wait 10 sec before retrying
+            time.sleep(3)  # wait 3 sec before retrying
 
     raise ConnectomistError("Failed to concatenate volumes, cmd:\n%s" % " ".join(cmd))
+
+
+def ptk_split_t2_and_diffusion(t2_dw_input, t2_output, dw_output, nb_tries=10):
+    """
+    Function meant to split a Gis file containing a T2 volume (first volume)
+    and diffusion-weigthed volumes (the other volumes) in 2 Gis files.
+    The separation is done using the PtkSubVolume command line tool from Connectomist.
+
+    Parameters
+    ----------
+    t2_dw_input: Str, path to input volume.
+    t2_output:   Str, path to output T2 volume.
+    dw_output:   Str, path to output diffusion-weighted volumes.
+    nb_tries:    Int, number of times to try the separation.
+                 The reason why it sometimes fails is not known.
+
+    Raises
+    ------
+    ConnectomistError: If call to PtkCat failed
+    """
+    # check input existence
+    if not os.path.isfile(t2_dw_input):
+        raise BadFileError(t2_dw_input)
+
+    # Check that input is a Gis file
+    if not t2_dw_input.endswith(".ima"):
+        raise ValueError("Input has to have '.ima' extension: {}".format(t2_dw_input))
+
+    if not t2_output.endswith(".ima"):
+        t2_output += ".ima"
+
+    if not dw_output.endswith(".ima"):
+        dw_output += ".ima"
+
+    # Step 1 - extract the T2 (nodif volume), assuming only one volume with bvalue=0
+    cmd_t2 = ["PtkSubVolume", "-i", t2_dw_input, "-o", t2_output, "-tIndices", "0",
+              "-verbose", "false", "-verbosePluginLoading", "false"]
+
+    # Run command line tool until it works or tried too many times
+    nb_tried = 0
+    while nb_tried < nb_tries:
+        subprocess.check_call(cmd_t2)
+        nb_tried += 1
+        if os.path.isfile(t2_output):
+            break
+        else:
+            time.sleep(3)  # wait 3 sec before retrying
+    else:
+        raise ConnectomistError("Failed to extract T2 (first volume) from {}"
+                                "\ncmd: {}".format(t2_dw_input, cmd_t2))
+
+    # Step 2 - extract the diffusion volumes
+    # assuming only all volumes except the first one are diffusion-weighted
+    cmd_dw = ["PtkSubVolume", "-i", t2_dw_input, "-o", dw_output, "-t", "1",
+              "-verbose", "false", "-verbosePluginLoading", "false"]
+
+    # Run command line tool until it works or tried too many times
+    nb_tried = 0
+    while nb_tried < nb_tries:
+        subprocess.check_call(cmd_dw)
+        nb_tried += 1
+        if os.path.isfile(dw_output):
+            break
+        else:
+            time.sleep(3)  # wait 3 sec before retrying
+    else:
+        raise ConnectomistError("Failed to extract DW (all volumes except the "
+                                 "first) from {}\ncmd: {}".format(t2_dw_input, cmd_dw))
+
+    return t2_output, dw_output
+

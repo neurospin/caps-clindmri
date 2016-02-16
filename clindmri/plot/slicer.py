@@ -36,8 +36,12 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
     ----------
     input_file: str (mandatory)
         An image to display.
-    outline_file: str (optional, default None)
+    edge_file: str (optional, default None)
         The target image to extract the edges from.
+    overlay_file: str (optional, default None)
+        Image to superimpose to the input_file image.
+    contour_file: str (optional, default None)
+        Superimpose the contour of the image to the input_file image.
     snap_file: str (optional, default None)
         The destination file: if not specified will be the 'input_file'
         name with a 'png' extension.
@@ -99,9 +103,9 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
     return snap_file
 
 
-def animate_image(input_file, edge_file=None, overlay_file=None,
-                  contour_file=None, outdir=None, name=None,
-                  overlay_cmap=None, cut_coords=None, clean=True):
+def animate_image(input_file, cut_coords, edge_file=None, overlay_file=None,
+                  contour_file=None, snap_file=None, outdir=None, name=None,
+                  overlay_cmap=None, clean=True):
     """ Animate an image with edge/overlay/contour on top (useful for checking
     registration).
 
@@ -109,8 +113,15 @@ def animate_image(input_file, edge_file=None, overlay_file=None,
     ----------
     input_file: str (mandatory)
         An image to display.
-    outline_file: str (optional, default None)
+    edge_file: str (optional, default None)
         The target image to extract the edges from.
+    overlay_file: str (optional, default None)
+        Superimpose the image to the input_file image.
+    contour_file: str (optional, default None)
+        Superimpose the contour of the image to the input_file image.
+    snap_file: str (optional, default None)
+        The destination file: if not specified will be the 'input_file'
+        name with a 'gif' extension.
     outdir: str (optional, default None)
         The destination directory: if not specified will be the 'input_file'
         directory.
@@ -119,23 +130,29 @@ def animate_image(input_file, edge_file=None, overlay_file=None,
     overlay_cmap: str (optional, default None)
         The color map to use: 'cold_hot' or 'blue_red' or None,
         or a N*4 array with values in 0-1 (r, g, b, a).
-    cut_coords: 3-uplet (optional, default None)
-        The MNI coordinates of the point where the cut is performed.
-        If None is given, the cuts is calculated automaticaly.
+    cut_coords: int (mandatory)
+        Number of slices to extract in z-direction (nb slices in the GIF).
     clean: bool (default True)
         It True delete the temporary snaps.
 
     Returns
     -------
-    snap_file: str
+    gif_image: str
         A gif snap of the image.
     """
     # Check that the snap_file has been specified
     if outdir is None:
         outdir = os.path.dirname(input_file)
+        
+    # Check that the snap_file has been specified
+    if snap_file is None:
+        snap_file = input_file.split(".")[0] + ".png"
+    
+    # Make sure there is the right extension
+    if not snap_file.endswith(".png"):
+        snap_file += ".png"
 
     # Create an image stacking the slices
-    snap_file = os.path.join(outdir, "nodif_proba.png")
     plot_image(input_file, edge_file=edge_file, overlay_file=overlay_file,
                contour_file=contour_file, snap_file=snap_file, name=name,
                overlay_cmap=overlay_cmap, cut_coords=cut_coords)
@@ -149,7 +166,8 @@ def animate_image(input_file, edge_file=None, overlay_file=None,
         snap_file, outdir, "tmp_", width / cut_coords, height)
 
     # Combine the png layers to obtain the gif file
-    gif_image = os.path.join(outdir, "nodif_proba.gif")
+    # The GIF has the same path as tne PNG but with .gif extension
+    gif_image = os.path.join(outdir, snap_file[:-len(".png")] + ".gif")
     images_to_gif(snap_files, gif_image, delay=10)
 
     # Clean
