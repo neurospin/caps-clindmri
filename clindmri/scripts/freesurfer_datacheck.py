@@ -20,10 +20,14 @@ FreeSurfer Data Check
 
 Run this command to check if your input FreeSurfer processing home
 directory ('fsdir') contains the expected FreeSurfer output files for all
-the subjects.
+the subjects. A two step check is leverage: check the file count in each
+folder - check the recon-all status exit message.
+
 It is possible to check in details one specific subject specifying his
 identifier.
-This script can also checks the 'freesurfer_conversion' outputs.
+
+This script can also checks the 'freesurfer_conversion' outputs by specifying
+the expected number of generated files.
 
 python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_datacheck.py \
     -v 2 \
@@ -114,7 +118,7 @@ for sid in fsdir_subfolders:
         continue
 
     # Store the subject tree folder-folder files counts
-    status[sid] = {"extrapaths": []}
+    status[sid] = {"extrapaths": [], "exitcode": 1}
     siddir = os.path.join(args.fsdir, sid)
     for path, dirs, files in os.walk(siddir):
         rpath = path.replace(siddir, "").lstrip(os.sep)
@@ -122,6 +126,13 @@ for sid in fsdir_subfolders:
             status[sid][rpath] = len(files)
         else:
             status[sid]["extrapaths"].append(rpath)
+    fslog = os.path.join(siddir, "scripts", "recon-all-status.log")
+    last_non_empty_line = ""
+    for line in open(fslog):
+        if line.strip():
+            last_non_empty_line = line
+    if "finished without error" in last_non_empty_line:
+        status[sid]["exitcode"] = 0  
 
 
 """
@@ -134,20 +145,34 @@ or the list of subjects that didn't run properly.
 failed_sids = []
 total_success = 0
 total_failed = 0
+count_sids = []
+count_success = 0
+count_failed = 0
 total = len(status)
 for sid, sid_status in status.items():
-    if sid_status == fsstruct:
+    exitcode = sid_status.pop("exitcode")
+    if exitcode == 0:
         total_success += 1
     else:
         total_failed += 1
         failed_sids.append(sid)
+    if sid_status == fsstruct:
+        count_success += 1
+    else:
+        count_failed += 1
+        count_sids.append(sid)
 if args.verbose >= 0:
     print("SUCCESS: {0}/{1}".format(total_success, total))
     print("FAILED: {0}/{1}".format(total_failed, total))
-if args.verbose >= 1:
     print("FAILED SIDS: {0}".format(failed_sids))
+if args.verbose >= 1:
+    print("COUNT SUCCESS: {0}/{1}".format(count_success, total))
+    print("COUNT FAILED: {0}/{1}".format(count_failed, total))
+    print("COUNT FAILED SIDS: {0}".format(count_sids))
+
 if args.subjectid is not None:
     print("TREE '{0}': ".format(args.subjectid))
     for key, value in status[args.subjectid].items():
-        print("{0}: {1} (observed) - {2} (reference)".format(key, value,
-                                                             fsstruct[key]))
+        print("{0} | {1} (observed) | {2} (reference)".format(
+            key.rjust(20, " "), str(value).rjust(10, " "),
+            str(fsstruct[key]).rjust(10, " ")))
