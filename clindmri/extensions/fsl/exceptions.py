@@ -40,3 +40,13 @@ class FSLResultError(FSLError):
         message = ("FSL command '{0}' may have returned a strange "
                    "result.".format(command))
         super(FSLResultError, self).__init__(message)
+
+
+class FSLDependencyError(FSLError):
+    """
+    """
+    def __init___(self, command):
+        message = ("Please make sure that Condor package is installed "
+                   "(required to launch FSL with FSLPARALLEL='condor')".format(
+                       command))
+        super(FSLDependencyError, self).__init__(message)

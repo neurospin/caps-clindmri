@@ -15,7 +15,7 @@ import inspect
 
 # Clindmri import
 from clindmri.extensions.configuration import environment
-from .exceptions import FSLConfigurationError
+from .exceptions import FSLConfigurationError, FSLDependencyError
 
 
 class FSLWrapper(object):
@@ -28,7 +28,8 @@ class FSLWrapper(object):
         "NIFTI_PAIR_GZ" : ".hdr.gz",
     }
  
-    def __init__(self, name, shfile="/etc/fsl/5.0/fsl.sh", optional=None):
+    def __init__(self, name, shfile="/etc/fsl/5.0/fsl.sh", optional=None,
+                 cpus=""):
         """ Initialize the FSLWrapper class by setting properly the
         environment.
         
@@ -41,12 +42,28 @@ class FSLWrapper(object):
         optional: list (optional, default None)
             the name of the optional parameters. If 'ALL' consider that all
             the parameter are optional.
+        cpus: str (optional, default "")
+            the number of CPUS used by FSL.
         """
         self.name = name
         self.cmd = name.split()
         self.shfile = shfile
         self.optional = optional or []
         self.environment = self._environment()
+        self.environment["FSLPARALLEL"] = cpus
+        self.environment["USER"] = os.getlogin()
+        print self.environment
+        
+        # Check CONDOR has been configured so the command can be found
+        process = subprocess.Popen(
+                    ["which", "condor_qsub"],
+                    env=self.environment,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
+        self.stdout, self.stderr = process.communicate()
+        self.exitcode = process.returncode
+        if self.exitcode != 0:
+            raise FSLDependencyError("condor_qsub")        
 
     def __call__(self):
         """ Run the FSL command.
@@ -57,7 +74,7 @@ class FSLWrapper(object):
         # Update the command to execute
         self._update_command()
 
-        # Check FSL has been configured so the command can be found
+        #Check FSL has been configured so the command can be found
         process = subprocess.Popen(
                     ["which", self.cmd[0]],
                     env=self.environment,
@@ -65,6 +82,7 @@ class FSLWrapper(object):
                     stderr=subprocess.PIPE)
         self.stdout, self.stderr = process.communicate()
         self.exitcode = process.returncode
+        print self.stdout, self.stderr, self.exitcode
         if self.exitcode != 0:
             raise FSLConfigurationError(self.cmd[0])
 
@@ -78,13 +96,12 @@ class FSLWrapper(object):
         self.exitcode = process.returncode
 
     def _environment(self) :
-        """ Return a dictionary of the environment needed by FreeSurfer
-        binaries.
+        """ Return a dictionary of the environment needed by FSL binaries.
         """
-        # Check if FreeSurfer has already been configures
+        # Check if FSL has already been configures
         env = os.environ.get("FSL_CONFIGURED", None)
-
-        # Configure FreeSurfer
+       
+        # Configure FSL
         if env is None:
 
             # Parse configuration file
@@ -95,7 +112,7 @@ class FSLWrapper(object):
 
         # Load configuration
         else:
-            env = json.loads(env)  
+            env = json.loads(env)
 
         return env
 
@@ -115,6 +132,10 @@ class FSLWrapper(object):
         
             # Skip 'shfile' parameter
             if parameter_name == "shfile":
+                continue
+            
+            # Skip 'cpus' parameter
+            if parameter_name == "cpus":
                 continue
 
             # Get parameter value

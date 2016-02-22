@@ -167,6 +167,9 @@ parser.add_argument(
     help="a Rician noise modeling to replace the default Gaussian noise"
     " assumption.")
 parser.add_argument(
+    "--burn", dest="burnin", default=1000, type=int,
+    help="burnin period: number of iterations before starting the sampling.")
+parser.add_argument(
     "--graph", dest="graphics", action="store_true",
     help="if activated compute quality controls on the FreeSurfer outputs.")
 parser.add_argument(
@@ -175,6 +178,10 @@ parser.add_argument(
 parser.add_argument(
     "-v", "--verbose", dest="verbose", type=int, choices=[0, 1, 2], default=0,
     help="increase the verbosity level: 0 silent, [1, 2] verbose.")
+parser.add_argument(
+    "--cpus", dest="cpus", default="", type=str,
+    help="By default, the job will be computed by a single core."
+         "If 'condor', parallelizing FSL on a local workstation is realized.")
 
 # parsing arguments
 args = parser.parse_args()
@@ -300,7 +307,7 @@ if not os.path.isdir(bedpostx_outdir) or len(os.listdir(bedpostx_outdir)) == 0:
     (bedpostx_outdir, merged_th, merged_ph, merged_f, mean_th, mean_ph, mean_f,
     mean_d, mean_S0, dyads) = bedpostx(
         bedpostx_indir, n=args.n, model=args.model, rician=args.rician,
-        shfile=args.fslconfig)
+        shfile=args.fslconfig, b=args.burnin, cpus=args.cpus)
 else:
     merged_files = glob.glob(os.path.join(bedpostx_outdir, "merged*"))
     if len(merged_files) == 0:

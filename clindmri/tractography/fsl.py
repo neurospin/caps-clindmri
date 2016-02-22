@@ -20,21 +20,32 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
                 nsteps=2000, cthr=0.2, loopcheck=None, onewaycondition=None,
                 usef=None, simple=None, seedref=None, steplength=0.5,
                 fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=None,
-                shfile="/etc/fsl/5.0/fsl.sh"):
+                stop=None, shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command probtrackx2.
 
     Single voxel
     ------------
 
-    probtrackx2(simple=True,
-                seedref="/.../fsl.bedpostX/nodif_brain_mask",
-                out="fdt_paths",
-                seed="$PATH/tracto/fdt_coordinates.txt",
+    [1] Connectivity from a single seed point.
+
+    probtrackx2(samples="/.../fsl.bedpostX/merged",
+                mask="/.../fsl.bedpostX/nodif_brain_mask",
+                seed="$PATH/tracto/seedvox_coordinates.txt",
+                simple=True,
                 loopcheck=True,
-                onewaycondition=True,
-                samples="/.../fsl.bedpostX/merged"
-                mask="/.../fsl.bedpostX/nodif_brain_mask"
-                dir="$PATH")
+                dir="$PATH",
+                out="SingleVoxel_paths")
+
+    [2] Tracking in a standard / no-diffusion space.
+    
+    probtrackx2(samples="/.../fsl.bedpostX/merged",
+                mask="/.../fsl.bedpostX/nodif_brain_mask",
+                seed="$PATH/tracto/seedvox_coordinates.txt",
+                seeref="/.../fsl.bedpostX/nodif_brain_mask",
+                simple=True,
+                loopcheck=True,
+                dir="$PATH",
+                out="SingleVoxel_paths")
 
     Single mask
     -----------
@@ -159,7 +170,7 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
     network_file: str
         a voxel-by-target connection matrix.
     """
-    # Call bedpostx
+    # Call probtrackx
     fslprocess = FSLWrapper("probtrackx2 --opd --forcedir", shfile=shfile,
                             optional="ALL")
     fslprocess()
@@ -177,7 +188,7 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
 
 
 def bedpostx(input, n=3, w=1, b=1000, j=1250, s=25, model=2, g=None, c=None,
-             rician=None, shfile="/etc/fsl/5.0/fsl.sh"):
+             rician=None, shfile="/etc/fsl/5.0/fsl.sh", cpus=""):
     """ Wraps command bedpostx.
 
     Usage: bedpostx <input> [options]
@@ -256,7 +267,7 @@ def bedpostx(input, n=3, w=1, b=1000, j=1250, s=25, model=2, g=None, c=None,
         respective bvalue - copied from input directory
     """
     # Call bedpostx
-    fslprocess = FSLWrapper("bedpostx", shfile=shfile)
+    fslprocess = FSLWrapper("bedpostx", shfile=shfile, cpus=cpus)
     fslprocess()
     if fslprocess.exitcode != 0:
         raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
