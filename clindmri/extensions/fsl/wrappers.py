@@ -15,7 +15,8 @@ import inspect
 
 # Clindmri import
 from clindmri.extensions.configuration import environment
-from .exceptions import FSLConfigurationError, FSLDependencyError
+from .exceptions import FSLConfigurationError
+from .exceptions import FSLDependencyError
 
 
 class FSLWrapper(object):
@@ -52,7 +53,6 @@ class FSLWrapper(object):
         self.environment = self._environment()
         self.environment["FSLPARALLEL"] = cpus
         self.environment["USER"] = os.getlogin()
-        print self.environment
         
         # Check CONDOR has been configured so the command can be found
         process = subprocess.Popen(
@@ -63,7 +63,7 @@ class FSLWrapper(object):
         self.stdout, self.stderr = process.communicate()
         self.exitcode = process.returncode
         if self.exitcode != 0:
-            raise FSLDependencyError("condor_qsub")        
+            raise FSLDependencyError("condor_qsub", "Condor")        
 
     def __call__(self):
         """ Run the FSL command.
@@ -74,7 +74,7 @@ class FSLWrapper(object):
         # Update the command to execute
         self._update_command()
 
-        #Check FSL has been configured so the command can be found
+        # Check FSL has been configured so the command can be found
         process = subprocess.Popen(
                     ["which", self.cmd[0]],
                     env=self.environment,
@@ -82,7 +82,6 @@ class FSLWrapper(object):
                     stderr=subprocess.PIPE)
         self.stdout, self.stderr = process.communicate()
         self.exitcode = process.returncode
-        print self.stdout, self.stderr, self.exitcode
         if self.exitcode != 0:
             raise FSLConfigurationError(self.cmd[0])
 
@@ -130,12 +129,8 @@ class FSLWrapper(object):
         # Update the command
         for parameter_name in args:
         
-            # Skip 'shfile' parameter
-            if parameter_name == "shfile":
-                continue
-            
-            # Skip 'cpus' parameter
-            if parameter_name == "cpus":
+            # Skip 'shfile' and 'cpus' parameters
+            if parameter_name in ["shfile", "cpus"]:
                 continue
 
             # Get parameter value

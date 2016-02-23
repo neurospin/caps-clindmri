@@ -43,10 +43,9 @@ class FSLResultError(FSLError):
 
 
 class FSLDependencyError(FSLError):
+    """ Error thrown when the FSL software needs a dependency.
     """
-    """
-    def __init___(self, command):
-        message = ("Please make sure that Condor package is installed "
-                   "(required to launch FSL with FSLPARALLEL='condor')".format(
-                       command))
+    def __init__(self, command, package_name):
+        message = ("FSL software uses {0}. Please make sure that {1} package "
+                   "is installed ".format(command, package_name))
         super(FSLDependencyError, self).__init__(message)
