@@ -159,7 +159,6 @@ wffile, wfid, wfstatus = morphologist_all(
     t1file, args.subjectid, args.outdir, study=args.name, waittime=10,
     spmexec=spmrun, spmdir=spmdir)
 if args.verbose > 1:
-    print("[result] Check worflow with 'soma_worflow_gui'.")
     print("[result] In folder: {0}.".format(subjectdir))
     print("[result] Workflow file: {0}.".format(wffile))
     print("[result] Workflow id: {0}.".format(wfid))

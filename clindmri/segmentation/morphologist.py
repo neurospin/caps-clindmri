@@ -29,8 +29,16 @@ from capsul.pipeline import pipeline_workflow
 from soma_workflow.client import Workflow
 from soma_workflow.client import WorkflowController
 
+# Clindmri import
+from clindmri.segmentation .topological_sort import Graph
+from clindmri.segmentation .topological_sort import GraphNode
+from clindmri.extensions.morphologist.wrappers import MorphologistWrapper
+from clindmri.extensions.morphologist.exceptions import MorphologistRuntimeError
+from clindmri.extensions.morphologist.exceptions import MorphologistError
+
 
 def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
+                     somaworkflow=False,
                      spmexec="/i2bm/local/spm8-standalone/run_spm8.sh",
                      spmdir="/i2bm/local/spm8-standalone"):
     """ Performs all the Morphologist steps.
@@ -71,11 +79,13 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
         the morphologist output files will be written in $outdir/$study/$sid.
     study: str (mandatory)
         the name of the study.
-    waittime: float (mandatory)
+    waittime: float (optional, default 10)
         a delay (in seconds) used to check the worflow status.
-    spmexec: str (mandatory)
+    somaworkflow: bool (optional, default False)
+        if True use somaworkflow for the execution.
+    spmexec: str (optional)
         the path to the standalone SPM execution file.
-    spmdir: str (mandatory)
+    spmdir: str (optional)
         the standalone SPM directory.
 
     Returns
@@ -130,11 +140,6 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
     morphologist_pipeline.attributes["subject"] = sid
     morphologist_pipeline.create_completion()
 
-    # Create a worflow from the morphologist pipeline
-    workflow = Workflow(name="{0} {1}".format(study, sid),
-                        jobs=[])
-    workflow.root_group = []
-
     # Create morphologist expected tree
     # ToDo: use ImportT1 from axon
     subjectdir = os.path.join(outdir, study, sid)
@@ -149,6 +154,9 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
     os.makedirs(os.path.join(
         subjectdir, "t1mri", "default_acquisition",
         "segmentation", "mesh"))
+    os.makedirs(os.path.join(
+        subjectdir, "t1mri", "default_acquisition",
+        "tmp"))
 
     # Copy T1 file in the morphologist expected location
     destfile = os.path.join(subjectdir, "t1mri",
@@ -164,23 +172,81 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
     with open(referential_file, "w") as openfile:
         openfile.write(attributes)
 
+    # Create a worflow from the morphologist pipeline
+    workflow = Workflow(name="{0} {1}".format(study, sid),
+                        jobs=[])
+    workflow.root_group = []
+
     # Create the workflow
     wf = pipeline_workflow.workflow_from_pipeline(
         morphologist_pipeline.process, study_config=study_config)
     workflow.add_workflow(wf, as_group="{0}_{1}".format(study, sid))
     wffile = os.path.join(subjectdir, "{0}.wf".format(study))
     pickle.dump(workflow, open(wffile, "w"))
-   
-    # Execute workflow
-    controller = WorkflowController()
-    wfid = controller.submit_workflow(
-        workflow=workflow, name="{0}_{1}".format(study, sid))
+       
+    # Execute the workflow with somaworkflow
+    if somaworkflow:
+        controller = WorkflowController()
+        wfid = controller.submit_workflow(
+            workflow=workflow, name="{0}_{1}".format(study, sid))
 
-    # Return the worflow status after execution
-    while True:
-        time.sleep(waittime)
-        wfstatus = controller.workflow_status(wfid)
-        if wfstatus not in ["worklflow_not_started", "workflow_in_progress"]:
-            break
+        # Return the worflow status after execution
+        while True:
+            time.sleep(waittime)
+            wfstatus = controller.workflow_status(wfid)
+            if wfstatus not in ["worklflow_not_started", "workflow_in_progress"]:
+                break
+
+    # Execute the workflow with subprocess
+    else:
+        # -> construct the ordered list of commands to be executed
+        workflow_repr = workflow.to_dict()
+        graph = Graph()
+        for job in workflow_repr["jobs"]:
+            graph.add_node(GraphNode(job, None))
+        for link in workflow_repr["dependencies"]:
+            graph.add_link(link[0], link[1])
+        ordered_nodes = [str(node[0]) for node in graph.topological_sort()]
+        commands = []
+        jobs = workflow_repr["serialized_jobs"]
+        temporaries = workflow_repr["serialized_temporary_paths"]
+        barriers = workflow_repr["serialized_barriers"]
+        for index in ordered_nodes:
+            if index in jobs:
+                commands.append(jobs[index]["command"])
+            elif index in barriers:
+                continue
+            else:
+                raise Exception("Unexpected node in workflow.")
+
+        # -> Go through all commands
+        tmpmap = {}
+        for cmd in commands:
+            # -> deal with temporary files
+            for index, item in enumerate(cmd):
+                if not isinstance(item, basestring):
+                    if str(item) not in tmpmap:
+                        if str(item) in temporaries:
+                            struct = temporaries[str(item)]
+                            name = cmd[2].split(";")[1].split()[-1]
+                            tmppath = os.path.join(
+                                subjectdir, "t1mri", "default_acquisition", "tmp",
+                                str(item) + name + struct["suffix"])
+                            tmpmap[str(item)] = tmppath
+                        else:
+                            raise MorphologistError(
+                                "Can't complete command '{0}'.".format(
+                                    cmd))
+                    cmd[index] = tmpmap[str(item)]
+
+            # -> execute the command
+            worker = MorphologistWrapper(cmd)
+            worker()
+            if worker.exitcode != 0:
+                raise MorphologistRuntimeError(" ".join(worker.cmd),
+                                                        worker.stderr)
+
+        wfstatus = "Done"
+        wfid = "subprocess"
 
     return wffile, wfid, wfstatus
