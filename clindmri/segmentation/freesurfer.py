@@ -1091,3 +1091,64 @@ def cortex(t1_file, fsdir, outdir, dest_file=None, prefix="cortex",
     nibabel.save(label_image, label_file)
 
     return mask_file, label_file, seeds, reg_file, trf_file
+
+
+def population_statistic(fsdir, sid=None):
+    """ Compute the mean std of each FreeSurfer individual scores. If sid
+    is not None, return the subject values
+
+    Parameters
+    ----------
+    fsdir: str (mandatory)
+        the subject freesurfer segmentation directory.
+    sid: str (optional, default None)
+        if None compute the statistics on all subjects, otherwise return only
+        the specified subject values.
+
+    Returns
+    -------
+    popstats: dict
+        the population statistics.
+    """
+    # Go through all statistics
+    popstats = {
+        "lh": {},
+        "rh": {},
+        "aseg": {}
+    }
+    stats = glob.glob(os.path.join(fsdir, "stats", "*.csv"))
+    for fpath in stats:
+        basename = os.path.basename(fpath).split(".")[0]
+        if basename.startswith("aseg"):
+            stype, _, sname = basename.split("_")
+            hemi = "aseg"
+            subject_header = "Measure:volume"
+        elif basename.startswith("aparc"):
+            stype, _, hemi, sname = basename.split("_")
+            subject_header = "{0}.{1}.{2}".format(hemi, stype, sname)
+        else:
+            continue
+        
+        if sname not in popstats[hemi]:
+            popstats[hemi][sname] = {}
+        with open(fpath, "rb" ) as openfile:
+            reader = csv.DictReader(openfile)
+            for line in reader:
+                subject = line.pop(subject_header)
+                if sid is not None:
+                    if subject != sid:
+                        continue
+                for key, value in line.items():
+                    popstats[hemi][sname].setdefault(key, []).append(
+                        float(value))
+        for region_name, values in popstats[hemi][sname].items():
+            mean = numpy.mean(values)
+            std = numpy.std(values)
+            popstats[hemi][sname][region_name] = {
+                "values": values,
+                "m": mean,
+                "s": std
+            }
+
+    return popstats
+

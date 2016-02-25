@@ -10,6 +10,9 @@
 # System import
 import os
 import numpy
+import numbers
+import types
+import nibabel
 
 # Nilearn import
 from nilearn import plotting
@@ -28,7 +31,9 @@ from .animate import images_to_gif
 
 def plot_image(input_file, edge_file=None, overlay_file=None,
                contour_file=None, snap_file=None, name=None,
-               overlay_cmap=None, cut_coords=None):
+               overlay_cmap=None, cut_coords=None, cutlower=0,
+               cutupper=0, display_mode="z", figsize=(10, 10),
+               nbcols=6):
     """ Plot image with edge/overlay/contour on top (useful for checking
     registration).
 
@@ -44,7 +49,7 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
         Superimpose the contour of the image to the input_file image.
     snap_file: str (optional, default None)
         The destination file: if not specified will be the 'input_file'
-        name with a 'png' extension.
+        name with a 'pdf' extension.
     name: str (optional, default None)
         The name of the plot.
     overlay_cmap: str (optional, default None)
@@ -52,7 +57,16 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
         or a N*4 array with values in 0-1 (r, g, b, a).
     cut_coords: 3-uplet (optional, default None)
         The MNI coordinates of the point where the cut is performed.
-        If None is given, the cuts is calculated automaticaly.
+        If None is given, the cuts is calculated automaticaly. If an integer
+        is given slice the volume in the 'display_mode' direction.
+    cutlower, cutupper: int (optional default 0)
+        cut values used to reject the begening or the end of the volume.
+    display_mode: str (optional, default 'z')
+        select the slicing direction in 'x', 'y' or 'z'.
+    figsize: 2-uplet (optional, default (10, 10))
+        the slice size.
+    nbcols: str (optional, default 6)
+        the number of slices per line.
 
     Returns
     -------
@@ -66,18 +80,102 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
 
     # Check that the snap_file has been specified
     if snap_file is None:
-        snap_file = input_file.split(".")[0] + ".png"
+        snap_file = input_file.split(".")[0] + ".pdf"
+    if not snap_file.endswith(".pdf"):
+        snap_file += ".pdf"
 
-    # Create the plot
-    kwargs = {}
-    if isinstance(cut_coords, int):
-        kwargs["display_mode"] = "z"
-    display = plotting.plot_anat(input_file, title=name or "",
-                                 cut_coords=cut_coords, **kwargs)
+    # Set options for the two slicing configurations.
+    if isinstance(cut_coords, numbers.Number):
+        nbrows = cut_coords // nbcols
+        axis = "xyz".index(display_mode)
+        this_shape = nibabel.load(input_file).get_data().shape[axis]
+        samples = numpy.linspace(cutlower, this_shape - cutupper -1, cut_coords,
+                                 dtype=int)
+        waves = numpy.array_split(samples[:(nbrows * nbcols)], nbrows)
+        if cut_coords % nbcols > 0:
+            waves.append(samples[(nbrows * nbcols):])
+            nbrows += 1
+    else:
+        nbrows = None
+        display_mode = "ortho"
+
+    # Save in Pdf
+    pdf = PdfPages(snap_file)
+    try:
+        if isinstance(cut_coords, numbers.Number):
+            for wave in waves:
+                cutlower = wave[0]
+                cutupper = wave[-1]
+                cut_coords = len(wave)
+                display = _nilearn_display(
+                    input_file, edge_file, overlay_file, contour_file, name,
+                    overlay_cmap, cut_coords, display_mode, cutlower, cutupper,
+                    figsize)
+                pdf.savefig(display.frame_axes.figure)
+                display.close()
+        else:
+            display = _nilearn_display(
+                input_file, edge_file, overlay_file, contour_file, name,
+                overlay_cmap, cut_coords, display_mode, cutlower, cutupper,
+                figsize)
+            pdf.savefig(display.frame_axes.figure)
+            display.close()
+        pdf.close()
+    except:
+        pdf.close()
+        raise   
+
+    return snap_file
+
+
+def _nilearn_display(input_file, edge_file, overlay_file, contour_file,
+                     name, overlay_cmap, cut_coords, display_mode,
+                     lowerbound, upperbound, figsize):
+    """ Create a nice dispaly with nilearn.
+    """
+    # Monkey patch the 'find_cut_coords' class method in case of int
+    # 'cut_coords'
+    if isinstance(cut_coords, numbers.Number):
+        def monkeypatch(cls):
+            def decorator(func):
+                setattr(cls, func.__name__, types.MethodType(func, cls))
+                return func
+            return decorator
+
+        @monkeypatch(plotting.displays.SLICERS[display_mode])
+        def find_cut_coords(cls, img=None, threshold=None, cut_coords=None):
+            """ Instanciate the slicer and find cut coordinates.
+            """
+            # Fig size
+            cls._default_figsize = list(figsize)
+
+            # Translation
+            direction = cls._direction
+            n_cuts = cut_coords
+
+            # Misc
+            if direction not in "xyz":
+                raise ValueError(
+                    "'direction' must be one of 'x', 'y', or 'z'. Got '%s'" % (
+                        direction))
+            affine = img.get_affine()
+
+            # Compute slice location in physical space
+            cut_coords = numpy.unique(
+                numpy.linspace(lowerbound, upperbound, n_cuts, dtype=int))
+
+            return plotting.find_cuts._transform_cut_coords(
+                        cut_coords, direction, affine)
+    else:
+        plotting.displays.SLICERS[display_mode]._default_figsize = list(figsize)
+
+    # Create the renderer
+    display = plotting.plot_anat(
+        input_file, title=name or "", cut_coords=cut_coords,
+        display_mode=display_mode)
     if edge_file is not None:
         display.add_edges(edge_file)
     if overlay_file is not None:
-
         # Create a custom discrete colormap
         if isinstance(overlay_cmap, numpy.ndarray):
             cmap = colors.LinearSegmentedColormap.from_list(
@@ -92,15 +190,11 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
         # Default
         else:
             cmap = plotting.cm.alpha_cmap((1, 1, 0))
-
         display.add_overlay(overlay_file, cmap=cmap)
     if contour_file is not None:
         display.add_contours(contour_file, alpha=0.6, filled=True,
                              linestyles="solid")
-    display.savefig(snap_file)
-    display.close()
-
-    return snap_file
+    return display
 
 
 def animate_image(input_file, cut_coords, edge_file=None, overlay_file=None,
