@@ -2,17 +2,10 @@
 <pipeline version="1.0">
 
     <docstring>
-        Diffusion image preprocessing
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-        Complete preprocessing of diffusion-weighted Nifti images using Connectomist.
-
-        Steps:
-
-        1. detection and correction of outlying slices
-        2. correction of susceptibility-induced distortions using B0 Maps
-        3. correction of Eddy currents and motion
-
+        Complete preprocessing of diffusion-weighted Nifti images using Connectomist:
+          - detection and correction of outlying slices
+          - correction of susceptibility-induced distortions using B0 Maps
+          - correction of Eddy currents and motion
         Outputs a corrected Nifti with associated .bval and .bvec with corrected gradient directions.
     </docstring>
 
@@ -21,12 +14,12 @@
             <module>clindmri.preproc.connectomist.noniter_complete_preprocessing.xml</module>
 
             <iterinput name="subject_id"                   />
-            <iterinput name="path_dwi"                     />
-            <iterinput name="path_bval"                    />
-            <iterinput name="path_bvec"                    />
+            <iterinput name="dwi"                          />
+            <iterinput name="bval"                         />
+            <iterinput name="bvec"                         />
             <iterinput name="manufacturer"                 />
-            <iterinput name="path_b0_magnitude"            />
-            <iterinput name="path_b0_phase"                />
+            <iterinput name="b0_magnitude"                 />
+            <iterinput name="b0_phase"                     />
             <iterinput name="invertX"                      />
             <iterinput name="invertY"                      />
             <iterinput name="invertZ"                      />
@@ -37,12 +30,12 @@
             <iterinput name="echo_spacing"                 />
             <iterinput name="EPI_factor"                   />
             <iterinput name="b0_field"                     />
-            <iterinput name="water_fat_shift_per_pixel"    />
+            <iterinput name="water_fat_shift"              />
             <iterinput name="export_directory"             />
 
-            <iteroutput name="path_preprocessed_dwi"       />
-            <iteroutput name="path_preprocessed_bval"      />
-            <iteroutput name="path_preprocessed_bvec"      />
+            <iteroutput name="preproc_dwi"                 />
+            <iteroutput name="preproc_bval"                />
+            <iteroutput name="preproc_bvec"				   />
         </unit>
     </units>
 
@@ -50,12 +43,12 @@
 
         <!-- Pipeline inputs -->
         <link source="subject_ids"                   destination="complete_preprocessing.itersubject_id"                   />
-        <link source="paths_dwi"                     destination="complete_preprocessing.iterpath_dwi"                     />
-        <link source="paths_bval"                    destination="complete_preprocessing.iterpath_bval"                    />
-        <link source="paths_bvec"                    destination="complete_preprocessing.iterpath_bvec"                    />
+        <link source="dwis"                          destination="complete_preprocessing.iterdwi"                          />
+        <link source="bvals"                         destination="complete_preprocessing.iterbval"                         />
+        <link source="bvecs"                         destination="complete_preprocessing.iterbvec"                         />
         <link source="manufacturers"                 destination="complete_preprocessing.itermanufacturer"                 />
-        <link source="paths_b0_magnitude"            destination="complete_preprocessing.iterpath_b0_magnitude"            />
-        <link source="paths_b0_phase"                destination="complete_preprocessing.iterpath_b0_phase"                />
+        <link source="b0_magnitudes"                 destination="complete_preprocessing.iterb0_magnitude"                 />
+        <link source="b0_phases"                     destination="complete_preprocessing.iterb0_phase"                     />
         <link source="invertXs"                      destination="complete_preprocessing.iterinvertX"                      />
         <link source="invertYs"                      destination="complete_preprocessing.iterinvertY"                      />
         <link source="invertZs"                      destination="complete_preprocessing.iterinvertZ"                      />
@@ -66,14 +59,14 @@
         <link source="echo_spacings"                 destination="complete_preprocessing.iterecho_spacing"                 />
         <link source="EPI_factors"                   destination="complete_preprocessing.iterEPI_factor"                   />
         <link source="b0_fields"                     destination="complete_preprocessing.iterb0_field"                     />
-        <link source="water_fat_shifts_per_pixel"    destination="complete_preprocessing.iterwater_fat_shift_per_pixel"    />
-        <link source="subject_directories"           destination="complete_preprocessing.iterexport_directory"             />
+        <link source="water_fat_shifts"              destination="complete_preprocessing.iterwater_fat_shift"              />
+        <link source="outdirs"                      destination="complete_preprocessing.iterexport_directory"             />
         <link source="delete_steps"                  destination="complete_preprocessing.delete_steps"                     />
 
         <!-- Pipeline outputs -->
-        <link source="complete_preprocessing.iterpath_preprocessed_dwi"  destination="paths_preprocessed_dwi"  />
-        <link source="complete_preprocessing.iterpath_preprocessed_bval" destination="paths_preprocessed_bval" />
-        <link source="complete_preprocessing.iterpath_preprocessed_bvec" destination="paths_preprocessed_bvec" />
+        <link source="complete_preprocessing.iterpreproc_dwi"  destination="preproc_dwis"  />
+        <link source="complete_preprocessing.iterpreproc_bval" destination="preproc_bvals" />
+        <link source="complete_preprocessing.iterpreproc_bvec" destination="preproc_bvecs" />
 
     </links>
 

@@ -22,8 +22,23 @@ using the parallel_preprocessing() function.
 """
 
 from .manufacturers import MANUFACTURERS
-from .exceptions    import (ConnectomistError, ConnectomistRuntimeError,
-                            BadManufacturerNameError, MissingParametersError,
+from .exceptions    import (ConnectomistError,
+                            BadManufacturerNameError,
+                            MissingParametersError,
                             BadFileError)
+
+# Wrappers of Connectomist's tabs
+from .import_and_qspace_model import dwi_data_import_and_qspace_sampling
+from .mask                    import dwi_rough_mask_extraction
+from .outliers                import dwi_outlier_detection
+from .susceptibility          import dwi_susceptibility_artifact_correction
+from .eddy_current_and_motion import (dwi_eddy_current_and_motion_correction,
+                                      export_eddy_motion_results_to_nifti)
+
 from .complete_preprocessing import complete_preprocessing
 from .parallel_preprocessing import parallel_preprocessing
+
+from .utils import (ptk_gis_to_nifti,
+                    ptk_nifti_to_gis,
+                    ptk_concatenate_volumes,
+                    ptk_split_t2_and_diffusion)

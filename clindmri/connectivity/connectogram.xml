@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline version="1.0">
+    <docstring>
+        Iterative version of the noniter_connectogram.xml, to allow parallelization.
+    </docstring>
+    <units>
+
+        <unit name="connectogram">
+			<module>clindmri.connectivity.connectogram.noniter_connectogram.xml</module>
+
+            <iterinput name="outdir"          />
+            <iterinput name="nodif_brain"     />
+            <iterinput name="subject_id"      />
+            <iterinput name="fs_subjects_dir" />
+            <iterinput name="bedpostx_dir"    />
+
+            <!--
+            <iteroutput name="proba_matrix"   />
+            <iteroutput name="network_matrix" />
+            -->
+		</unit>
+
+    </units>
+    <links>
+
+        <!-- Pipeline inputs -->
+        <link source="cortical_atlas"   destination="connectogram.cortical_atlas"      />
+        <link source="add_subcortical"  destination="connectogram.add_subcortical"     />
+        <link source="tracto_mask_type" destination="connectogram.tracto_mask_type"    />
+        <link source="nsamples"         destination="connectogram.nsamples"            />
+        <link source="nsteps"           destination="connectogram.nsteps"              />
+        <link source="outdirs"          destination="connectogram.iteroutdir"          />
+        <link source="nodif_brains"     destination="connectogram.iternodif_brain"     />
+        <link source="subject_ids"      destination="connectogram.itersubject_id"      />
+        <link source="fs_subjects_dirs" destination="connectogram.iterfs_subjects_dir" />
+        <link source="bedpostx_dirs"    destination="connectogram.iterbedpostx_dir"    />
+
+        <!-- Pipeline outputs -->
+        <!--
+        <link source="connectogram.iterproba_matrix"   destination="proba_matrices"   />
+        <link source="connectogram.iternetwork_matrix" destination="network_matrices" />
+        -->
+
+    </links>
+
+    <positions>
+        <position unit="inputs"       x="50"  y="50"  />
+        <position unit="connectogram" x="323" y="51"  />
+        <position unit="outputs"      x="614" y="226" />
+    </positions>
+
+    <zoom level="1"/>
+</pipeline>

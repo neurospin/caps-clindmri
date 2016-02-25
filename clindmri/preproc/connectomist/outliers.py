@@ -12,43 +12,41 @@
 from .utils import create_parameter_file, run_connectomist
 
 
-def dwi_outlier_detection(output_directory,
-                          raw_dwi_directory,
-                          rough_mask_directory):
+def dwi_outlier_detection(outdir,
+                          raw_dwi_dir,
+                          rough_mask_dir):
     """
     Wrapper to Connectomist's "Outliers" tab.
 
     Parameters
     ----------
-    output_directory:     Str, path to Connectomist output work directory.
-    raw_dwi_directory:    Str, path to Connectomist Raw DWI folder.
-    rough_mask_directory: Str, path to Connectomist Rough Mask folder.
+    outdir:     Str, path to Connectomist output work directory.
+    raw_dwi_dir:    Str, path to Connectomist Raw DWI folder.
+    rough_mask_dir: Str, path to Connectomist Rough Mask folder.
 
     <unit>
-        <output name="outliers_directory" type="Directory" />
+        <output name="outliers_dir"  type="Directory" />
 
-        <input name="output_directory" type="Directory"    />
-        <input name="raw_dwi_directory" type="Directory" description="Path to
-            Connectomist Raw DWI folder."                  />
-        <input name="rough_mask_directory" type="Directory" description="Path
-            to Connectomist Rough Mask folder."            />
+        <input name="outdir"         type="Directory" />
+        <input name="raw_dwi_dir"    type="Directory" />
+        <input name="rough_mask_dir" type="Directory" />
     </unit>
     """
 
-    algorithm_name = "DWI-Outlier-Detection"
+    algorithm = "DWI-Outlier-Detection"
 
-    parameters_value = {'rawDwiDirectory':     raw_dwi_directory,
-                        'roughMaskDirectory':  rough_mask_directory,
-                        'outputWorkDirectory': output_directory,
-                        '_subjectName': '',
-                        'discardedOrientationList': '',
-                        'outlierFactor': 3.0}
+    parameters_dict = {'rawDwiDirectory':        raw_dwi_dir,
+                       'roughMaskDirectory':  rough_mask_dir,
+                       'outputWorkDirectory':         outdir,
+                       '_subjectName':                    '',
+                       'discardedOrientationList':        '',
+                       'outlierFactor':                  3.0}
 
-    parameter_file = create_parameter_file(algorithm_name,
-                                           parameters_value,
-                                           output_directory)
-    run_connectomist(algorithm_name, parameter_file)
+    parameter_file = create_parameter_file(algorithm, parameters_dict,
+                                           outdir)
+    run_connectomist(algorithm, parameter_file, outdir)
 
     # Capsul needs the output name to be different from input arguments
-    outliers_directory = output_directory
-    return outliers_directory
+    outliers_dir = outdir
+
+    return outliers_dir

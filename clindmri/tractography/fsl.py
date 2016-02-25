@@ -20,21 +20,32 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
                 nsteps=2000, cthr=0.2, loopcheck=None, onewaycondition=None,
                 usef=None, simple=None, seedref=None, steplength=0.5,
                 fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=None,
-                shfile="/etc/fsl/5.0/fsl.sh"):
+                stop=None, shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command probtrackx2.
 
     Single voxel
     ------------
 
-    probtrackx2(simple=True,
-                seedref="/.../fsl.bedpostX/nodif_brain_mask",
-                out="fdt_paths",
-                seed="$PATH/tracto/fdt_coordinates.txt",
+    [1] Connectivity from a single seed point.
+
+    probtrackx2(samples="/.../fsl.bedpostX/merged",
+                mask="/.../fsl.bedpostX/nodif_brain_mask",
+                seed="$PATH/tracto/seedvox_coordinates.txt",
+                simple=True,
                 loopcheck=True,
-                onewaycondition=True,
-                samples="/.../fsl.bedpostX/merged"
-                mask="/.../fsl.bedpostX/nodif_brain_mask"
-                dir="$PATH")
+                dir="$PATH",
+                out="SingleVoxel_paths")
+
+    [2] Tracking in a standard / no-diffusion space.
+    
+    probtrackx2(samples="/.../fsl.bedpostX/merged",
+                mask="/.../fsl.bedpostX/nodif_brain_mask",
+                seed="$PATH/tracto/seedvox_coordinates.txt",
+                seeref="/.../fsl.bedpostX/nodif_brain_mask",
+                simple=True,
+                loopcheck=True,
+                dir="$PATH",
+                out="SingleVoxel_paths")
 
     Single mask
     -----------
@@ -137,9 +148,9 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
 
         --sampvox       Sample random points within x mm sphere seed voxels
                         (e.g. --sampvox=5). Default=0
-        --randfib   Default 0. Set to 1 to randomly sample initial fibres
+        --randfib   Default 0. Set to 1 to randomly sample initial fibers
                     (with f > fibthresh).
-                    Set to 2 to sample in proportion fibres
+                    Set to 2 to sample in proportion fibers
                     (with f>fibthresh) to f.
                     Set to 3 to sample ALL populations at random
                     (even if f<fibthresh)
@@ -159,7 +170,7 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
     network_file: str
         a voxel-by-target connection matrix.
     """
-    # Call bedpostx
+    # Call probtrackx
     fslprocess = FSLWrapper("probtrackx2 --opd --forcedir", shfile=shfile,
                             optional="ALL")
     fslprocess()
@@ -176,24 +187,35 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
     return proba_files, network_file
 
 
-def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None,
-             shfile="/etc/fsl/5.0/fsl.sh"):
+def bedpostx(input, n=3, w=1, b=1000, j=1250, s=25, model=2, g=None, c=None,
+             rician=None, shfile="/etc/fsl/5.0/fsl.sh", cpus=""):
     """ Wraps command bedpostx.
 
     Usage: bedpostx <input> [options]
 
-    expects to find bvals and bvecs in subject directory
-    expects to find data and nodif_brain_mask in subject directory
-    expects to find grad_dev in subject directory, if -g is set
+    expects to find bvals and bvecs in input
+    expects to find data and nodif_brain_mask in input
+    expects to find grad_dev in input, if -g is set
+    
     options (old syntax)
-    -n (number of fibres per voxel, default 2)
-    -w (ARD weight, more weight means less secondary fibres per voxel,
+    
+    -n (number of fibers per voxel, default 3)
+    -w (ARD weight, more weight means less secondary fibers per voxel,
        default 1)
-    -b (burnin period, default 1000)
-    -j (number of jumps, default 1250)
+    -b (burnin period: number of iterations before starting the sampling.
+        These might be increased if the data are noisy, and the MCMC needs more
+        iterations to converge, default 1000)
+    -j (number of jumps to be made by MCMC, default 1250)
     -s (sample every, default 25)
-    -model (1 for monoexponential, 2 for multiexponential, default 1)
-    -g (consider gradient nonlinearities, default off)
+    -model (deconvolution model.
+           1: single-shell, with sticks,
+           2: multi-shell, with sticks with a range of diffusivities (default),
+           3: multi-shell, with zeppelins)
+    -g (consider gradient nonlinearities,
+       instructs bedpostx to use the grad_dev.nii.gz file from the data folder
+       and produce voxel-specific bvals and bvecs, default off)
+    --rician (use a Rician noise modeling to replace the default Gaussian
+               noise assumption)
     -c do not use CUDA capable hardware/queue (if found)
 
     ALTERNATIVELY: you can pass on xfibres options onto directly bedpostx
@@ -201,7 +223,7 @@ def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None,
     Type 'xfibres --help' for a list of available options
     Default options will be bedpostx default (see above), and not xfibres
     default.
-    
+
     Parameters
     ----------
     shfile: str (optional, default NeuroSpin path)
@@ -213,7 +235,7 @@ def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None,
         The bedpostx output directory
     merged_th<i>samples - 4D volume
         Samples from the distribution on theta
-    merged_ph<i>samples
+    merged_ph<i>samples - 4D volume
         Samples from the distribution on phi: theta and phi together represent
         the principal diffusion direction in spherical polar co-ordinates
     merged_f<i>samples - 4D volume
@@ -223,14 +245,29 @@ def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None,
     mean_ph<i>samples - 3D Volume
         Mean of distribution on phi
     mean_f<i>samples - 3D Volume
-        Mean of distribution on f anisotropy. Note that in each voxel, fibres
+        Mean of distribution on f anisotropy. Note that in each voxel, fibers
         are ordered according to a decreasing mean f-value
+    mean_dsamples - 3D Volume
+        Mean of distribution on diffusivity d
+    mean_S0samples - 3D Volume
+        Mean of distribution on T2w baseline signal intensity S0
     dyads<i>
         Mean of PDD distribution in vector form. Note that this file can be
         loaded into fslview for easy viewing of diffusion directions
+    dyads_dispersion - 3D Volume
+        Uncertainty on the estimated fiber orientation. Characterizes how wide
+        the orientation distribution is around the respective PDD.
+    nodif_brain_mask
+        binary mask created from nodif_brain - copied from input directory
+    bvecs
+        contain a 3x1 vector for each gradient, indicating the gradient
+        direction - copied from input directory
+    bvals
+        contain a scalar value for each applied gradient, corresponding to the
+        respective bvalue - copied from input directory
     """
     # Call bedpostx
-    fslprocess = FSLWrapper("bedpostx", shfile=shfile)
+    fslprocess = FSLWrapper("bedpostx", shfile=shfile, cpus=cpus)
     fslprocess()
     if fslprocess.exitcode != 0:
         raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
@@ -244,10 +281,12 @@ def bedpostx(input, n=2, w=1, b=1000, j=1250, s=25, model=1, g=None, c=None,
     mean_th = glob.glob(os.path.join(outdir, "mean_th*"))
     mean_ph = glob.glob(os.path.join(outdir, "mean_ph*"))
     mean_f = glob.glob(os.path.join(outdir, "mean_f*"))
+    mean_d = os.path.join(outdir, "mean_d*")
+    mean_S0 = os.path.join(outdir, "mean_S0*")
     dyads = glob.glob(os.path.join(outdir, "dyads*"))
 
     return (outdir, merged_th, merged_ph, merged_f, mean_th, mean_ph, mean_f,
-            dyads)
+            mean_d, mean_S0, dyads)
 
 
 def bedpostx_datacheck(input, shfile="/etc/fsl/5.0/fsl.sh"):
