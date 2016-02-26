@@ -14,14 +14,15 @@ import os
 import shutil
 import numpy
 import nibabel
+import copy
 
 # Bredala import
 try:
     import bredala
     bredala.USE_PROFILER = False
     bredala.register("clindmri.segmentation.freesurfer",
-                     names=["population_statistic", "parse_fs_lut"])
-    bredala.register("clindmri.plot.slicer", names=["plot_image"])
+        names=["population_statistic", "parse_fs_lut"])
+    bredala.register("clindmri.plot.slicer", names=["xyz_mosaics"])
     bredala.register("clindmri.plot.polar", names=["polarplot"])
     bredala.register("clindmri.segmentation.fsl", names=["fslreorient2std"])
 except:
@@ -30,14 +31,16 @@ except:
 # Clindmri import
 from clindmri.segmentation.freesurfer import population_statistic
 from clindmri.segmentation.freesurfer import parse_fs_lut
-from clindmri.plot.slicer import plot_image
+from clindmri.segmentation.freesurfer import mri_binarize
+from clindmri.plot.slicer import xyz_mosaics
 from clindmri.plot.polar import polarplot
 from clindmri.segmentation.fsl import fslreorient2std
+from clindmri.extensions.freesurfer.reader import TriSurface
 
 
 # Parameters to keep trace
 __hopla__ = ["subjdir", "fsconfig", "fslconfig", "mosaics", "cutlower",
-             "cutupper", "cutcoords"]
+             "cutupper", "nbslices", "outdir"]
 
 
 # Script documentation
@@ -50,9 +53,10 @@ pipeline.
 
 Steps:
 
-1. Create the population statistic
-2. Create polar plots
-3. Create t1 overlays mosaic
+1- Create the population statistic
+2- Create polar plots
+3- Create t1 overlays mosaic
+4- Create white/pial meash overlays mosaics
 
 Command:
 
@@ -62,8 +66,7 @@ python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_qc.py \
     -c /i2bm/local/freesurfer/SetUpFreeSurfer.sh \
     -d /neurospin/senior/nsap/data/V4/freesurfer \
     -s ag110371 \
-    -l 50 \
-    -u 20 \
+    -o /neurospin/senior/nsap/data/V4/qc/freesurfer \
     -p 14 \
     -e 
 """
@@ -103,6 +106,9 @@ parser.add_argument(
     "-d", "--fsdir", dest="fsdir", required=True, metavar="PATH",
     help="the FreeSurfer processing home directory.", type=is_directory)
 parser.add_argument(
+    "-o", "--outdir", dest="outdir", metavar="PATH", type=is_directory,
+    help="the FreeSurfer qc home directory, default is 'fsdir'.")
+parser.add_argument(
     "-s", "--subjectid", dest="subjectid", required=True,
     help="the subject identifier.")
 parser.add_argument(
@@ -112,8 +118,8 @@ parser.add_argument(
     "-u", "--cutupper", dest="cutupper", default=0, type=int,
     help="exclude the 'cutupper' last slices.")
 parser.add_argument(
-    "-p", "--cutcoords", dest="cutcoords", nargs="+", required=True, type=int,
-    help="the slicing strategy a 1-uplet to slice in the 'display_mode' direction.")
+    "-p", "--nbslices", dest="nbslices", required=True, type=int,
+    help="number of slice in the 'display_mode' direction.")
 args = parser.parse_args()
 
 
@@ -131,21 +137,26 @@ fsconfig = args.fsconfig
 fslconfig = args.fslconfig
 cutlower = args.cutlower
 cutupper = args.cutupper
-if len(args.cutcoords) == 1:
-    cutcoords = args.cutcoords[0]
-elif len(args.cutcoords) == 3:
-    cutcoords = args.cutcoords
-else:
-    raise Exception("Unsupported 'cutcoords' format.")
+auto_cutupper = False
+if cutupper == 0:
+    auto_cutupper = True
+auto_cutlower = False
+if cutlower == 0:
+    auto_cutlower = True
+nbslices = args.nbslices
 if not os.path.isdir(subjdir):
     raise ValueError(
         "'{0}' is not a FreeSurfer subject folder.".format(subjdir))
-qcdir = os.path.join(subjdir, "qc")
+outdir = args.outdir
+if outdir is None:
+    outdir = args.fsdir
+    qcdir = os.path.join(subjdir, "qc")
+else:
+    qcdir = os.path.join(outdir, args.subjectid)
 if not os.path.isdir(qcdir):
     os.mkdir(qcdir)
 elif args.erase:
     shutil.rmtree(qcdir)
-    os.mkdir(qcdir)
 
 """
 Create the population statistic and get the subjects measures
@@ -169,14 +180,18 @@ Compute t1-images overlay mosaics
 # Create the FreeSurfer LUT
 fs_lut_names, fs_lut_colors = parse_fs_lut(os.path.join(
     os.path.dirname(fsconfig), "FreeSurferColorLUT.txt"))
-cmap = []
-nb_values = numpy.asarray(fs_lut_colors.keys()).max()
+nb_values = numpy.asarray(fs_lut_colors.keys()).max() + 1
 cmap = numpy.zeros((nb_values, 4), dtype=numpy.single)
 for key, color in fs_lut_colors.items():
-    if key > 0:
-        cmap[key - 1, :3] = color
-cmap[:, 3] = 160.
+    cmap[key, :3] = color
+    if color != (0, 0, 0):
+        cmap[key, 3] = 200.
 cmap /= 255.
+
+# Set null opacity FreeSurfer 'unknown' labels
+for label, label_name in fs_lut_names.items():
+    if "unknown" in label_name.lower():
+        cmap[label, 3] = 0.
 
 # Get file path
 data = {
@@ -194,6 +209,7 @@ for basename in data:
     data[basename] = fpath
 
 # Need to reorient the images to MNI standard space
+origt1file = data["rawavg.native"]
 for basename, fpath in data.items():
     reotfpath = os.path.join(qcdir, "reo." + os.path.basename(fpath))
     fslreorient2std(fpath, reotfpath, shfile=fslconfig)
@@ -202,20 +218,82 @@ for basename, fpath in data.items():
 # Mosaics: t1 vs rest of the world
 t1file = data.pop("rawavg.native")
 mosaics = []
+aseg_thr = 256
 for basename, fpath in data.items():
 
-    # Troncate the color map based on the label max
-    array = nibabel.load(fpath).get_data()
-    order = sorted(set(array.flatten()))
-    ccmap = cmap[order[1]: order[-1] + 1]
+    # Update color map opacities
+    ccmap = copy.deepcopy(cmap)
+    if "aparc" in basename:
+        ccmap[:aseg_thr, 3] = 0.3
+    else:
+        ccmap[:aseg_thr, 3] = 0.6
 
-    # Compute overlay mosaics
-    for axis in ["x", "y", "z"]:
-        qcname = "{0}t1-{1}".format(axis, basename)
-        snap_file = os.path.join(qcdir, qcname + ".pdf")
-        plot_image(t1file, overlay_file=fpath, snap_file=snap_file,
-                   name=qcname, overlay_cmap=ccmap, cut_coords=cutcoords,
-                   cutlower=cutlower, cutupper=cutupper,
-                   display_mode=axis)
-        mosaics.append(snap_file)
+    # Create mosaic files
+    mosaics.extend(
+        xyz_mosaics(t1file, fpath, nbslices, "t1-{0}".format(basename),
+                    ccmap, qcdir, cutupper=cutupper, cutlower=cutlower))
+
+
+"""
+Create white/pial mesh overlays mosaics
+"""
+surf = {
+    "lh.white.7.native": None,
+    "rh.white.7.native": None,
+    "lh.pial.7.native": None,
+    "rh.pial.7.native": None
+}
+colors = {
+    "lh.white.7.native": 41,
+    "rh.white.7.native": 41,
+    "lh.pial.7.native": 123,
+    "rh.pial.7.native": 123
+}
+# Construct the surfaces mesh volume
+t1im = nibabel.load(origt1file)
+t1affine = t1im.get_affine()
+t1shape = t1im.get_data().shape
+meshfile = os.path.join(qcdir, "meshs.nii.gz")
+mesharray = numpy.zeros(t1shape, dtype=numpy.uint)
+for basename in surf:
+    # > construc path
+    fpath = os.path.join(mripath, basename)
+    if not os.path.isfile(fpath):
+        raise ValueError("'{0}' is not a valid file name.".format(fpath))
+    surf[basename] = fpath
+
+    # > load mesh
+    name = basename.split(".")[1]
+    annot_basename = basename.replace(
+        name, "aparc.annot").replace(".native", "")
+    annotfile = os.path.join(mripath, annot_basename)
+    if not os.path.isfile(fpath):
+        raise ValueError("'{0}' is not a valid file name.".format(fpath))
+    surface = TriSurface.load(fpath, annotfile=annotfile)
+
+    # > binarize mesh
+    indices = numpy.round(surface.vertices).astype(int).T
+    indices[0, numpy.where(indices[0] >= t1shape[0])] = 0
+    indices[1, numpy.where(indices[1] >= t1shape[1])] = 0
+    indices[2, numpy.where(indices[2] >= t1shape[2])] = 0
+    mesharray[indices.tolist()] = colors[basename]
+
+# Save the mesh volume
+meshim = nibabel.Nifti1Image(mesharray, t1affine)
+nibabel.save(meshim, meshfile)
+
+# Need to reorient the image to MNI standard space
+reomeshfile = os.path.join(qcdir, "reo." + os.path.basename(meshfile))
+fslreorient2std(meshfile, reomeshfile, shfile=fslconfig)
+
+# Update color map opacities
+ccmap = copy.deepcopy(cmap)
+ccmap[:aseg_thr, 3] = 1.0
+
+# Create mosaic files
+mosaics.extend(
+    xyz_mosaics(t1file, reomeshfile, nbslices, "meshs", ccmap, qcdir,
+                cutupper=cutupper, cutlower=cutlower))
+
+
 

@@ -128,6 +128,22 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
     return snap_file
 
 
+class BoundaryNorm(colors.BoundaryNorm):
+    """ Litlle fix in matplotlib BoundaryNorm causing
+    'IndexError: arrays used as indices must be of integer (or boolean) type'
+    error.
+    """
+    def __init__(self, boundaries, ncolors, clip=False):
+        super(BoundaryNorm, self).__init__(boundaries, ncolors, clip)
+
+    def __call__(self, x, clip=None):
+        if isinstance(self.vmin, numpy.ma.core.MaskedConstant):
+            self.vmin = self.boundaries[0]
+        if isinstance(self.vmax, numpy.ma.core.MaskedConstant):
+            self.vmax = self.boundaries[-1]
+        return super(BoundaryNorm, self).__call__(x, clip)
+
+
 def _nilearn_display(input_file, edge_file, overlay_file, contour_file,
                      name, overlay_cmap, cut_coords, display_mode,
                      lowerbound, upperbound, figsize):
@@ -177,12 +193,15 @@ def _nilearn_display(input_file, edge_file, overlay_file, contour_file,
         display.add_edges(edge_file)
     if overlay_file is not None:
         # Create a custom discrete colormap
+        norm = None
         if isinstance(overlay_cmap, numpy.ndarray):
-            cmap = colors.LinearSegmentedColormap.from_list(
-                "my_colormap", overlay_cmap)
-            #cmap, _ = colors.from_levels_and_colors(
-            #    range(overlay_cmap.shape[0] + 1), overlay_cmap)
-        # This is probably a matplotlib colormap
+            cmap = colors.ListedColormap(overlay_cmap.tolist())
+            # cmap.set_over((1., 0., 0., 1.))
+            # cmap.set_under((1., 0., 0., 1.))
+            bounds = numpy.asarray(range(overlay_cmap.shape[0] + 1)) - 0.5
+            norm = BoundaryNorm(bounds, cmap.N)
+            # m = cm.ScalarMappable(cmap=cmap, norm=norm)
+            # print(m.to_rgba(41), m.to_rgba(214))
         elif overlay_cmap in dir(plotting.cm):
             cmap = getattr(plotting.cm, overlay_cmap)
         elif overlay_cmap in dir(cm):
@@ -190,11 +209,76 @@ def _nilearn_display(input_file, edge_file, overlay_file, contour_file,
         # Default
         else:
             cmap = plotting.cm.alpha_cmap((1, 1, 0))
-        display.add_overlay(overlay_file, cmap=cmap)
+        display.add_overlay(overlay_file, cmap=cmap, norm=norm)
     if contour_file is not None:
         display.add_contours(contour_file, alpha=0.6, filled=True,
                              linestyles="solid")
     return display
+
+
+def xyz_mosaics(reffile, overlayfile, nbslices, name, cmap, outdir,
+                cutupper=0, cutlower=0):
+    """ Compute triplanar mosaic and mosaic in 'xyz' directions.
+
+    Parameters
+    ----------
+    reffile: str (mandatory)
+        the reference volume.
+    overlayfile: str (mandatory)
+        the volume that will be overlayed (must be in the 'reffile' volume
+        coordinates).
+    nbslices: int (mandatory)
+        the number of slices to slect in the 'xyz' directions.
+    name: str (mandatory)
+        the mosaic name.
+    cmap: array (mandatory)
+        a RGBA color map.
+    outdir: str (mandatory)
+        the result folder where the mosaic are generated.
+    cutupper, cutlower: int (optional, default 0)
+        the number of slices to skip at the beging/end of the volume in the
+        cut direction. If 0, empty slices are automatically rejected.
+
+    Returns
+    -------
+    mosaics: list of str
+        the generated mosaic files.
+    """
+    # A parameter to store the generated snaps
+    mosaics = []
+
+    # Compute overlay mosaics
+    array = nibabel.load(overlayfile).get_data()
+    for display_mode in ["z", "y", "x"]:
+
+        # Compute the cutlower and cutupper bounds
+        axis = "xyz".index(display_mode)
+        sum_axes = tuple([elem for elem in range(3) if elem != axis])
+        weights = array.sum(axis=sum_axes)
+        if cutupper == 0:
+            for value in weights[::-1]:
+                if value == 0:
+                    cutupper += 1
+                else:
+                    break      
+        if cutlower == 0:
+            for value in weights:
+                if value == 0:
+                    cutlower += 1
+                else:
+                    break
+
+        # Display triplanar and sliced images
+        for cut, mode in [((0, 0, 0), "triplanar"), (nbslices, "slice")]:
+            qcname = "{0}{1}-{2}".format(display_mode, mode, name)
+            snap_file = os.path.join(outdir, qcname + ".pdf")
+            plot_image(reffile, overlay_file=overlayfile, snap_file=snap_file,
+                       name=qcname, cut_coords=cut, overlay_cmap=cmap,
+                       cutlower=cutlower, cutupper=cutupper,
+                       display_mode=display_mode)
+            mosaics.append(snap_file)
+
+    return mosaics
 
 
 def animate_image(input_file, cut_coords, edge_file=None, overlay_file=None,
