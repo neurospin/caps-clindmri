@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2015
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -8,59 +5,57 @@
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html for details.
 ##########################################################################
 
+# System import
 import os
 import shutil
 import numpy as np
 import nibabel
 
-from .manufacturers import MANUFACTURERS
-from .exceptions    import (ConnectomistError,
-                            BadManufacturerNameError,
-                            BadFileError)
-from .utils         import (create_parameter_file,
-                            run_connectomist,
-                            ptk_nifti_to_gis)
+# Clindmri import
+from clindmri.extensions.connectomist.manufacturers import MANUFACTURERS
+from clindmri.extensions.connectomist.exceptions import ConnectomistError
+from clindmri.extensions.connectomist.exceptions import (
+    ConnectomistBadManufacturerNameError)
+from clindmri.extensions.connectomist.exceptions import (
+    ConnectomistBadFileError)
+from clindmri.extensions.connectomist import ConnectomistWrapper
+from .utils import ptk_nifti_to_gis
 
 
 def gather_and_format_input_files(outdir,
                                   dwi,
                                   bval,
                                   bvec,
-                                  b0_magnitude = None,
-                                  b0_phase     = None):
+                                  b0_magnitude=None,
+                                  b0_phase=None):
     """
     Gather all files needed to start the preprocessing in the right format
     (Gis format for images and B0 maps).
 
     Parameters
     ----------
-    outdir:       Str, path to directory where to gather all files.
-    dwi:          Str, path to input Nifti file to be preprocessed.
-    bval:         Str, path to .bval file associated to Nifti.
-    bvec:         Str, path to .bvec file associated to Nifti.
-    b0_magnitude: Str, path to B0 magnitude map, may also contain phase.
-                  Required only if you want to make fieldmap-based
-                  correction of susceptibility distortions.
-    b0_phase:     Str, not required if phase is already contained in
-                  b0_magnitude or if you don't want to make fieldmap-based
-                  correction of susceptibility distortions.
+    outdir: str
+        path to directory where to gather all files.
+    dwi: str
+        path to input Nifti file to be preprocessed.
+    bval: str
+        path to .bval file associated to Nifti.
+    bvec: str
+        path to .bvec file associated to Nifti.
+    b0_magnitude: str (optional, default None)
+        path to B0 magnitude map, may also contain phase.
+        Required only if you want to make fieldmap-based
+        correction of susceptibility distortions.
+    b0_phase: str (optional, default None)
+        not required if phase is already contained in
+        b0_magnitude or if you don't want to make fieldmap-based
+        correction of susceptibility distortions.
 
     Returns
     -------
-    raw_dwi_dir: Connectomist's import data directory
-
-    <unit>
-        <output name="raw_dwi_dir" type="Directory" />
-
-        <input name="outdir"       type="Directory" />
-        <input name="dwi"          type="File"      />
-        <input name="bval"         type="File"      />
-        <input name="bvec"         type="File"      />
-        <input name="b0_magnitude" type="File"      />
-        <input name="b0_phase"     type="File"      />
-    </unit>
+    raw_dwi_dir:
+        Connectomist's import data directory with file in Gis format.
     """
-
     # Check that files exist
     files = [dwi, bval, bvec]
     if b0_magnitude is not None:
@@ -69,27 +64,27 @@ def gather_and_format_input_files(outdir,
         files.append(b0_phase)
     for path in files:
         if not os.path.isfile(path):
-            raise BadFileError(path)
+            raise ConnectomistBadFileError(path)
 
     # Create the directory if not existing
     if not os.path.isdir(outdir):
         os.mkdir(outdir)
 
     # If there is only one b0 map file and if this file contains 2 volumes,
-    # split it in 2 files: magnitude and phase, assuming the first one is magnitude
+    # split it in 2 files: magnitude and phase, assuming the first one is
+    # magnitude
     if b0_magnitude and not b0_phase:
         b0_maps = nibabel.load(b0_magnitude)
         if b0_maps.shape[-1] == 2:
-            b0_maps   = nibabel.load(b0_magnitude)
-            voxels    = b0_maps.get_data()
-            header    = b0_maps.get_header()
-            affine    = b0_maps.get_affine()
-            magnitude = nibabel.Nifti1Image(voxels[:,:,:,0], affine, header)
-            phase     = nibabel.Nifti1Image(voxels[:,:,:,1], affine, header)
+            voxels = b0_maps.get_data()
+            header = b0_maps.get_header()
+            affine = b0_maps.get_affine()
+            magnitude = nibabel.Nifti1Image(voxels[..., 0], affine, header)
+            phase = nibabel.Nifti1Image(voxels[..., 1], affine, header)
             b0_magnitude = os.path.join(outdir, "b0_magnitude.nii.gz")
-            b0_phase     = os.path.join(outdir, "b0_phase.nii.gz")
+            b0_phase = os.path.join(outdir, "b0_phase.nii.gz")
             magnitude.to_filename(b0_magnitude)
-            phase    .to_filename(b0_phase)
+            phase.to_filename(b0_phase)
 
     # Convert Nifti to Gis
     dwi = ptk_nifti_to_gis(dwi, os.path.join(outdir, "dwi.ima"))
@@ -102,45 +97,67 @@ def gather_and_format_input_files(outdir,
 
     # Convert and rename B0 map(s) if they are given
     if b0_magnitude is not None:
-        b0_magnitude = ptk_nifti_to_gis(b0_magnitude,
-                                        os.path.join(outdir, "b0_magnitude.ima"))
+        b0_magnitude = ptk_nifti_to_gis(
+            b0_magnitude, os.path.join(outdir, "b0_magnitude.ima"))
 
     if b0_phase is not None:
-        b0_phase = ptk_nifti_to_gis(b0_phase,
-                                os.path.join(outdir, "b0_phase.ima"))
+        b0_phase = ptk_nifti_to_gis(
+            b0_phase, os.path.join(outdir, "b0_phase.ima"))
 
     return dwi, bval_copy, bvec_copy, b0_magnitude, b0_phase
 
 
-def dwi_data_import_and_qspace_sampling(outdir,
-                                        dwi,
-                                        bval,
-                                        bvec,
-                                        manufacturer,
-                                        invertX      = True,
-                                        invertY      = False,
-                                        invertZ      = False,
-                                        subject_id   = None,
-                                        b0_magnitude = None,
-                                        b0_phase     = None):
+def dwi_data_import_and_qspace_sampling(
+        outdir,
+        dwi,
+        bval,
+        bvec,
+        manufacturer,
+        invertX=True,
+        invertY=False,
+        invertZ=False,
+        subject_id=None,
+        b0_magnitude=None,
+        b0_phase=None,
+        nb_tries=10,
+        path_connectomist=(
+            "/i2bm/local/Ubuntu-14.04-x86_64/ptk/bin/connectomist")):
     """
     Wrapper to Connectomist's "DWI & Q-space" tab.
 
     Parameters
     ----------
-    outdir:       Str, path to Connectomist's output directory.
-    dwi:          Str, path to Nifti diffusion-weighted data.
-    bvec:         Str, path to .bval file associated to the Nifti.
-    bval:         Str, path to .bvec file associated to the Nifti.
-    manufacturer: Str, name of the manufacturer (e.g. "Siemens", "GE",
-                  "Philips" or "Bruker").
-    invertX:      Bool, if True invert x-axis of diffusion model.
-    invertY       Same as invertX for y-axis.
-    invertZ:      Same as invertX for z-axis.
-    b0_magnitude: Str, path to the magnitude fieldmap (if fieldmap-based
-                  correction of susceptibility distortions is to be used).
-    b0_phase:     Str, path to phase fieldmap (if fieldmap-based
-                  correction of susceptibility distortions is to be used).
+    outdir: str
+        path to Connectomist's output directory.
+    dwi: str
+        path to Nifti diffusion-weighted data.
+    bvec: str
+        path to .bval file associated to the Nifti.
+    bval: str
+        path to .bvec file associated to the Nifti.
+    manufacturer: str
+        name of the manufacturer (e.g. "Siemens", "GE", "Philips" or "Bruker").
+    invertX: bool (optional, default True)
+        if True invert x-axis of diffusion model.
+    invertY, invertZ: bool (optional, default False)
+        if True invert y or z-axis of diffusion model.
+    b0_magnitude: str (optional, default None)
+        path to the magnitude fieldmap (if fieldmap-based correction of
+        susceptibility distortions is to be used).
+    b0_phase: str (optional, default None)
+        path to phase fieldmap (if fieldmap-based correction of susceptibility
+        distortions is to be used).
+    nb_tries: int (optional, default 10)
+        nb of times to try an algorithm if it fails.
+        It often crashes when running in parallel. The reason
+        why it crashes is unknown.
+    path_connectomist: str (optional)
+        path to the Connectomist executable.
+
+    Returns
+    -------
+    outdir: str
+        path to Connectomist's output directory.
 
     <unit>
         <output name="raw_dwi_dir" type="Directory" description="Path to
@@ -159,18 +176,17 @@ def dwi_data_import_and_qspace_sampling(outdir,
         <input name="b0_phase"     type="File"      />
     </unit>
     """
-
-    dwi, bval, bvec, b0_magnitude, b0_phase = \
-        gather_and_format_input_files(outdir,
-                                      dwi,
-                                      bval,
-                                      bvec,
-                                      b0_magnitude,
-                                      b0_phase)
-
-    algorithm = "DWI-Data-Import-And-QSpace-Sampling"
+    # Create the Connectomist's import data directory
+    (dwi, bval, bvec, b0_magnitude,
+     b0_phase) = gather_and_format_input_files(outdir,
+                                               dwi,
+                                               bval,
+                                               bvec,
+                                               b0_magnitude,
+                                               b0_phase)
 
     # Dict with all parameters for connectomist
+    algorithm = "DWI-Data-Import-And-QSpace-Sampling"
     parameters_dict = {
         # Parameters are ordered as they appear in connectomist's GUI
 
@@ -246,25 +262,25 @@ def dwi_data_import_and_qspace_sampling(outdir,
         "_subjectName": subject_id if subject_id else "",
     }
 
+    # Map the manufacturer name with Connectomist convention
     if manufacturer not in MANUFACTURERS:
-        raise BadManufacturerNameError(manufacturer)
-
+        raise ConnectomistBadManufacturerNameError(manufacturer)
     parameters_dict["manufacturer"] = MANUFACTURERS[manufacturer]
 
     # Read .bval file to infer nb of T2, nb of shells...
+    # Check the at least one bval is not null
     try:
         bvalues = np.loadtxt(bval)
         if set(bvalues) == {0}:  # If only 0s raise Exception
             raise Exception
     except:
-        raise BadFileError(bval)
-
-    nb_t2     = np.sum(bvalues == 0)  # nb of volumes where bvalue=0
+        raise ConnectomistBadFileError(bval)
+    nb_t2 = np.sum(bvalues == 0)  # nb of volumes where bvalue=0
     bvals_set = set(bvalues) - {0}    # set of non-zero bvalues
     nb_shells = len(bvals_set)
 
+    # Update Connectomist step description
     parameters_dict["numberOfT2"] = nb_t2
-
     if nb_shells == 1:
         # Spherical single-shell custom
         parameters_dict["qSpaceSamplingType"] = 4
@@ -275,24 +291,24 @@ def dwi_data_import_and_qspace_sampling(outdir,
     # Check validity of .bvec file.
     # If bvec file does not exist or filled with 0s, raise Error
     if (not os.path.isfile(bvec)) or np.loadtxt(bvec).max() == 0:
-        raise BadFileError(bvec)
+        raise ConnectomistBadFileError(bvec)
 
-    parameter_file = create_parameter_file(algorithm, parameters_dict,
-                                           outdir)
-    run_connectomist(algorithm, parameter_file, outdir)
+    # Call with Connectomist
+    connprocess = ConnectomistWrapper(path_connectomist)
+    parameter_file = ConnectomistWrapper.create_parameter_file(
+        algorithm, parameters_dict, outdir)
+    connprocess(algorithm, parameter_file, outdir, nb_tries=nb_tries)
 
     # When there are multiple t2 (nodif) volumes, Connectomist merges them
     # rewrite bvec, bval file accordingly (remove extra T2 values)
     if nb_t2 > 1:
-        dw_indexes  = np.where(bvalues != 0)[0]
+        dw_indexes = np.where(bvalues != 0)[0]
         new_bvalues = np.concatenate(([0], bvalues[dw_indexes]))
         np.savetxt(bval, new_bvalues)
 
-        bvecs     = np.loadtxt(bvec)
-        new_bvecs = np.concatenate(([[0], [0], [0]], bvecs[:, dw_indexes]), axis=1)
+        bvecs = np.loadtxt(bvec)
+        new_bvecs = np.concatenate(([[0], [0], [0]], bvecs[:, dw_indexes]),
+                                   axis=1)
         np.savetxt(bvec, new_bvecs)
 
-    # Capsul needs the output name to be different from input arguments
-    raw_dwi_dir = outdir
-
-    return raw_dwi_dir
+    return outdir

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline version="1.0">
-
     <docstring>
         Complete preprocessing of diffusion-weighted Nifti images using Connectomist:
           - detection and correction of outlying slices
@@ -8,73 +7,100 @@
           - correction of Eddy currents and motion
         Outputs a corrected Nifti with associated .bval and .bvec with corrected gradient directions.
     </docstring>
-
     <units>
-        <unit name="complete_preprocessing">
-            <module>clindmri.preproc.connectomist.noniter_complete_preprocessing.xml</module>
+        <unit name="import_and_qspace_model">
+            <module>clindmri.preproc.connectomist.import_and_qspace_model.dwi_data_import_and_qspace_sampling</module>
+            <set name="output_directory" value="None"/>
+        </unit>
 
-            <iterinput name="subject_id"                   />
-            <iterinput name="dwi"                          />
-            <iterinput name="bval"                         />
-            <iterinput name="bvec"                         />
-            <iterinput name="manufacturer"                 />
-            <iterinput name="b0_magnitude"                 />
-            <iterinput name="b0_phase"                     />
-            <iterinput name="invertX"                      />
-            <iterinput name="invertY"                      />
-            <iterinput name="invertZ"                      />
-            <iterinput name="delta_TE"                     />
-            <iterinput name="partial_fourier_factor"       />
-            <iterinput name="parallel_acceleration_factor" />
-            <iterinput name="negative_sign"                />
-            <iterinput name="echo_spacing"                 />
-            <iterinput name="EPI_factor"                   />
-            <iterinput name="b0_field"                     />
-            <iterinput name="water_fat_shift"              />
-            <iterinput name="export_directory"             />
+        <unit name="rough_mask">
+            <module>clindmri.preproc.connectomist.mask.dwi_rough_mask_extraction</module>
+            <set name="output_directory" value="None"/>
+        </unit>
 
-            <iteroutput name="preproc_dwi"                 />
-            <iteroutput name="preproc_bval"                />
-            <iteroutput name="preproc_bvec"				   />
+        <unit name="outliers">
+            <module>clindmri.preproc.connectomist.outliers.dwi_outlier_detection</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+
+        <unit name="susceptibility">
+            <module>clindmri.preproc.connectomist.susceptibility.dwi_susceptibility_artifact_correction</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+
+        <unit name="eddy_current_and_motion">
+            <module>clindmri.preproc.connectomist.eddy_current_and_motion.dwi_eddy_current_and_motion_correction</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+
+        <unit name="export_results">
+            <module>clindmri.preproc.connectomist.export_results.export_results</module>
         </unit>
     </units>
-
     <links>
 
-        <!-- Pipeline inputs -->
-        <link source="subject_ids"                   destination="complete_preprocessing.itersubject_id"                   />
-        <link source="dwis"                          destination="complete_preprocessing.iterdwi"                          />
-        <link source="bvals"                         destination="complete_preprocessing.iterbval"                         />
-        <link source="bvecs"                         destination="complete_preprocessing.iterbvec"                         />
-        <link source="manufacturers"                 destination="complete_preprocessing.itermanufacturer"                 />
-        <link source="b0_magnitudes"                 destination="complete_preprocessing.iterb0_magnitude"                 />
-        <link source="b0_phases"                     destination="complete_preprocessing.iterb0_phase"                     />
-        <link source="invertXs"                      destination="complete_preprocessing.iterinvertX"                      />
-        <link source="invertYs"                      destination="complete_preprocessing.iterinvertY"                      />
-        <link source="invertZs"                      destination="complete_preprocessing.iterinvertZ"                      />
-        <link source="delta_TEs"                     destination="complete_preprocessing.iterdelta_TE"                     />
-        <link source="partial_fourier_factors"       destination="complete_preprocessing.iterpartial_fourier_factor"       />
-        <link source="parallel_acceleration_factors" destination="complete_preprocessing.iterparallel_acceleration_factor" />
-        <link source="negative_signs"                destination="complete_preprocessing.iternegative_sign"                />
-        <link source="echo_spacings"                 destination="complete_preprocessing.iterecho_spacing"                 />
-        <link source="EPI_factors"                   destination="complete_preprocessing.iterEPI_factor"                   />
-        <link source="b0_fields"                     destination="complete_preprocessing.iterb0_field"                     />
-        <link source="water_fat_shifts"              destination="complete_preprocessing.iterwater_fat_shift"              />
-        <link source="outdirs"                      destination="complete_preprocessing.iterexport_directory"             />
-        <link source="delete_steps"                  destination="complete_preprocessing.delete_steps"                     />
+		<!-- Inputs: data_import_and_qspace_sampling -->
+		<link source="subject_id"   destination="import_and_qspace_model.subject_id"   />
+        <link source="dwi"          destination="import_and_qspace_model.dwi"          />
+        <link source="bval"         destination="import_and_qspace_model.bval"         />
+        <link source="bvec"         destination="import_and_qspace_model.bvec"         />
+        <link source="manufacturer" destination="import_and_qspace_model.manufacturer" />
+        <link source="b0_magnitude" destination="import_and_qspace_model.b0_magnitude" />
+        <link source="b0_phase"     destination="import_and_qspace_model.b0_phase"     />
+        <link source="invertX" 		destination="import_and_qspace_model.invertX"      />
+        <link source="invertY" 	    destination="import_and_qspace_model.invertY"      />
+        <link source="invertZ" 		destination="import_and_qspace_model.invertZ"      />
 
-        <!-- Pipeline outputs -->
-        <link source="complete_preprocessing.iterpreproc_dwi"  destination="preproc_dwis"  />
-        <link source="complete_preprocessing.iterpreproc_bval" destination="preproc_bvals" />
-        <link source="complete_preprocessing.iterpreproc_bvec" destination="preproc_bvecs" />
+		<!-- Inputs: rough_mask -->
+        <link source="import_and_qspace_model.raw_dwi_directory" destination="rough_mask.raw_dwi_directory" />
+
+        <!-- Inputs: outliers -->
+        <link source="import_and_qspace_model.raw_dwi_directory" destination="outliers.raw_dwi_directory"    />
+        <link source="rough_mask.rough_mask_directory"           destination="outliers.rough_mask_directory" />
+
+        <!-- Inputs: susceptibility -->
+        <link source="delta_TE"                                  destination="susceptibility.delta_TE"                     />
+        <link source="partial_fourier_factor"                    destination="susceptibility.partial_fourier_factor"       />
+        <link source="parallel_acceleration_factor"              destination="susceptibility.parallel_acceleration_factor" />
+        <link source="negative_sign"                             destination="susceptibility.negative_sign"                />
+        <link source="echo_spacing"                              destination="susceptibility.echo_spacing"                 />
+        <link source="EPI_factor"                                destination="susceptibility.EPI_factor"                   />
+        <link source="b0_field"                                  destination="susceptibility.b0_field"                     />
+        <link source="water_fat_shift"                           destination="susceptibility.water_fat_shift"              />
+        <link source="import_and_qspace_model.raw_dwi_directory" destination="susceptibility.raw_dwi_directory"            />
+        <link source="rough_mask.rough_mask_directory"           destination="susceptibility.rough_mask_directory"         />
+        <link source="outliers.outliers_directory"               destination="susceptibility.outliers_directory"           />
+
+        <!-- Inputs: eddy_current_and_motion -->
+        <link source="import_and_qspace_model.raw_dwi_directory" destination="eddy_current_and_motion.raw_dwi_directory"        />
+        <link source="rough_mask.rough_mask_directory"           destination="eddy_current_and_motion.rough_mask_directory"     />
+        <link source="susceptibility.susceptibility_directory"   destination="eddy_current_and_motion.susceptibility_directory" />
+
+		<!-- Inputs: export_results -->
+		<link source="export_directory"                              destination="export_results.export_directory"         />
+		<link source="import_and_qspace_model.raw_dwi_directory"     destination="export_results.raw_dwi_directory"        />
+		<link source="rough_mask.rough_mask_directory"               destination="export_results.rough_mask_directory"     />
+		<link source="outliers.outliers_directory"                   destination="export_results.outliers_directory"       />
+		<link source="susceptibility.susceptibility_directory"       destination="export_results.susceptibility_directory" />
+		<link source="eddy_current_and_motion.eddy_motion_directory" destination="export_results.eddy_motion_directory"    />
+		<link source="delete_steps"                                  destination="export_results.delete_steps"             />
+
+		<!-- Pipeline outputs -->
+        <link source="export_results.dwi"  destination="preproc_dwi"  />
+        <link source="export_results.bval" destination="preproc_bval" />
+        <link source="export_results.bvec" destination="preproc_bvec" />
 
     </links>
-
     <positions>
-        <position unit="inputs"                 x="50"  y="50"  />
-        <position unit="complete_preprocessing" x="389" y="49"  />
-        <position unit="outputs"                x="722" y="549" />
+        <position unit="inputs"                  x="-26"  y="34"   />
+        <position unit="import_and_qspace_model" x="365"  y="-87"  />
+        <position unit="rough_mask"              x="743"  y="89"   />
+        <position unit="outliers"                x="970"  y="-133" />
+        <position unit="susceptibility"          x="1147" y="604"  />
+        <position unit="eddy_current_and_motion" x="1388" y="115"  />
+        <position unit="export_results"          x="1639" y="434"  />
+        <position unit="outputs"                 x="1894" y="583"  />
     </positions>
-
     <zoom level="1"/>
 </pipeline>
+

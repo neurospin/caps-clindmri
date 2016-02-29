@@ -1,54 +1,78 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 ##########################################################################
-# NSAp - Copyright (C) CEA, 2015
+# NSAp - Copyright (C) CEA, 2015 - 2016
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html for details.
 ##########################################################################
 
+# System import
 import os
 
-from .manufacturers import MANUFACTURERS
-from .exceptions    import (BadManufacturerNameError, MissingParametersError,
-                            BadFileError)
-from .utils         import create_parameter_file, run_connectomist
+# Clindmri import
+from clindmri.extensions.connectomist.manufacturers import MANUFACTURERS
+from clindmri.extensions.connectomist.exceptions import (
+    ConnectomistMissingParametersError)
+from clindmri.extensions.connectomist.exceptions import (
+    ConnectomistBadManufacturerNameError)
+from clindmri.extensions.connectomist.exceptions import (
+    ConnectomistBadFileError)
+from clindmri.extensions.connectomist import ConnectomistWrapper
 
 
-def dwi_susceptibility_artifact_correction(outdir,
-                                           raw_dwi_dir,
-                                           rough_mask_dir,
-                                           outliers_dir,
-                                           delta_TE,
-                                           partial_fourier_factor,
-                                           parallel_acceleration_factor,
-                                           negative_sign   = False,
-                                           echo_spacing    = None,
-                                           EPI_factor      = None,
-                                           b0_field        = 3.0,
-                                           water_fat_shift = 4.68):
+def dwi_susceptibility_artifact_correction(
+        outdir,
+        raw_dwi_dir,
+        rough_mask_dir,
+        outliers_dir,
+        delta_TE,
+        partial_fourier_factor,
+        parallel_acceleration_factor,
+        negative_sign=False,
+        echo_spacing=None,
+        EPI_factor=None,
+        b0_field=3.0,
+        water_fat_shift=4.68,
+        nb_tries=10,
+        path_connectomist=(
+            "/i2bm/local/Ubuntu-14.04-x86_64/ptk/bin/connectomist")):
     """
     Wrapper to Connectomist's "Susceptibility" tab.
 
     Parameters
     ----------
-    outdir:          Str, path to Connectomist output work directory.
-    raw_dwi_dir:     Str, path to Connectomist Raw DWI folder.
-    rough_mask_dir:  Str, path to Connectomist Rough Mask folder.
-    outliers_dir:    Str, path to Connectomist Outliers folder.
-    delta_TE:        Float, difference in seconds between the 2 echoes
-                     in B0 magnitude map acquisition.
-    partial_fourier_factor: Float (]0;1]), percentage of k-space plane acquired.
-    parallel_acceleration_factor: Int, nb of parallel acquisition in k-space plane.
-    negative_sign:   Bool, if True invert direction of unwarping in
-                     susceptibility-distortion correction.
-    echo_spacing:    Float, not for Philips, acquisition time in ms between
-                     2 centers of 2 consecutively acquired lines in k-space.
-    EPI_factor:      Int, nb of echoes after one excitation (90 degrees),
-                     i.e. echo train length.
-    b0_field:        Float, Philips only, B0 field intensity, by default 3.0.
-    water_fat_shift: Float, Philips only, default 4.68 pixels.
+    outdir: str
+        path to Connectomist output work directory.
+    raw_dwi_dir: str
+        path to Connectomist Raw DWI folder.
+    rough_mask_dir: str
+        path to Connectomist Rough Mask folder.
+    outliers_dir: str
+        path to Connectomist Outliers folder.
+    delta_TE: float
+        difference in seconds between the 2 echoes
+        in B0 magnitude map acquisition.
+    partial_fourier_factor: float (]0;1])
+        percentage of k-space plane acquired.
+    parallel_acceleration_factor: int
+        nb of parallel acquisition in k-space plane.
+    negative_sign: bool
+        if True invert direction of unwarping in
+        susceptibility-distortion correction.
+    echo_spacing: float
+        not for Philips, acquisition time in ms between
+        2 centers of 2 consecutively acquired lines in k-space.
+    EPI_factor: int
+        nb of echoes after one excitation (90 degrees),
+        i.e. echo train length.
+    b0_field: float
+        Philips only, B0 field intensity, by default 3.0.
+    water_fat_shift: float
+        Philips only, default 4.68 pixels.
+
+    Returns
+    -------
+    outdir: str
+        path to Connectomist's output directory.
 
     <unit>
         <output name="susceptibility_dir"          type="Directory" />
@@ -67,20 +91,24 @@ def dwi_susceptibility_artifact_correction(outdir,
         <input name="water_fat_shift"              type="Float"     />
     </unit>
     """
-
+    # Get the b0 amplitude and phase image
     b0_magnitude = os.path.join(raw_dwi_dir, "b0_magnitude.ima")
-    b0_phase     = os.path.join(raw_dwi_dir, "b0_phase.ima")
+    b0_phase = os.path.join(raw_dwi_dir, "b0_phase.ima")
 
+    # Get the manufacturer from Connectomist's parameter file
     try:
         parameter_file = os.path.join(raw_dwi_dir, "acquisition_parameters.py")
         exec_dict = dict()  # To store variables created by execfile() call.
         execfile(parameter_file, exec_dict)
-        manufacturer = exec_dict["acquisitionParameters"]["manufacturer"].split(" ")[0]
+        manufacturer = exec_dict["acquisitionParameters"][
+            "manufacturer"].split(" ")[0]
     except:
-        raise BadFileError(parameter_file)
+        raise ConnectomistBadFileError(parameter_file)
+    if manufacturer not in MANUFACTURERS:
+        raise ConnectomistBadManufacturerNameError(manufacturer)
 
+    # Dict with all parameters for connectomist
     algorithm = "DWI-Susceptibility-Artifact-Correction"
-
     parameters_dict = {
         # ---------------------------------------------------------------------
         # Paths parameters
@@ -118,7 +146,7 @@ def dwi_susceptibility_artifact_correction(outdir,
         # ---------------------------------------------------------------------
         # Philips parameters
         'philipsDeltaTE':                      2.46,
-        'philipsEchoSpacing':                  0.75,  # Not requested in GUI; ignored
+        'philipsEchoSpacing':                  0.75,  # Not requested in GUI;
         'philipsPhaseNegativeSign':               0,
         'philipsPartialFourierFactor':          1.0,
         'philipsParallelAccelerationFactor':      1,
@@ -184,9 +212,6 @@ def dwi_susceptibility_artifact_correction(outdir,
         },
     }
 
-    if manufacturer not in MANUFACTURERS:
-        raise BadManufacturerNameError(manufacturer)
-
     # Maps required parameters in Connectomist, for each manufacturer, to the
     # arguments of the function.
     args_map = {
@@ -230,25 +255,22 @@ def dwi_susceptibility_artifact_correction(outdir,
         }
     }
 
+    # Check that all needed parameters have been passed: a missing parameter
+    # is a parameter with a None value
     required_parameters = set(args_map[manufacturer])
-
-    # Check that all needed parameters have been passed
     missing_parameters = [p for p in required_parameters
                           if args_map[manufacturer][p] is None]
-
     if len(missing_parameters) > 0:
-        raise MissingParametersError(algorithm, missing_parameters)
+        raise ConnectomistMissingParametersError(algorithm, missing_parameters)
 
     # Set given parameters
     for p in required_parameters:
         parameters_dict[p] = args_map[manufacturer][p]
 
-    parameter_file = create_parameter_file(algorithm,
-                                           parameters_dict,
-                                           outdir)
-    run_connectomist(algorithm, parameter_file, outdir)
+    # Call with Connectomist
+    connprocess = ConnectomistWrapper(path_connectomist)
+    parameter_file = ConnectomistWrapper.create_parameter_file(
+        algorithm, parameters_dict, outdir)
+    connprocess(algorithm, parameter_file, outdir, nb_tries=nb_tries)
 
-    # Capsul needs the output name to be different from input arguments
-    susceptibility_dir = outdir
-
-    return susceptibility_dir
+    return outdir
