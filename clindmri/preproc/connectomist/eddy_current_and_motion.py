@@ -161,7 +161,8 @@ def dwi_eddy_current_and_motion_correction(
 
 def export_eddy_motion_results_to_nifti(eddy_motion_dir,
                                         outdir=None,
-                                        filename="dwi"):
+                                        filename="dwi",
+                                        nb_tries=10):
     """
     After Connectomist has done Eddy current and motion correction, convert
     the result to Nifti with bval/bvec files (bvec with corrrected directions).
@@ -178,6 +179,9 @@ def export_eddy_motion_results_to_nifti(eddy_motion_dir,
         By default <outdir> is <eddy_motion_dir>.
     filename: str
         to change output filenames, by default "dwi".
+    nb_tries: int
+        number of times to try the conversion. It often fails
+        when using parallel processing.
 
     Returns
     -------
@@ -204,10 +208,11 @@ def export_eddy_motion_results_to_nifti(eddy_motion_dir,
             raise ConnectomistBadFileError(path)
 
     # Apply concatenation: result is a Gis file
-    ptk_concatenate_volumes([t2, dw], t2_dw)
+    ptk_concatenate_volumes([t2, dw], t2_dw, nb_tries=nb_tries)
 
     # Step 2 - Convert to Nifti
-    dwi = ptk_gis_to_nifti(t2_dw, os.path.join(outdir, "%s.nii.gz" % filename))
+    dwi = ptk_gis_to_nifti(t2_dw, os.path.join(outdir, "%s.nii.gz" % filename),
+                           nb_tries=nb_tries)
 
     # Step 3 - Create .bval and .bvec (with corrected directions)
     # The new directions of gradients (modified by the Eddy current and motion
