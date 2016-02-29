@@ -15,6 +15,27 @@ from clindmri.extensions.fsl import FSLWrapper
 from clindmri.extensions.fsl.exceptions import FSLRuntimeError
 
 
+def fslreorient2std(input, output, shfile="/etc/fsl/5.0/fsl.sh"):
+    """ FSL tool for reorienting the image to match the
+    approximate orientation of the standard template images (MNI152).
+    It only applies 0, 90, 180 or 270 degree rotations.
+    It is not a registration tool.
+    It requires NIfTI images with valid orientation information
+    in them (seen by valid labels in FSLView).  This tool
+    assumes the labels are correct - if not, fix that before using this.
+    If the output name is not specified the equivalent transformation
+     matrix is written to the standard output
+
+    Usage: fslreorient2std <input_image> [output_image]  
+    """
+    # Call fslreorient2std
+    fslprocess = FSLWrapper("fslreorient2std", shfile=shfile)
+    fslprocess()
+    if fslprocess.exitcode != 0:
+        raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
+                              fslprocess.stderr)
+
+
 def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
          c=None, t=None, e=None, shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command bet2.
@@ -62,7 +83,8 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
     fslprocess = FSLWrapper("bet2", shfile=shfile)
     fslprocess()
     if fslprocess.exitcode != 0:
-        raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]))
+        raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
+                              fslprocess.stderr)
 
     # Format outputs
     image_ext = fslprocess.output_ext[fslprocess.environment["FSLOUTPUTTYPE"]]

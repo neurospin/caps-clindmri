@@ -30,7 +30,7 @@ class FSLWrapper(object):
     }
  
     def __init__(self, name, shfile="/etc/fsl/5.0/fsl.sh", optional=None,
-                 cpus=""):
+                 cpus=None):
         """ Initialize the FSLWrapper class by setting properly the
         environment.
         
@@ -43,27 +43,29 @@ class FSLWrapper(object):
         optional: list (optional, default None)
             the name of the optional parameters. If 'ALL' consider that all
             the parameter are optional.
-        cpus: str (optional, default "")
-            the number of CPUS used by FSL.
+        cpus: str (optional, default None)
+            if different that None use condor wiht the specified number of
+            jobs.
         """
         self.name = name
         self.cmd = name.split()
         self.shfile = shfile
         self.optional = optional or []
         self.environment = self._environment()
-        self.environment["FSLPARALLEL"] = cpus
-        self.environment["USER"] = os.getlogin()
-        
-        # Check CONDOR has been configured so the command can be found
-        process = subprocess.Popen(
-                    ["which", "condor_qsub"],
-                    env=self.environment,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
-        self.stdout, self.stderr = process.communicate()
-        self.exitcode = process.returncode
-        if self.exitcode != 0:
-            raise FSLDependencyError("condor_qsub", "Condor")        
+
+        # Condor specific setting
+        if cpus is not None:
+            self.environment["FSLPARALLEL"] = cpus
+            self.environment["USER"] = os.getlogin()
+            process = subprocess.Popen(
+                        ["which", "condor_qsub"],
+                        env=self.environment,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE)
+            self.stdout, self.stderr = process.communicate()
+            self.exitcode = process.returncode
+            if self.exitcode != 0:
+                raise FSLDependencyError("condor_qsub", "Condor")        
 
     def __call__(self):
         """ Run the FSL command.
