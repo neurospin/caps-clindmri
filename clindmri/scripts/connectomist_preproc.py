@@ -33,6 +33,9 @@ try:
         "clindmri.preproc.connectomist.susceptibility",
         names=["dwi_susceptibility_artifact_correction"])
     bredala.register(
+        "clindmri.preproc.connectomist.registration",
+        names=["dwi_to_anatomy"])
+    bredala.register(
         "clindmri.preproc.connectomist.eddy_current_and_motion",
         names=["dwi_eddy_current_and_motion_correction",
                "export_eddy_motion_results_to_nifti"])
@@ -51,7 +54,7 @@ __hopla__ = ["outdir", "subjectid", "subjdir", "dwi", "bvec", "bval",
              "parallel_acceleration_factor", "b0_magnitude", "b0_phase",
              "b0_magnitude", "invertx", "inverty", "invertz", "negative_sign",
              "echo_spacing", "epi_factor", "b0_field", "water_fat_shift",
-             "delete_steps"]
+             "delete_steps", "morphologist_dir"]
 
 # Script documentation
 doc = """
@@ -90,6 +93,7 @@ python $HOME/git/caps-clindmri/clindmri/scripts/connectomist_preproc.py \
     -x \
     -c 0.75 \
     -l 3.0 \
+    -g /neurospin/senior/nsap/data/V0/morphologist \
     -e
 """
 
@@ -184,6 +188,9 @@ parser.add_argument(
 parser.add_argument(
     "-d", "--delete_steps", dest="delete_steps", action="store_true",
     help="if True remove all intermediate files and directories at the end.")
+parser.add_argument(
+    "-g", "--morphologist_dir", dest="morphologist_dir", metavar="PATH",
+    help="the path to the morphologist processings.", type=is_directory)
 args = parser.parse_args()
 
 
@@ -221,6 +228,7 @@ epi_factor = args.epi_factor
 b0_field = args.b0_field
 water_fat_shift = args.water_fat_shift
 delete_steps = args.delete_steps
+morphologist_dir = args.morphologist_dir
 if not os.path.isdir(subjdir):
     os.makedirs(subjdir)
 elif os.path.isdir(subjdir) and args.erase:
@@ -251,6 +259,7 @@ preproc_dwi, preproc_bval, preproc_bvec = complete_preprocessing(
     b0_field=b0_field,
     water_fat_shift=water_fat_shift,
     delete_steps=delete_steps,
+    morphologist_dir=morphologist_dir,
     nb_tries=10,
     path_connectomist=(
         "/i2bm/local/Ubuntu-14.04-x86_64/ptk/bin/connectomist"))

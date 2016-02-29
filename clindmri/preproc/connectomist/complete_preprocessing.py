@@ -16,6 +16,7 @@ from .outliers import dwi_outlier_detection
 from .susceptibility import dwi_susceptibility_artifact_correction
 from .eddy_current_and_motion import dwi_eddy_current_and_motion_correction
 from .eddy_current_and_motion import export_eddy_motion_results_to_nifti
+from .registration import dwi_to_anatomy
 
 
 def complete_preprocessing(
@@ -39,6 +40,7 @@ def complete_preprocessing(
         b0_field=3.0,
         water_fat_shift=4.68,
         delete_steps=False,
+        morphologist_dir=None,
         nb_tries=10,
         path_connectomist=(
             "/i2bm/local/Ubuntu-14.04-x86_64/ptk/bin/connectomist")):
@@ -104,6 +106,8 @@ def complete_preprocessing(
         if True remove all intermediate files and directories at the end of
         preprocessing, to keep only 4 files: preprocessed Nifti + bval + bvec
         + outliers.py
+    morphologist_dir: str (optional, default None)
+        the path to the morphologist processings.
     nb_tries: int (optional, default 10)
         nb of times to try an algorithm if it fails.
         It often crashes when running in parallel. The reason
@@ -186,7 +190,18 @@ def complete_preprocessing(
     path_outliers_py = os.path.join(outliers_dir, "outliers.py")
     shutil.copy(path_outliers_py, outdir)
 
-    # Step 9 - Delete intermediate files and directories if requested
+    # Step 9 - Registration t1 - dwi
+    if morphologist_dir is not None:
+        registration_dir = os.path.join(outdir, "06-Anatomy_Talairach")
+        dwi_to_anatomy(registration_dir,
+                       eddy_motion_dir,
+                       rough_mask_dir,
+                       morphologist_dir,
+                       subject_id,
+                       nb_tries=nb_tries,
+                       path_connectomist=path_connectomist)
+
+    # Step 10 - Delete intermediate files and directories if requested
     if delete_steps:
         intermediate_dirs = [raw_dwi_dir, rough_mask_dir, outliers_dir,
                              susceptibility_dir, eddy_motion_dir]
