@@ -249,34 +249,48 @@ def xyz_mosaics(reffile, overlayfile, nbslices, name, cmap, outdir,
 
     # Compute overlay mosaics
     array = nibabel.load(overlayfile).get_data()
+    if cutupper == 0:
+        auto_cutupper = True
+    if cutlower == 0:
+        auto_cutlower = True
     for display_mode in ["z", "y", "x"]:
 
-        # Compute the cutlower and cutupper bounds
+        # Compute the cutlower and cutupper bounds: slice with signal
         axis = "xyz".index(display_mode)
         sum_axes = tuple([elem for elem in range(3) if elem != axis])
         weights = array.sum(axis=sum_axes)
-        if cutupper == 0:
+        if auto_cutupper:
+            cutupper = 0
             for value in weights[::-1]:
                 if value == 0:
                     cutupper += 1
                 else:
                     break      
-        if cutlower == 0:
+        if auto_cutlower:
+            cutlower = 0
             for value in weights:
                 if value == 0:
                     cutlower += 1
                 else:
                     break
 
-        # Display triplanar and sliced images
-        for cut, mode in [((0, 0, 0), "triplanar"), (nbslices, "slice")]:
-            qcname = "{0}{1}-{2}".format(display_mode, mode, name)
-            snap_file = os.path.join(outdir, qcname + ".pdf")
-            plot_image(reffile, overlay_file=overlayfile, snap_file=snap_file,
-                       name=qcname, cut_coords=cut, overlay_cmap=cmap,
-                       cutlower=cutlower, cutupper=cutupper,
-                       display_mode=display_mode)
-            mosaics.append(snap_file)
+        # Display sliced images
+        qcname = "{0}-{1}".format(display_mode, name)
+        snap_file = os.path.join(outdir, qcname + ".pdf")
+        plot_image(reffile, overlay_file=overlayfile, snap_file=snap_file,
+                   name=qcname, cut_coords=nbslices, overlay_cmap=cmap,
+                   cutlower=cutlower, cutupper=cutupper,
+                   display_mode=display_mode)
+        mosaics.append(snap_file)
+
+    # Display triplanar
+    qcname = "triplanar-{0}".format(name)
+    snap_file = os.path.join(outdir, qcname + ".pdf")
+    plot_image(reffile, overlay_file=overlayfile, snap_file=snap_file,
+               name=qcname, cut_coords=(0, 0, 0), overlay_cmap=cmap,
+               cutlower=cutlower, cutupper=cutupper,
+               display_mode=display_mode)
+    mosaics.append(snap_file)
 
     return mosaics
 

@@ -67,7 +67,7 @@ python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_qc.py \
     -d /neurospin/senior/nsap/data/V4/freesurfer \
     -s ag110371 \
     -o /neurospin/senior/nsap/data/V4/qc/freesurfer \
-    -p 14 \
+    -p 18 \
     -e 
 """
 
