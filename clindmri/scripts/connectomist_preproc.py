@@ -189,8 +189,9 @@ parser.add_argument(
     "-d", "--delete_steps", dest="delete_steps", action="store_true",
     help="if True remove all intermediate files and directories at the end.")
 parser.add_argument(
-    "-g", "--morphologist_dir", dest="morphologist_dir", metavar="PATH",
-    help="the path to the morphologist processings.", type=is_directory)
+    "-g", "--morphologist_dir", dest="morphologist_dir", required=True,
+    metavar="PATH", help="the path to the morphologist processings.",
+    type=is_directory)
 args = parser.parse_args()
 
 
