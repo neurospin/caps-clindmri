@@ -13,9 +13,6 @@ of a dedicated function of the package.
 
 All the preprocessing steps can be done at once using the
 complete_preprocessing() function.
-
-The package also allows parallelization of multiple complete preprocessing
-using the parallel_preprocessing() function.
 """
 
 from clindmri.extensions.connectomist.manufacturers import MANUFACTURERS
