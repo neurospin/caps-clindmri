@@ -35,7 +35,10 @@ class ConnectomistWrapper(object):
             "dw_wo_eddy_current_and_motion.ima"],
         "DWI-To-Anatomy-Matching": [
             "talairach_to_t1.trm", "dw_to_t1.trm", "t1_to_dw.trm",
-            "talairach_to_t1.trm"]
+            "talairach_to_t1.trm"],
+        "DWI-Local-Modeling": [],
+        "DWI-Tractography-Mask": ["tractography_mask.ima"],
+        "DWI-Tractography": []
     }
 
     def __init__(self, path_connectomist=(
