@@ -1128,10 +1128,10 @@ def population_statistic(fsdir, sid=None):
             subject_header = "{0}.{1}.{2}".format(hemi, stype, sname)
         else:
             continue
-        
+
         if sname not in popstats[hemi]:
             popstats[hemi][sname] = {}
-        with open(fpath, "rb" ) as openfile:
+        with open(fpath, "rb") as openfile:
             reader = csv.DictReader(openfile)
             for line in reader:
                 subject = line.pop(subject_header)
