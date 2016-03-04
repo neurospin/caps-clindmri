@@ -26,7 +26,16 @@ def fslreorient2std(input, output, shfile="/etc/fsl/5.0/fsl.sh"):
     If the output name is not specified the equivalent transformation
      matrix is written to the standard output
 
-    Usage: fslreorient2std <input_image> [output_image]  
+    Usage: fslreorient2std <input_image> [output_image]
+
+    Parameters
+    ----------
+    input: str (mandatory)
+        the image to reorient.
+    output: str (mandatory)
+        the reoriented image.
+    shfile: str (optional, default local path)
+        the path to the FSL 'fsl.sh' configuration file. 
     """
     # Call fslreorient2std
     fslprocess = FSLWrapper("fslreorient2std", shfile=shfile)
@@ -76,7 +85,7 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
     outskin_mask_file, outskin_mesh_file,
     skull_mask_file: str
         rough skull image.
-    shfile: str (optional, default NeuroSpin path)
+    shfile: str (optional, default local path)
         the path to the FSL 'fsl.sh' configuration file.
     """
     # Call bet2
@@ -118,3 +127,26 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
     return (output, mask_file, mesh_file, outline_file, inskull_mask_file,
             inskull_mesh_file, outskull_mask_file, outskull_mesh_file, 
             outskin_mask_file, outskin_mesh_file, skull_mask_file)
+
+
+def apply_mask(inputfile, outputfile, maskfile, shfile="/etc/fsl/5.0/fsl.sh"):
+    """ Apply a mask to an image.
+
+    Parameters
+    ----------
+    inputfile: str (mandatory)
+        the image to mask.
+    outputfile: str (mandatory)
+        the computed masked image.
+    maskfile: str (mandatory)
+        the mask image.
+    shfile: str (optional, default local path)
+        the path to the FSL 'fsl.sh' configuration file.
+    """    
+    # Call fslmaths
+    cmd = ["fslmaths", inputfile, "-mas", maskfile, outputfile]
+    fslprocess = FSLWrapper("fslmaths", shfile=shfile)
+    fslprocess(cmd)
+    if fslprocess.exitcode != 0:
+        raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
+                              fslprocess.stderr)

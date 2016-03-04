@@ -67,14 +67,23 @@ class FSLWrapper(object):
             if self.exitcode != 0:
                 raise FSLDependencyError("condor_qsub", "Condor")        
 
-    def __call__(self):
+    def __call__(self, cmd=None):
         """ Run the FSL command.
 
-        Note that the command is built from the parent frame and that the
-        'shfile' parameter is reserved.
+        Note that if the command is not specified, it is built from the parent
+        frame and that the 'shfile', 'input' and 'output' parameters are
+        reserved.
+
+        Parameters
+        ----------
+        cmd: list of str (optional, default None)
+            the FSL command to execute.
         """
         # Update the command to execute
-        self._update_command()
+        if cmd is None:
+            self._update_command()
+        else:
+            self.cmd = cmd
 
         # Check FSL has been configured so the command can be found
         process = subprocess.Popen(
