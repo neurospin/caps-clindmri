@@ -68,8 +68,9 @@ python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_qc.py \
     -s ag110371 \
     -o /neurospin/senior/nsap/data/V4/qc/freesurfer \
     -p 18 \
-    -e 
+    -e
 """
+
 
 def is_file(filearg):
     """ Type for argparse - checks that file exists but does not open.
@@ -163,7 +164,6 @@ Create the population statistic and get the subjects measures
 """
 popstats = population_statistic(args.fsdir)
 indstats = population_statistic(args.fsdir, args.subjectid)
-
 
 """
 Create polar plots
