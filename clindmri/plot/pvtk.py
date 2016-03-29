@@ -35,10 +35,10 @@ def ren():
 
     Examples
     --------
-    >>> import plot_vtk
-    >>> ren = plot_vtk.ren()
-    >>> plot_vtk.add(ren, actor)
-    >>> plot_vtk.show(ren)
+    >>> import pvtk
+    >>> ren = pvtk.ren()
+    >>> pvtk.add(ren, actor)
+    >>> pvtk.show(ren)
     """
     return vtk.vtkRenderer()
 
@@ -520,7 +520,8 @@ def dots(points, color=(1, 0, 0), psize=1, opacity=1):
     return aPolyVertexActor
 
 
-def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
+def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True,
+            decimation_ratio=1):
     """ Create a colored triangular surface.
 
     Parameters
@@ -539,6 +540,9 @@ def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
         the actor global opacity.
     set_lut: bool (optional, default True)
         if True set a tuned lut.
+    decimation_ratio: float (optional, default 1)
+        how many triangles should reduced by specifying the percentage
+        ([0,1]) of triangles to be removed.
 
     Returns
     -------
@@ -585,9 +589,14 @@ def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
     polydata.GetPointData().SetScalars(vtk_colors)
     polydata.SetPolys(vtk_triangles)
 
+    # Decimate the mesh
+    decimate = vtk.vtkDecimatePro()
+    decimate.SetInputConnection(polydata.GetProducerPort())
+    decimate.SetTargetReduction(decimation_ratio)
+
     # Create the mapper
     mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInput(polydata)
+    mapper.SetInput(decimate.GetOutput())
     if set_lut:
         mapper.SetLookupTable(lut)
         mapper.SetColorModeToMapScalars()
