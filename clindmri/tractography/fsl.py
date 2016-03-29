@@ -16,11 +16,14 @@ from clindmri.extensions.fsl import FSLWrapper
 from clindmri.extensions.fsl.exceptions import FSLRuntimeError
 
 
-def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
+def probtrackx2(samples, seed, mask, dir, stop=None, avoid=None,
+                out="fdt_paths", nsamples=5000,
                 nsteps=2000, cthr=0.2, loopcheck=None, onewaycondition=None,
                 usef=None, simple=None, seedref=None, steplength=0.5,
-                fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=None,
-                stop=None, shfile="/etc/fsl/5.0/fsl.sh"):
+                fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=False,
+                omatrix1=False, omatrix2=False, omatrix3=False,
+                target2=None, target3=None,
+                shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command probtrackx2.
 
     Single voxel
