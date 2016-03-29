@@ -171,7 +171,7 @@ parser.add_argument(
     help="burnin period: number of iterations before starting the sampling.")
 parser.add_argument(
     "--graph", dest="graphics", action="store_true",
-    help="if activated compute quality controls on the FreeSurfer outputs.")
+    help="if activated compute quality controls on the BedPostx outputs.")
 parser.add_argument(
     "-e", "--erase", dest="erase", action="store_true",
     help="if activated, clean the subject folder.")
