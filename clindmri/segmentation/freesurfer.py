@@ -465,7 +465,7 @@ def mri_convert(fsdir, regex, output_directory=None, reslice=True,
         # Create the FS command
         basename = os.path.basename(inputfile).replace(".mgz", "")
         cmd = ["mri_convert", "--resample_type", interpolation]
-               #"--out_orientation", "RAS"]
+        # "--out_orientation", "RAS"]
         if reslice:
             reference_file = os.path.join(fsdir, subject, "mri", "rawavg.mgz")
             if not os.path.isfile(reference_file):

@@ -246,7 +246,7 @@ def tensor(coeff, order, position=(0, 0, 0),
     # Deform mesh
     design_matrix = construct_matrix_of_monomials(mesh, order)
     signal = numpy.dot(design_matrix, coeff)
-    #signal = np.maximum(signal, 0.0)
+    # signal = np.maximum(signal, 0.0)
     signal /= signal.max()
     signal *= 0.5
 
@@ -445,7 +445,7 @@ def tubes(lines, colors, opacity=1, linewidth=0.15, tube_sides=8,
     else:
         profileTubes.SetInputData(profileData)
 
-    #profileTubes.SetInput(profileData)
+    # profileTubes.SetInput(profileData)
     profileTubes.SetRadius(linewidth)
 
     profileMapper = vtk.vtkPolyDataMapper()

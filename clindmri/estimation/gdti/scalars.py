@@ -167,7 +167,7 @@ def compute_fourth_order_scalar_parameters(gdti15, k1=5000., k2=250.):
 
         # Compute the mean diffusivity
         md[:] = 0.2 * (tensor[14] + tensor[4] + tensor[0] + 1 / 3 *
-                      (tensor[11] + tensor[2] + tensor[9]))
+                       (tensor[11] + tensor[2] + tensor[9]))
 
         # Variance of the normalized diffusivities as a measure of anisotropy
         if md > 0:
@@ -222,7 +222,7 @@ def hellinger(D1, D2):
     dist += d * (diff[7] + diff[12] + diff[5]) ** 2
     dist += d * (diff[6] + diff[13] + diff[8]) ** 2
     dist += (b - d) * ((diff[13] + diff[8]) ** 2 + (diff[12] + diff[5]) ** 2 +
-                      (diff[3] + diff[1]) ** 2)
+                       (diff[3] + diff[1]) ** 2)
     dist += (c - b) * (diff[13] ** 2 + diff[12] ** 2 + diff[8] ** 2 +
                        diff[3] ** 2 + diff[5] ** 2 + diff[1] ** 2)
 

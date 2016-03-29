@@ -485,7 +485,7 @@ def project_aparc_and_aseg_to_diffusion(outdir,
 
     subj_dir = os.path.join(subjects_dir, subject_id)
 
-    if not cortical_atlas in CORTICAL_ATLASES:
+    if cortical_atlas not in CORTICAL_ATLASES:
         raise ValueError("Bad 'cortical_atlas': {}, should be in {}"
                          .format(cortical_atlas, CORTICAL_ATLASES))
 
@@ -653,7 +653,7 @@ def create_masks_for_tracto_seeding_endpoints(outdir,
     """
 
     # Check arguments
-    if not cortical_atlas in CORTICAL_ATLASES:
+    if cortical_atlas not in CORTICAL_ATLASES:
         raise ValueError("Bad 'cortical_atlas': {}, should be in {}"
                          .format(cortical_atlas, CORTICAL_ATLASES))
 
@@ -760,11 +760,11 @@ def create_masks_for_tracto_seeding_wm(outdir,
         Otherwise they are saved in <outdir>/.
     """
     # Check arguments
-    if not cortical_atlas in CORTICAL_ATLASES:
+    if cortical_atlas not in CORTICAL_ATLASES:
         raise ValueError("Bad 'cortical_atlas': {}, should be in {}"
                          .format(cortical_atlas, CORTICAL_ATLASES))
 
-    if not stop_mask_type in STOP_MASK_TYPES:
+    if stop_mask_type not in STOP_MASK_TYPES:
         raise ValueError("Bad 'stop_mask_type': {}, should be in {}"
                          .format(stop_mask_type, STOP_MASK_TYPES))
 
