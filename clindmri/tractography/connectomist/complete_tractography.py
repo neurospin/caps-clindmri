@@ -98,7 +98,8 @@ def complete_tractography(
         if True add the cerebelum to the tractography mask.
     add_commissures: bool (optional, default False)
         if True add the commissures to the tractography mask.
-    tracking_type: str (optional, default 'streamline_regularize_deterministic')
+    tracking_type: str (optional, default
+            'streamline_regularize_deterministic')
         the tractography algorithm: 'streamline_regularize_deterministic',
         'streamline_deterministic' or 'streamline_probabilistic'
     bundlemap: str (optional, default 'vtkbundlemap')
@@ -140,7 +141,8 @@ def complete_tractography(
     # Step 2 - Detect the Connectomist registration folder
     registered_dwi_dir = glob.glob(os.path.join(dwi_preproc_dir,
                                                 "*Anatomy_Talairach"))
-    if len(registered_dwi_dir) != 1 or not os.path.isdir(registered_dwi_dir[0]):
+    if (len(registered_dwi_dir) != 1 or not os.path.isdir(
+            registered_dwi_dir[0])):
         raise ConnectomistError(
             "In '{0}' can't detect Connectomist registration "
             "folder.".format(registered_dwi_dir))

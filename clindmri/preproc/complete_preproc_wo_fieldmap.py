@@ -1,6 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2015
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -16,17 +14,19 @@ import shutil
 import nibabel
 
 from clindmri.segmentation.fsl import bet2
-from clindmri.plot.slicer      import plot_image
+from clindmri.plot.slicer import plot_image
 
-from clindmri.connectivity.connectogram import (run_freesurfer_cmd,
-                                                get_or_check_freesurfer_subjects_dir)
+from clindmri.connectivity.connectogram import (
+    run_freesurfer_cmd, get_or_check_freesurfer_subjects_dir)
 
 # Wrappers of Connectomist's tabs
-from connectomist.import_and_qspace_model import dwi_data_import_and_qspace_sampling
-from connectomist.mask                    import dwi_rough_mask_extraction
-from connectomist.outliers                import dwi_outlier_detection
-from connectomist.eddy_current_and_motion import (dwi_eddy_current_and_motion_correction,
-                                                  export_eddy_motion_results_to_nifti)
+from connectomist.import_and_qspace_model import (
+    dwi_data_import_and_qspace_sampling)
+from connectomist.mask import dwi_rough_mask_extraction
+from connectomist.outliers import dwi_outlier_detection
+from connectomist.eddy_current_and_motion import (
+    dwi_eddy_current_and_motion_correction,
+    export_eddy_motion_results_to_nifti)
 
 
 def check_brainsuite_installation():
@@ -45,7 +45,8 @@ def check_brainsuite_installation():
     try:
         subprocess.check_call(["bdp.sh"], stdout=devnull)
     except:
-        raise Exception("Brainsuite is not installed or bdp.sh is not in $PATH.")
+        raise Exception(
+            "Brainsuite is not installed or bdp.sh is not in $PATH.")
 
 
 def brainsuite_susceptibility_correction(outdir,
@@ -54,9 +55,9 @@ def brainsuite_susceptibility_correction(outdir,
                                          bvec,
                                          subject_id,
                                          phase_enc_dir,
-                                         subjects_dir = None,
-                                         qc_dir       = None,
-                                         bdp_nthread  = 4):
+                                         subjects_dir=None,
+                                         qc_dir=None,
+                                         bdp_nthread=4):
     """
     Assuming the beginning of the preprocessing was done with Connectomist
     up to Eddy current and motion correction, we now want to make susceptbility
@@ -80,7 +81,8 @@ def brainsuite_susceptibility_correction(outdir,
         If the Freesurfer $SUBJECTS_DIR environment variable is not set, or to
         bypass it, pass the path.
     qc_dir: str, default None
-        Path to directory where to output snapshots for QC. By default in outdir.
+        Path to directory where to output snapshots for QC. By default in
+        outdir.
     bdp_nthread: int, default 4
         Number of threads for bdp (see bdp.sh --thread flag)
     """
@@ -110,7 +112,7 @@ def brainsuite_susceptibility_correction(outdir,
 
     # Run bfc (bias correction: required by BrainSuite)
     t1_bfc = os.path.join(outdir, "t1_brain.bfc.nii.gz")
-    cmd    = ["bfc", "-i", t1_brain_RAS_nii, "-o", t1_bfc]
+    cmd = ["bfc", "-i", t1_brain_RAS_nii, "-o", t1_bfc]
     subprocess.check_call(cmd)
 
     # Extract brain from the nodif volume with FSL bet2
@@ -124,10 +126,12 @@ def brainsuite_susceptibility_correction(outdir,
     subprocess.check_call(cmd)
 
     # Path to files of interest, created by BrainSuite bdp.sh
-    dwi_wo_susceptibility = os.path.join(outdir, "t1_brain.dwi.RAS.correct.nii.gz")
+    dwi_wo_susceptibility = os.path.join(
+        outdir, "t1_brain.dwi.RAS.correct.nii.gz")
 
     ###############
-    # Quality check: create snapshots to visually assert the registration quality
+    # Quality check: create snapshots to visually assert the registration
+    # quality
 
     if qc_dir is None:
         qc_dir = outdir
@@ -141,18 +145,18 @@ def brainsuite_susceptibility_correction(outdir,
     # First png: T1 registered in diffusion with nodif edges
     t1_with_nodif_edges_png = os.path.join(qc_dir, "t1_with_nodif_edges.png")
     plot_image(t1_to_dif,
-               edge_file  = nodif_brain,
-               snap_file  = t1_with_nodif_edges_png,
-               name       = "T1 in diffusion + edges of nodif",
-               cut_coords = nb_slices_in_z-2)
+               edge_file=nodif_brain,
+               snap_file=t1_with_nodif_edges_png,
+               name="T1 in diffusion + edges of nodif",
+               cut_coords=nb_slices_in_z - 2)
 
     # Second png: nodif with edges of T1 registered in diffusion
     nodif_with_t1_edges_png = os.path.join(qc_dir, "nodif_with_t1_edges.png")
     plot_image(nodif_brain,
-               edge_file  = t1_to_dif,
-               snap_file  = nodif_with_t1_edges_png,
-               name       = "nodif + edges of registered T1",
-               cut_coords = nb_slices_in_z-2)
+               edge_file=t1_to_dif,
+               snap_file=nodif_with_t1_edges_png,
+               name="nodif + edges of registered T1",
+               cut_coords=nb_slices_in_z - 2)
 
     return dwi_wo_susceptibility, bval, bvec
 
@@ -163,11 +167,11 @@ def complete_preproc_wo_fieldmap(outdir,
                                  bvec,
                                  phase_enc_dir,
                                  subject_id,
-                                 subjects_dir  = None,
-                                 invertX       = True,
-                                 invertY       = False,
-                                 invertZ       = False,
-                                 delete_steps  = False):
+                                 subjects_dir=None,
+                                 invertX=True,
+                                 invertY=False,
+                                 invertZ=False,
+                                 delete_steps=False):
     """
     Function that runs all preprocessing steps using Connectomist but
     with BrainSuite for the correction of susceptibility distortions.
@@ -224,7 +228,7 @@ def complete_preproc_wo_fieldmap(outdir,
     </unit>
     """
 
-    ### Step 0 - Initialization
+    # Step 0 - Initialization
 
     # Freesurfer 'subjects_dir' has to be passed or set as environment variable
     subjects_dir = get_or_check_freesurfer_subjects_dir(subjects_dir)
@@ -236,23 +240,25 @@ def complete_preproc_wo_fieldmap(outdir,
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
 
-    ### Step 1 - Import files to Connectomist and choose q-space model
+    # Step 1 - Import files to Connectomist and choose q-space model
     raw_dwi_dir = os.path.join(outdir, "01-Import_and_qspace_model")
+    # The manufacturer option is unused (use brainsuite for susceptibility
+    # correction) but required
     dwi_data_import_and_qspace_sampling(raw_dwi_dir,
-                                        dwi          = dwi,
-                                        bval         = bval,
-                                        bvec         = bvec,
-                                        manufacturer = "Siemens",  # unused but required
-                                        invertX      = invertX,
-                                        invertY      = invertY,
-                                        invertZ      = invertZ,
-                                        subject_id   = subject_id)
+                                        dwi=dwi,
+                                        bval=bval,
+                                        bvec=bvec,
+                                        manufacturer="Siemens",
+                                        invertX=invertX,
+                                        invertY=invertY,
+                                        invertZ=invertZ,
+                                        subject_id=subject_id)
 
-    ### Step 2 - Create a brain mask
+    # Step 2 - Create a brain mask
     rough_mask_dir = os.path.join(outdir, "02-Rough_mask")
     dwi_rough_mask_extraction(rough_mask_dir, raw_dwi_dir)
 
-    ### Step 3 - Detect and correct outlying diffusion slices
+    # Step 3 - Detect and correct outlying diffusion slices
     outliers_dir = os.path.join(outdir, "03-Outliers")
     dwi_outlier_detection(outliers_dir, raw_dwi_dir, rough_mask_dir)
 
@@ -260,47 +266,47 @@ def complete_preproc_wo_fieldmap(outdir,
     path_outliers_py = os.path.join(outliers_dir, "outliers.py")
     shutil.copy(path_outliers_py, outdir)
 
-    ### Step 4 - Eddy current and motion correction
+    # Step 4 - Eddy current and motion correction
     eddy_motion_dir = os.path.join(outdir, "04-Eddy_current_and_motion")
     dwi_eddy_current_and_motion_correction(eddy_motion_dir,
                                            raw_dwi_dir,
                                            rough_mask_dir,
                                            outliers_dir)
 
-    ### Step 5 - Convert Connectomist result to Nifti with bval/bvec
+    # Step 5 - Convert Connectomist result to Nifti with bval/bvec
     dwi, bval, bvec = export_eddy_motion_results_to_nifti(eddy_motion_dir,
-                                                          filename = "dwi_ecc")
+                                                          filename="dwi_ecc")
 
-    ### Step 6 - Susceptibility correction using BrainSuite
+    # Step 6 - Susceptibility correction using BrainSuite
     brainsuite_dir = os.path.join(outdir, "05-Suceptibility_BrainSuite")
     if not os.path.isdir(brainsuite_dir):
         os.mkdir(brainsuite_dir)
 
     dwi_wo_susceptibility, bval, bvec = \
-        brainsuite_susceptibility_correction(outdir        = brainsuite_dir,
-                                             dwi           = dwi,
-                                             bval          = bval,
-                                             bvec          = bvec,
-                                             phase_enc_dir = phase_enc_dir,
-                                             subject_id    = subject_id,
-                                             subjects_dir  = subjects_dir,
-                                             qc_dir        = outdir)
+        brainsuite_susceptibility_correction(outdir=brainsuite_dir,
+                                             dwi=dwi,
+                                             bval=bval,
+                                             bvec=bvec,
+                                             phase_enc_dir=phase_enc_dir,
+                                             subject_id=subject_id,
+                                             subjects_dir=subjects_dir,
+                                             qc_dir=outdir)
 
-    ### Step 7 - move corrected diffusion to outdir
-    dwi_preproc  = os.path.join(outdir, "dwi.nii.gz")
+    # Step 7 - move corrected diffusion to outdir
+    dwi_preproc = os.path.join(outdir, "dwi.nii.gz")
     bval_preproc = os.path.join(outdir, "dwi.bval")
     bvec_preproc = os.path.join(outdir, "dwi.bvec")
     shutil.copyfile(dwi_wo_susceptibility, dwi_preproc)
     shutil.copyfile(bval, bval_preproc)
     shutil.copyfile(bvec, bvec_preproc)
 
-    ### Step 8 - Create a T2 brain mask of preprocessed DWI data
-    bet2_prefix      = os.path.join(outdir, "nodif_brain")
-    nodif_brain      = os.path.join(bet2_prefix + ".nii.gz")
+    # Step 8 - Create a T2 brain mask of preprocessed DWI data
+    bet2_prefix = os.path.join(outdir, "nodif_brain")
+    nodif_brain = os.path.join(bet2_prefix + ".nii.gz")
     nodif_brain_mask = os.path.join(bet2_prefix + "_mask.nii.gz")
     bet2(dwi, bet2_prefix, f=0.25, m=True)
 
-    ### Step 9 - clean intermediate directories if requested
+    # Step 9 - clean intermediate directories if requested
     if delete_steps:
         intermediate_directories = [raw_dwi_dir,
                                     rough_mask_dir,
@@ -310,7 +316,8 @@ def complete_preproc_wo_fieldmap(outdir,
         for directory in intermediate_directories:
             shutil.rmtree(directory)
 
-    return outdir, dwi_preproc, bval_preproc, bvec_preproc, nodif_brain, nodif_brain_mask
+    return (outdir, dwi_preproc, bval_preproc, bvec_preproc, nodif_brain,
+            nodif_brain_mask)
 
 
 ###############################################################################
@@ -322,7 +329,7 @@ import traceback
 from multiprocessing import Manager, Process
 
 # Messages for communication between processes (parallel processing)
-FLAG_STOP_PROCESS     = "STOP_WORK"
+FLAG_STOP_PROCESS = "STOP_WORK"
 FLAG_PROCESS_FINISHED = "PROCESS_HAS_FINISHED"
 
 
@@ -346,14 +353,15 @@ def parallel_worker(work_queue, result_queue):
 
 def parallel_complete_preproc_wo_fieldmap(nb_procs,
                                           list_of_kwargs,
-                                          log_dir = None):
+                                          log_dir=None):
     """
     Parameters
     ----------
     nb_procs: int
         Number of processes to run in parallel.
     list_of_kwargs: list of dicts
-        For each dict (kwargs) will be run: complete_preprocessing_wo_fieldmap(**kwargs).
+        For each dict (kwargs) will be run:
+        complete_preprocessing_wo_fieldmap(**kwargs).
     log_dir: str
         Path to directory where to write the log file.
         If None, log file is written in current dir.
@@ -373,7 +381,8 @@ def parallel_complete_preproc_wo_fieldmap(nb_procs,
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
     if not has_file_handler:
-        log_filename = "preproc_wo_fieldmap_%s" % time.strftime("%Y-%m-%d_%H:%M:%S")
+        log_filename = "preproc_wo_fieldmap_%s" % time.strftime(
+            "%Y-%m-%d_%H:%M:%S")
 
         if log_dir is None:
             path_log = log_filename
@@ -404,7 +413,8 @@ def parallel_complete_preproc_wo_fieldmap(nb_procs,
     # Define processes
     workers = []
     for i in range(nb_procs):
-        worker = Process(target=parallel_worker, args=(work_queue, result_queue))
+        worker = Process(target=parallel_worker,
+                         args=(work_queue, result_queue))
         worker.daemon = True
         workers.append(worker)
         worker.start()
@@ -417,12 +427,13 @@ def parallel_complete_preproc_wo_fieldmap(nb_procs,
             output = result_queue.get()
             if output == FLAG_PROCESS_FINISHED:
                 nb_finished_processes += 1
-                logger.info("Finished processes: %d/%d" % (nb_finished_processes,
-                                                           nb_procs))
+                logger.info("Finished processes: %d/%d" % (
+                    nb_finished_processes, nb_procs))
                 if nb_finished_processes == nb_procs:
                     break
             elif isinstance(output, tuple):
-                logger.info("Successful preprocessing, outdir: {}".format(output[0]))
+                logger.info(
+                    "Successful preprocessing, outdir: {}".format(output[0]))
             else:
                 logger.warning("{}".format(output))
 

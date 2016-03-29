@@ -36,9 +36,7 @@ This analysis is using Freesurfer & FSL & nilearn & dipy, all of them beeing
 freely available.
 """
 
-from clindmri import signaturedecorator
 import os
-import shutil
 import numpy
 import nibabel
 import glob
@@ -52,7 +50,7 @@ from clindmri.tractography.pydipy import deterministic
 from clindmri.connectivity.anatomical import diffusion_connectivity_matrix
 from clindmri.connectivity.anatomical import anatomical_connectivity_matrix
 from clindmri.plot.slicer import plot_image
-from clindmri.plot.slicer import  plot_matrix
+from clindmri.plot.slicer import plot_matrix
 import clindmri.plot.pvtk as pvtk
 
 
@@ -82,7 +80,7 @@ The T1 image needs to be processed through Freesurfer's standard recon-all
 pipeline. There are many resources for how to do this online, namely the
 Freesurfer wiki. The proposed analysis run the pipeline this way:
 
-* The 'recon-all' imports the data and creates the standard folder layout in 
+* The 'recon-all' imports the data and creates the standard folder layout in
   $SUBJECTS_DIR/$SUBJECT_NAME where the SUBJECT_NAME is passed through the '-s'
   option.
 * Then we execute all three steps of the Freesurfer pipeline (with the '-all'
@@ -98,13 +96,13 @@ if fsdir is None:
 
 if use_vtk:
     physical_to_index = numpy.linalg.inv(nibabel.load(t1_file).get_affine())
-    hemi_surfaces = read_cortex_surface_segmentation(fsdir, physical_to_index)   
+    hemi_surfaces = read_cortex_surface_segmentation(fsdir, physical_to_index)
     ren = pvtk.ren()
     for hemi in ["lh", "rh"]:
         surface = hemi_surfaces[hemi]
         ctab = [item["color"] for _, item in surface.metadata.items()]
-        actor = pvtk.surface(surface.vertices, surface.triangles, surface.labels,
-                             ctab)
+        actor = pvtk.surface(surface.vertices, surface.triangles,
+                             surface.labels, ctab)
         pvtk.add(ren, actor)
         pvtk.record(ren, qcdir, hemi + "_white")
         pvtk.clear(ren)
@@ -185,9 +183,9 @@ if not os.path.isdir(dtifit_outdir):
     os.mkdir(dtifit_outdir)
 if len(os.listdir(dtifit_outdir)) == 0:
     (v1_file, v2_file, v3_file, l1_file,
-     l2_file, l3_file, md_file, fa_file, 
+     l2_file, l3_file, md_file, fa_file,
      s0_file, tensor_file, m0_file) = dtifit(
-        diffusion_file, 
+        diffusion_file,
         bvecs_file,
         bvals_file,
         mask_file,
@@ -281,7 +279,7 @@ if use_vtk:
     pvtk.add(ren, actor)
     pvtk.record(ren, qcdir, "fibers", az_ang=45, n_frames=2)
     pvtk.clear(ren)
-    
+
 
 connect_outdir = os.path.join(outdir, "det_region_connectivity")
 if not os.path.isdir(connect_outdir):
@@ -320,6 +318,3 @@ else:
 snap_file = os.path.join(qcdir, "det_gyri_connectogram.pdf")
 plot_matrix(network_file, snap_file=snap_file, name="det gyri connectogram",
             transform=numpy.log1p)
-
-
-

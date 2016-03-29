@@ -1,6 +1,5 @@
-#! /usr/bin/env python
 ##########################################################################
-# NSAP - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -20,20 +19,20 @@ from .exceptions import FSLDependencyError
 
 
 class FSLWrapper(object):
-    """ Parent class for the wrapping of FSL functions. 
-    """  
+    """ Parent class for the wrapping of FSL functions.
+    """
     output_ext = {
-        "NIFTI_PAIR" : ".hdr",
-        "NIFTI" : ".nii",
-        "NIFTI_GZ" : ".nii.gz",
-        "NIFTI_PAIR_GZ" : ".hdr.gz",
+        "NIFTI_PAIR": ".hdr",
+        "NIFTI": ".nii",
+        "NIFTI_GZ": ".nii.gz",
+        "NIFTI_PAIR_GZ": ".hdr.gz",
     }
- 
+
     def __init__(self, name, shfile="/etc/fsl/5.0/fsl.sh", optional=None,
                  cpus=None):
         """ Initialize the FSLWrapper class by setting properly the
         environment.
-        
+
         Parameters
         ----------
         name: str (mandatory)
@@ -58,14 +57,14 @@ class FSLWrapper(object):
             self.environment["FSLPARALLEL"] = cpus
             self.environment["USER"] = os.getlogin()
             process = subprocess.Popen(
-                        ["which", "condor_qsub"],
-                        env=self.environment,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE)
+                ["which", "condor_qsub"],
+                env=self.environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
             self.stdout, self.stderr = process.communicate()
             self.exitcode = process.returncode
             if self.exitcode != 0:
-                raise FSLDependencyError("condor_qsub", "Condor")        
+                raise FSLDependencyError("condor_qsub", "Condor")
 
     def __call__(self, cmd=None):
         """ Run the FSL command.
@@ -87,10 +86,10 @@ class FSLWrapper(object):
 
         # Check FSL has been configured so the command can be found
         process = subprocess.Popen(
-                    ["which", self.cmd[0]],
-                    env=self.environment,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
+            ["which", self.cmd[0]],
+            env=self.environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
         self.stdout, self.stderr = process.communicate()
         self.exitcode = process.returncode
         if self.exitcode != 0:
@@ -105,12 +104,12 @@ class FSLWrapper(object):
         self.stdout, self.stderr = process.communicate()
         self.exitcode = process.returncode
 
-    def _environment(self) :
+    def _environment(self):
         """ Return a dictionary of the environment needed by FSL binaries.
         """
         # Check if FSL has already been configures
         env = os.environ.get("FSL_CONFIGURED", None)
-       
+
         # Configure FSL
         if env is None:
 
@@ -139,7 +138,7 @@ class FSLWrapper(object):
 
         # Update the command
         for parameter_name in args:
-        
+
             # Skip 'shfile' and 'cpus' parameters
             if parameter_name in ["shfile", "cpus"]:
                 continue

@@ -21,7 +21,7 @@ try:
     import bredala
     bredala.USE_PROFILER = False
     bredala.register("clindmri.segmentation.freesurfer",
-        names=["population_statistic", "parse_fs_lut"])
+                     names=["population_statistic", "parse_fs_lut"])
     bredala.register("clindmri.plot.slicer", names=["xyz_mosaics"])
     bredala.register("clindmri.plot.polar", names=["polarplot"])
     bredala.register("clindmri.segmentation.fsl", names=["fslreorient2std"])
@@ -31,7 +31,6 @@ except:
 # Clindmri import
 from clindmri.segmentation.freesurfer import population_statistic
 from clindmri.segmentation.freesurfer import parse_fs_lut
-from clindmri.segmentation.freesurfer import mri_binarize
 from clindmri.plot.slicer import xyz_mosaics
 from clindmri.plot.polar import polarplot
 from clindmri.segmentation.fsl import fslreorient2std
@@ -68,8 +67,9 @@ python $HOME/git/caps-clindmri/clindmri/scripts/freesurfer_qc.py \
     -s ag110371 \
     -o /neurospin/senior/nsap/data/V4/qc/freesurfer \
     -p 18 \
-    -e 
+    -e
 """
+
 
 def is_file(filearg):
     """ Type for argparse - checks that file exists but does not open.
@@ -294,6 +294,3 @@ ccmap[:aseg_thr, 3] = 1.0
 mosaics.extend(
     xyz_mosaics(t1file, reomeshfile, nbslices, "meshs", ccmap, qcdir,
                 cutupper=cutupper, cutlower=cutlower))
-
-
-

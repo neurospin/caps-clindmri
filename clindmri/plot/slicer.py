@@ -1,6 +1,5 @@
-#! /usr/bin/env python
 ##########################################################################
-# Nsap - Neurospin - Berkeley - Copyright (C) CEA, 2013
+# NSAp - Neurospin - Berkeley - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -89,8 +88,8 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
         nbrows = cut_coords // nbcols
         axis = "xyz".index(display_mode)
         this_shape = nibabel.load(input_file).get_data().shape[axis]
-        samples = numpy.linspace(cutlower, this_shape - cutupper -1, cut_coords,
-                                 dtype=int)
+        samples = numpy.linspace(cutlower, this_shape - cutupper - 1,
+                                 cut_coords, dtype=int)
         waves = numpy.array_split(samples[:(nbrows * nbcols)], nbrows)
         if cut_coords % nbcols > 0:
             waves.append(samples[(nbrows * nbcols):])
@@ -123,7 +122,7 @@ def plot_image(input_file, edge_file=None, overlay_file=None,
         pdf.close()
     except:
         pdf.close()
-        raise   
+        raise
 
     return snap_file
 
@@ -181,9 +180,10 @@ def _nilearn_display(input_file, edge_file, overlay_file, contour_file,
                 numpy.linspace(lowerbound, upperbound, n_cuts, dtype=int))
 
             return plotting.find_cuts._transform_cut_coords(
-                        cut_coords, direction, affine)
+                cut_coords, direction, affine)
     else:
-        plotting.displays.SLICERS[display_mode]._default_figsize = list(figsize)
+        plotting.displays.SLICERS[display_mode]._default_figsize = list(
+            figsize)
 
     # Create the renderer
     display = plotting.plot_anat(
@@ -265,7 +265,7 @@ def xyz_mosaics(reffile, overlayfile, nbslices, name, cmap, outdir,
                 if value == 0:
                     cutupper += 1
                 else:
-                    break      
+                    break
         if auto_cutlower:
             cutlower = 0
             for value in weights:
@@ -335,11 +335,11 @@ def animate_image(input_file, cut_coords, edge_file=None, overlay_file=None,
     # Check that the snap_file has been specified
     if outdir is None:
         outdir = os.path.dirname(input_file)
-        
+
     # Check that the snap_file has been specified
     if snap_file is None:
         snap_file = input_file.split(".")[0] + ".png"
-    
+
     # Make sure there is the right extension
     if not snap_file.endswith(".png"):
         snap_file += ".png"

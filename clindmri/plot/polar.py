@@ -8,8 +8,6 @@
 
 # System import
 import numpy as np
-import json
-import os
 import matplotlib.pyplot as plt
 
 
@@ -74,7 +72,8 @@ def polarplot(individual_stats, cohort_stats, snapfile, name=None):
             if normalize_value < 0:
                 normalize_value = 0
             _data.append(normalize_value)
-            if normalize_value > sigma_thr + 3 or normalize_value < 3 - sigma_thr:
+            if (normalize_value > sigma_thr + 3 or
+                    normalize_value < 3 - sigma_thr):
                 _color.append(color_out)
             else:
                 _color.append(color_ok)
@@ -99,4 +98,3 @@ def polarplot(individual_stats, cohort_stats, snapfile, name=None):
     plt.figtext(0.5, 0.965, name or "", ha="center", color="black",
                 weight="bold", size="large")
     plt.savefig(snapfile)
-

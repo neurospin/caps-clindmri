@@ -73,23 +73,6 @@ def dwi_susceptibility_artifact_correction(
     -------
     outdir: str
         path to Connectomist's output directory.
-
-    <unit>
-        <output name="susceptibility_dir"          type="Directory" />
-
-        <input name="outdir"                       type="Directory" />
-        <input name="raw_dwi_dir"                  type="Directory" />
-        <input name="rough_mask_dir"               type="Directory" />
-        <input name="outliers_dir"                 type="Directory" />
-        <input name="delta_TE"                     type="Float"     />
-        <input name="partial_fourier_factor"       type="Float"     />
-        <input name="parallel_acceleration_factor" type="Float"     />
-        <input name="negative_sign"                type="Bool"      />
-        <input name="echo_spacing"                 type="Float"     />
-        <input name="EPI_factor"                   type="Int"       />
-        <input name="b0_field"                     type="Float"     />
-        <input name="water_fat_shift"              type="Float"     />
-    </unit>
     """
     # Get the b0 amplitude and phase image
     b0_magnitude = os.path.join(raw_dwi_dir, "b0_magnitude.ima")
@@ -216,42 +199,42 @@ def dwi_susceptibility_artifact_correction(
     # arguments of the function.
     args_map = {
         "Bruker": {
-            "brukerDeltaTE":                       delta_TE,
-            "brukerPartialFourierFactor":          partial_fourier_factor,
-            "brukerParallelAccelerationFactor":    parallel_acceleration_factor,
-            "brukerFileNameFirstEchoB0Magnitude":  b0_magnitude,
-            "brukerFileNameB0PhaseDifference":     b0_phase,
-            "brukerPhaseNegativeSign":             2 if negative_sign else 0,
-            'brukerEchoSpacing':                   echo_spacing
+            "brukerDeltaTE":                      delta_TE,
+            "brukerPartialFourierFactor":         partial_fourier_factor,
+            "brukerParallelAccelerationFactor":   parallel_acceleration_factor,
+            "brukerFileNameFirstEchoB0Magnitude": b0_magnitude,
+            "brukerFileNameB0PhaseDifference":    b0_phase,
+            "brukerPhaseNegativeSign":            2 if negative_sign else 0,
+            'brukerEchoSpacing':                  echo_spacing
         },
         "GE": {
-            "geDeltaTE":                           delta_TE,
-            "gePartialFourierFactor":              partial_fourier_factor,
-            "geParallelAccelerationFactor":        parallel_acceleration_factor,
+            "geDeltaTE":                          delta_TE,
+            "gePartialFourierFactor":             partial_fourier_factor,
+            "geParallelAccelerationFactor":       parallel_acceleration_factor,
             "geFileNameDoubleEchoB0MagnitudePhaseRealImaginary": b0_magnitude,
-            "gePhaseNegativeSign":                 2 if negative_sign else 0,
-            "geEchoSpacing":                       echo_spacing
+            "gePhaseNegativeSign":                2 if negative_sign else 0,
+            "geEchoSpacing":                      echo_spacing
 
         },
         "Philips": {
-            "philipsDeltaTE":                      delta_TE,
-            "philipsPartialFourierFactor":         partial_fourier_factor,
-            "philipsParallelAccelerationFactor":   parallel_acceleration_factor,
+            "philipsDeltaTE":                     delta_TE,
+            "philipsPartialFourierFactor":        partial_fourier_factor,
+            "philipsParallelAccelerationFactor":  parallel_acceleration_factor,
             "philipsFileNameFirstEchoB0Magnitude": b0_magnitude,
-            "philipsFileNameB0PhaseDifference":    b0_phase,
-            "philipsPhaseNegativeSign":            2 if negative_sign else 0,
-            "philipsEPIFactor":                    EPI_factor,
-            "philipsStaticB0Field":                b0_field,
-            "philipsWaterFatShiftPerPixel":        water_fat_shift
+            "philipsFileNameB0PhaseDifference":   b0_phase,
+            "philipsPhaseNegativeSign":           2 if negative_sign else 0,
+            "philipsEPIFactor":                   EPI_factor,
+            "philipsStaticB0Field":               b0_field,
+            "philipsWaterFatShiftPerPixel":       water_fat_shift
         },
         "Siemens": {
-            "siemensDeltaTE":                       delta_TE,
-            "siemensPartialFourierFactor":          partial_fourier_factor,
-            "siemensParallelAccelerationFactor":    parallel_acceleration_factor,
+            "siemensDeltaTE":                      delta_TE,
+            "siemensPartialFourierFactor":         partial_fourier_factor,
+            "siemensParallelAccelerationFactor":  parallel_acceleration_factor,
             "siemensFileNameDoubleEchoB0Magnitude": b0_magnitude,
-            "siemensFileNameB0PhaseDifference":     b0_phase,
-            "siemensPhaseNegativeSign":             2 if negative_sign else 0,
-            "siemensEchoSpacing":                   echo_spacing
+            "siemensFileNameB0PhaseDifference":    b0_phase,
+            "siemensPhaseNegativeSign":            2 if negative_sign else 0,
+            "siemensEchoSpacing":                  echo_spacing
         }
     }
 

@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAP - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -6,9 +5,6 @@
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 # for details.
 ##########################################################################
-
-# System import
-import os
 
 # Clindmri import
 from clindmri.extensions.fsl import FSLWrapper
@@ -35,7 +31,7 @@ def fslreorient2std(input, output, shfile="/etc/fsl/5.0/fsl.sh"):
     output: str (mandatory)
         the reoriented image.
     shfile: str (optional, default local path)
-        the path to the FSL 'fsl.sh' configuration file. 
+        the path to the FSL 'fsl.sh' configuration file.
     """
     # Call fslreorient2std
     fslprocess = FSLWrapper("fslreorient2std", shfile=shfile)
@@ -81,7 +77,7 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
     outline_file: str
         the brain surface outline overlaid onto original image.
     inskull_mask_file, inskull_mesh_file,
-    outskull_mask_file, outskull_mesh_file, 
+    outskull_mask_file, outskull_mesh_file,
     outskin_mask_file, outskin_mesh_file,
     skull_mask_file: str
         rough skull image.
@@ -102,7 +98,7 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
         mask_file = output + "_mask" + image_ext
     mesh_file = None
     if e is not None:
-        mesh_file = basename + "_mesh.vtk"
+        mesh_file = output + "_mesh.vtk"
     outline_file = None
     if o is not None:
         outline_file = output + "_outline" + image_ext
@@ -112,7 +108,7 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
     outskull_mesh_file = None
     outskin_mask_file = None
     outskin_mesh_file = None
-    skull_mask_file = None    
+    skull_mask_file = None
     if s is not None:
         inskull_mask_file = output + "_inskull_mask" + image_ext
         inskull_mesh_file = output + "_inskull_mesh" + image_ext
@@ -120,12 +116,14 @@ def bet2(input, output, o=None, m=None, s=None, n=None, f=0.5, g=0, r=None,
         outskull_mesh_file = output + "_outskull_mesh" + image_ext
         outskin_mask_file = output + "_outskin_mask" + image_ext
         outskin_mesh_file = output + "_outskin_mesh" + image_ext
-        skull_mask_file = output + "_skull_mask" + image_ext 
+        skull_mask_file = output + "_skull_mask" + image_ext
     if n is not None:
-        output = None 
+        output = None
+    else:
+        output += image_ext
 
     return (output, mask_file, mesh_file, outline_file, inskull_mask_file,
-            inskull_mesh_file, outskull_mask_file, outskull_mesh_file, 
+            inskull_mesh_file, outskull_mask_file, outskull_mesh_file,
             outskin_mask_file, outskin_mesh_file, skull_mask_file)
 
 
@@ -142,7 +140,7 @@ def apply_mask(inputfile, outputfile, maskfile, shfile="/etc/fsl/5.0/fsl.sh"):
         the mask image.
     shfile: str (optional, default local path)
         the path to the FSL 'fsl.sh' configuration file.
-    """    
+    """
     # Call fslmaths
     cmd = ["fslmaths", inputfile, "-mas", maskfile, outputfile]
     fslprocess = FSLWrapper("fslmaths", shfile=shfile)

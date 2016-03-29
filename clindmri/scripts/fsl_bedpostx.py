@@ -157,7 +157,7 @@ parser.add_argument(
     help="number of fibers per voxel, integer >= 1.", type=int)
 parser.add_argument(
     "-m", "--model", dest="model", choices=[1, 2, 3],
-    default=2, 
+    default=2,
     help="deconvolution model. "
          "1: single-shell, with sticks, "
          "2: multi-shell, with sticks with a range of diffusivities, "
@@ -273,7 +273,8 @@ else:
 # create a pdf snap of the brain mask
 if args.graphics:
     snap_file = os.path.join(qcdir, "bet.pdf")
-    plot_image(b0_file, contour_file=mask_file, snap_file=snap_file, name="bet")
+    plot_image(b0_file, contour_file=mask_file, snap_file=snap_file,
+               name="bet")
 
 
 """
@@ -305,7 +306,7 @@ if not os.path.isdir(bedpostx_outdir) or len(os.listdir(bedpostx_outdir)) == 0:
     if not args.rician:
         args.rician = None
     (bedpostx_outdir, merged_th, merged_ph, merged_f, mean_th, mean_ph, mean_f,
-    mean_d, mean_S0, dyads) = bedpostx(
+     mean_d, mean_S0, dyads) = bedpostx(
         bedpostx_indir, n=args.n, model=args.model, rician=args.rician,
         shfile=args.fslconfig, b=args.burnin, cpus=args.cpus)
 else:

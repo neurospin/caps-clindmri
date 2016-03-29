@@ -158,23 +158,6 @@ def dwi_data_import_and_qspace_sampling(
     -------
     outdir: str
         path to Connectomist's output directory.
-
-    <unit>
-        <output name="raw_dwi_dir" type="Directory" description="Path to
-            Connectomist output directory."/>
-
-        <input name="outdir"       type="Directory" />
-        <input name="dwi"          type="File"      />
-        <input name="bval"         type="File"      />
-        <input name="bvec"         type="File"      />
-        <input name="manufacturer" type="Str"  description="'Siemens', 'GE', 'Philips' or 'Bruker'" />
-        <input name="invertX"      type="Bool" description="If True invert x-axis of diffusion model."/>
-        <input name="invertY"      type="Bool" description="Same as invertX but for y-axis."/>
-        <input name="invertZ"      type="Bool" description="Same as invertX but for z-axis."/>
-        <input name="subject_id"   type="Str"       />
-        <input name="b0_magnitude" type="File"      />
-        <input name="b0_phase"     type="File"      />
-    </unit>
     """
     # Create the Connectomist's import data directory
     (dwi, bval, bvec, b0_magnitude,

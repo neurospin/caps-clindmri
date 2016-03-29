@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -53,8 +52,7 @@ def flirt2aff(mat_file, in_file, ref_file):
         refspace = numpy.dot(refspace, _x_flipper(ref_hdr.get_data_shape()[0]))
 
     # Get the voxel to voxel mapping
-    omat = numpy.dot(numpy.linalg.inv(refspace), 
+    omat = numpy.dot(numpy.linalg.inv(refspace),
                      numpy.dot(flirt_affine, inspace))
 
     return omat
-

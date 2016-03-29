@@ -1,6 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -17,16 +15,16 @@ import tempfile
 import re
 import json
 
-from clindmri.preproc.utils                    import select_first_b0
-from clindmri.registration.utils               import extract_image
-from clindmri.segmentation.fsl                 import bet2
-from clindmri.tractography.fsl                 import bedpostx, probtrackx2
-from clindmri.extensions.freesurfer.wrappers   import FSWrapper
+from clindmri.preproc.utils import select_first_b0
+from clindmri.registration.utils import extract_image
+from clindmri.segmentation.fsl import bet2
+from clindmri.tractography.fsl import bedpostx, probtrackx2
+from clindmri.extensions.freesurfer.wrappers import FSWrapper
 from clindmri.extensions.freesurfer.exceptions import FreeSurferRuntimeError
-from clindmri.extensions.fsl.wrappers          import FSLWrapper
-from clindmri.extensions.fsl.exceptions        import FSLRuntimeError
-from clindmri.extensions.configuration         import environment
-from clindmri.plot.slicer                      import plot_image, animate_image
+from clindmri.extensions.fsl.wrappers import FSLWrapper
+from clindmri.extensions.fsl.exceptions import FSLRuntimeError
+from clindmri.extensions.configuration import environment
+from clindmri.plot.slicer import plot_image, animate_image
 
 import matplotlib.pyplot as plt
 
@@ -38,7 +36,8 @@ from scipy.ndimage.morphology import binary_dilation
 
 # Get Freesurfer Look Up Table path
 if "FREESURFER_HOME" in os.environ:
-    PATH_LUT = os.path.join(os.environ["FREESURFER_HOME"], "FreeSurferColorLUT.txt")
+    PATH_LUT = os.path.join(
+        os.environ["FREESURFER_HOME"], "FreeSurferColorLUT.txt")
 else:
     raise Exception("Environment variable 'FREESURFER_HOME' is not set.")
 
@@ -46,10 +45,12 @@ else:
 try:
     LABEL_OF_ROI = dict(np.loadtxt(PATH_LUT, dtype=str, usecols=[1, 0]))
 except:
-    raise Exception("Failed to load Freesurfer Look Up Table: {}".format(PATH_LUT))
+    raise Exception(
+        "Failed to load Freesurfer Look Up Table: {}".format(PATH_LUT))
 
 
-# Desikan atlas left regions without corpus callosum ordered like Lausanne 2008 atlas
+# Desikan atlas left regions without corpus callosum ordered like Lausanne
+# 2008 atlas
 DESIKAN_LH_ROIS = [
     'ctx-lh-lateralorbitofrontal',
     'ctx-lh-parsorbitalis',
@@ -87,7 +88,8 @@ DESIKAN_LH_ROIS = [
     'ctx-lh-insula'
 ]
 
-# Desikan atlas left regions without corpus callosum ordered like Lausanne 2008 atlas
+# Desikan atlas left regions without corpus callosum ordered like Lausanne
+# 2008 atlas
 DESIKAN_RH_ROIS = [
     'ctx-rh-lateralorbitofrontal',
     'ctx-rh-parsorbitalis',
@@ -162,13 +164,15 @@ LAUSANNE2008_SCALE33_ROIS = (DESIKAN_LH_ROIS + LH_SUBCORTICAL_ROIS +
 
 # Destrieux cortical atlas list of labels in the Freesurfer LUT
 DESTRIEUX_CTX_LH_MIN_LABEL, DESTRIEUX_CTX_LH_MAX_LABEL = 11101, 11176
-DESTRIEUX_LH_LABELS = [str(x)      for x in range(DESTRIEUX_CTX_LH_MIN_LABEL,
-                                                  DESTRIEUX_CTX_LH_MAX_LABEL)]
-DESTRIEUX_RH_LABELS = [str(x+1000) for x in range(DESTRIEUX_CTX_LH_MIN_LABEL,
-                                                  DESTRIEUX_CTX_LH_MAX_LABEL)]
+DESTRIEUX_LH_LABELS = [str(x) for x in range(DESTRIEUX_CTX_LH_MIN_LABEL,
+                                             DESTRIEUX_CTX_LH_MAX_LABEL)]
+DESTRIEUX_RH_LABELS = [str(x + 1000) for x in range(
+    DESTRIEUX_CTX_LH_MIN_LABEL, DESTRIEUX_CTX_LH_MAX_LABEL)]
 
-DESTRIEUX_LH_ROIS = [x for x in LABEL_OF_ROI if LABEL_OF_ROI[x] in set(DESTRIEUX_LH_LABELS)]
-DESTRIEUX_RH_ROIS = [x for x in LABEL_OF_ROI if LABEL_OF_ROI[x] in set(DESTRIEUX_RH_LABELS)]
+DESTRIEUX_LH_ROIS = [x for x in LABEL_OF_ROI if LABEL_OF_ROI[
+    x] in set(DESTRIEUX_LH_LABELS)]
+DESTRIEUX_RH_ROIS = [x for x in LABEL_OF_ROI if LABEL_OF_ROI[
+    x] in set(DESTRIEUX_RH_LABELS)]
 
 DESTRIEUX_WITH_SUBCORTICAL_ROIS = (DESTRIEUX_LH_ROIS + LH_SUBCORTICAL_ROIS +
                                    DESTRIEUX_RH_ROIS + RH_SUBCORTICAL_ROIS +
@@ -186,6 +190,7 @@ TRACTO_MASK_TYPES = frozenset(["nodif_brain", "wm", "wm_dilated_1vox_6conn",
 
 ###############################################################################
 # Utility functions
+
 
 def get_or_check_freesurfer_subjects_dir(subjects_dir=None):
     """
@@ -209,10 +214,12 @@ def get_or_check_freesurfer_subjects_dir(subjects_dir=None):
 def run_freesurfer_cmd(cmd, subjects_dir=None, add_fsl_env=False,
                        fsl_init="/etc/fsl/5.0/fsl.sh"):
     """
-    To avoid repeating the code to run Freesurfer and check exitcode everywhere.
+    To avoid repeating the code to run Freesurfer and check exitcode
+    everywhere.
     Step:
         - add $SUBJECTS_DIR to the env if requested
-        - add FSL environment if requested (some Freesurfer commands require FSL)
+        - add FSL environment if requested (some Freesurfer commands require
+          FSL)
         - run the Freesurfer cmd
         - check exit code
 
@@ -260,12 +267,13 @@ def run_fsl_cmd(cmd):
 
 ###############################################################################
 
+
 def register_diffusion_to_anatomy(outdir,
                                   nodif_brain,
                                   subject_id,
-                                  subjects_dir = None,
-                                  subdir       = "diff_to_anat",
-                                  fsl_init     = "/etc/fsl/5.0/fsl.sh"):
+                                  subjects_dir=None,
+                                  subdir="diff_to_anat",
+                                  fsl_init="/etc/fsl/5.0/fsl.sh"):
     """
     Register the diffusion to the anatomy (T1) using Freesurfer bbregister
     (boundary-based registration).
@@ -274,7 +282,8 @@ def register_diffusion_to_anatomy(outdir,
     To write in 'outdir' directly, set 'subdir' to anything that evaluates
     to False (empty string or None).
 
-    'subjects_dir' has to be passed if not set as an environnement variable ($SUBJECTS_DIR).
+    'subjects_dir' has to be passed if not set as an environnement variable
+    ($SUBJECTS_DIR).
 
     <unit>
         <input name="outdir"          type="Directory"           />
@@ -312,8 +321,8 @@ def qc_dif2anat_registration(outdir,
                              nodif_brain,
                              dif2anat_dat,
                              subject_id,
-                             subjects_dir = None,
-                             subdir       = "qc"):
+                             subjects_dir=None,
+                             subdir="qc"):
     """
     Function meant to help quality check (qc) the registration between
     the diffusion and the anatomy (T1 from Freesurfer recon-all).
@@ -349,7 +358,7 @@ def qc_dif2anat_registration(outdir,
         os.makedirs(outdir)
 
     # Paths
-    t1        = os.path.join(subjects_dir, subject_id, "mri/brainmask.mgz")
+    t1 = os.path.join(subjects_dir, subject_id, "mri/brainmask.mgz")
     t1_to_dif = os.path.join(outdir, "t1_to_dif.nii.gz")
 
     # Project T1 in dif
@@ -362,27 +371,29 @@ def qc_dif2anat_registration(outdir,
 
     # GIF: registered T1 (in diffusion) + nodif_brain edges
     animate_image(t1_to_dif, edge_file=nodif_brain, outdir=outdir,
-                  name="t1_with_nodif_edges.gif", cut_coords=nb_slices_in_z-2, clean=True)
+                  name="t1_with_nodif_edges.gif",
+                  cut_coords=nb_slices_in_z - 2, clean=True)
 
     # GIF: nodif_brain + T1 edges
     animate_image(nodif_brain, edge_file=t1_to_dif, outdir=outdir,
-                  name="nodif_with_t1_edges.gif", cut_coords=nb_slices_in_z-2, clean=True)
+                  name="nodif_with_t1_edges.gif",
+                  cut_coords=nb_slices_in_z - 2, clean=True)
 
     # PNG: registered T1 (in diffusion) + nodif edges
     t1_with_nodif_edges_png = os.path.join(outdir, "t1_with_nodif_edges.png")
     plot_image(t1_to_dif,
-               edge_file  = nodif_brain,
-               snap_file  = t1_with_nodif_edges_png,
-               name       = "T1 in diffusion + edges of nodif",
-               cut_coords = nb_slices_in_z-2)
+               edge_file=nodif_brain,
+               snap_file=t1_with_nodif_edges_png,
+               name="T1 in diffusion + edges of nodif",
+               cut_coords=nb_slices_in_z - 2)
 
     # PNG: nodif brain + registered T1 edges
     nodif_with_t1_edges_png = os.path.join(outdir, "nodif_with_t1_edges.png")
     plot_image(nodif_brain,
-               edge_file  = t1_to_dif,
-               snap_file  = nodif_with_t1_edges_png,
-               name       = "nodif + edges of registered T1",
-               cut_coords = nb_slices_in_z-2)
+               edge_file=t1_to_dif,
+               snap_file=nodif_with_t1_edges_png,
+               name="nodif + edges of registered T1",
+               cut_coords=nb_slices_in_z - 2)
 
     # Return something for Capsul
     qc_dir = outdir
@@ -393,20 +404,22 @@ def qc_dif2anat_registration(outdir,
 def dilate_mask_by_one_voxel(input_nifti, connexity=6, output_nifti=None):
     """
     Dilate Nifti image by one voxel, using a 6 or 14-neighborhood structuring
-    element (with 6-connexity voxels in diagonal are not included in the dilation).
+    element (with 6-connexity voxels in diagonal are not included in the
+    dilation).
     """
 
     if connexity not in {6, 14}:
         raise ValueError("Bad argument 'connexity': has to be 6 or 14.")
 
     if not input_nifti.endswith(".nii.gz"):
-        raise ValueError("Input has to be .nii.gz file, passed: %s" % input_nifti)
+        raise ValueError(
+            "Input has to be .nii.gz file, passed: %s" % input_nifti)
 
     image = nibabel.load(input_nifti)
     dtype = image.get_data_dtype()
 
     if output_nifti is None:
-        suffix       = "_dilated_1vox_%iconn.nii.gz" % connexity
+        suffix = "_dilated_1vox_%iconn.nii.gz" % connexity
         output_nifti = input_nifti.split(".nii.gz")[0] + suffix
 
     if connexity == 6:
@@ -422,9 +435,9 @@ def dilate_mask_by_one_voxel(input_nifti, connexity=6, output_nifti=None):
                                          [0, 1, 0],
                                          [0, 0, 0]]])
     else:  # connexity == 14
-        structuring_element = np.ones((3,3,3))
+        structuring_element = np.ones((3, 3, 3))
 
-    data         = image.get_data()
+    data = image.get_data()
     data_dilated = binary_dilation(data, structuring_element).astype(dtype)
 
     # Create and save Nifti
@@ -439,9 +452,9 @@ def project_aparc_and_aseg_to_diffusion(outdir,
                                         dif2anat_dat,
                                         nodif_brain,
                                         subject_id,
-                                        subjects_dir   = None,
-                                        cortical_atlas = "Desikan",
-                                        outext         = ".nii.gz"):
+                                        subjects_dir=None,
+                                        cortical_atlas="Desikan",
+                                        outext=".nii.gz"):
     """
     Apply the transform specified by dif2anat_dat to the cortical and
     subcortical Freesurfer segmentations (aparc and aseg).
@@ -451,10 +464,11 @@ def project_aparc_and_aseg_to_diffusion(outdir,
     outdir: str
         Directory where to output the 2 projections.
     dif2anat_dat: str
-        Path to .dat file generated by the registration process (bbregister, tkregister...).
-        Created by register_diffusion_to_anatomy().
+        Path to .dat file generated by the registration process (bbregister,
+        tkregister...). Created by register_diffusion_to_anatomy().
     nodif_brain: str
-        Path to the brain-only volume in diffusion space used when the registration was done.
+        Path to the brain-only volume in diffusion space used when the
+        registration was done.
     subject_id: str
         Id of the subject in the Freesurfer subjects_dir.
     subjects_dir: str, optional default None
@@ -523,7 +537,8 @@ def create_ventricles_mask(outdir, path_aseg, outext=".nii.gz"):
     segmentation before calling this function.
     """
     ventricles_mask = os.path.join(outdir, "ventricles.nii.gz")
-    cmd = ["mri_binarize", "--i", path_aseg, "--ventricles", "--o", ventricles_mask]
+    cmd = ["mri_binarize", "--i", path_aseg,
+           "--ventricles", "--o", ventricles_mask]
     run_freesurfer_cmd(cmd)
 
     return ventricles_mask
@@ -565,10 +580,10 @@ def create_masks_for_tracto_seeding_endpoints(outdir,
                                               nodif_brain_mask,
                                               dif2anat_dat,
                                               subject_id,
-                                              cortical_atlas   = "Desikan",
-                                              tracto_mask_type = "nodif_brain",
-                                              subjects_dir     = None,
-                                              subdir           = "masks"):
+                                              cortical_atlas="Desikan",
+                                              tracto_mask_type="nodif_brain",
+                                              subjects_dir=None,
+                                              subdir="masks"):
     """
     Create the volume masks required for the probabilist tractography
     when using the --omatrix1 option in probtrackx2 (seeding in ROIs):
@@ -591,7 +606,8 @@ def create_masks_for_tracto_seeding_endpoints(outdir,
     nodif_brain_mask: str
         Path to the brain-only binary mask.
     dif2anat_dat: str
-        Path to the registration .dat file, diffusion to anatomy transformation.
+        Path to the registration .dat file, diffusion to anatomy
+        transformation.
     subject_id: str
         Id of the subject in the Freesurfer subjects_dir.
     cortical_atlas: str, default "Desikan"
@@ -601,12 +617,13 @@ def create_masks_for_tracto_seeding_endpoints(outdir,
         "The type of tractography mask to create, allowed types:
         "wm", "wm_dilated_1vox_6conn" (default), "wm_dilated_1vox_14conn"
         or "nodif_brain" (whole brain).
-        Two of the proposed white matter masks are dilated because a non-dilated
-        white matter mask does not overlap with the "gray" subcortical regions,
+        Two of the proposed white matter masks are dilated because a
+        non-dilated white matter mask does not overlap with the "gray"
+        subcortical regions,
         therefore the tracts will never get there. Moreover the right and left
-        white matter regions are much less connected without dilation, therefore
-        the connectogram shows few interhemisphere connections with a simple
-        white matter mask.
+        white matter regions are much less connected without dilation,
+        therefore the connectogram shows few interhemisphere connections with
+        a simple white matter mask.
     subjects_dir: str, defaut None
         If the Freesurfer $SUBJECTS_DIR environment variable is not set, or to
         bypass it, pass the path.
@@ -657,12 +674,12 @@ def create_masks_for_tracto_seeding_endpoints(outdir,
 
     # Project cortical and subcortical segmentation in diffusion
     aparc2dif, aseg2dif = \
-        project_aparc_and_aseg_to_diffusion(outdir         = outdir,
-                                            dif2anat_dat   = dif2anat_dat,
-                                            nodif_brain    = nodif_brain,
-                                            subject_id     = subject_id,
-                                            subjects_dir   = subjects_dir,
-                                            cortical_atlas = cortical_atlas)
+        project_aparc_and_aseg_to_diffusion(outdir=outdir,
+                                            dif2anat_dat=dif2anat_dat,
+                                            nodif_brain=nodif_brain,
+                                            subject_id=subject_id,
+                                            subjects_dir=subjects_dir,
+                                            cortical_atlas=cortical_atlas)
 
     # Create the target ROI masks
     if cortical_atlas == "Desikan":
@@ -702,10 +719,10 @@ def create_masks_for_tracto_seeding_wm(outdir,
                                        nodif_brain_mask,
                                        dif2anat_dat,
                                        subject_id,
-                                       cortical_atlas = "Desikan",
-                                       stop_mask_type = "target_rois",
-                                       subjects_dir   = None,
-                                       subdir         = "masks"):
+                                       cortical_atlas="Desikan",
+                                       stop_mask_type="target_rois",
+                                       subjects_dir=None,
+                                       subdir="masks"):
     """
     Create the volume masks required for the probabilist tractography
     when using the --omatrix3 option in probtrackx2 (seeding in white matter):
@@ -724,7 +741,8 @@ def create_masks_for_tracto_seeding_wm(outdir,
     nodif_brain_mask: str
         Path to the brain-only binary mask.
     dif2anat_dat: str
-        Path to the registration .dat file, diffusion to anatomy transformation.
+        Path to the registration .dat file, diffusion to anatomy
+        transformation.
     subject_id: str
         Id of the subject in the Freesurfer subjects_dir.
     cortical_atlas: str, default "Desikan"
@@ -740,26 +758,6 @@ def create_masks_for_tracto_seeding_wm(outdir,
     subdir: str, default "masks"
         If 'subdir' is set the masks are saved in <outdir>/<subdir>/.
         Otherwise they are saved in <outdir>/.
-
-    <unit>
-
-        <input name="outdir"           type="Directory" />
-        <input name="nodif_brain"      type="File"      />
-        <input name="nodif_brain_mask" type="File"      />
-        <input name="dif2anat_dat"     type="File"      />
-        <input name="subject_id"       type="Str"       />
-        <input name="cortical_atlas"   type="Str"       />
-        <input name="stop_mask_type"   type="Str"       />
-        <input name="subjects_dir"     type="Directory" />
-        <input name="subdir"           type="Str"       />
-
-        <output name="roi_masks_txt"   type="File"      />
-        <output name="tracto_mask"     type="File"      />
-        <output name="wm_mask"         type="File"      />
-        <output name="stop_mask"       type="File"      />
-        <output name="avoid_mask"      type="File"      />
-
-    </unit>
     """
     # Check arguments
     if not cortical_atlas in CORTICAL_ATLASES:
@@ -783,12 +781,12 @@ def create_masks_for_tracto_seeding_wm(outdir,
 
     # Project cortical and subcortical segmentation in diffusion
     aparc2dif, aseg2dif = \
-        project_aparc_and_aseg_to_diffusion(outdir         = outdir,
-                                            dif2anat_dat   = dif2anat_dat,
-                                            nodif_brain    = nodif_brain,
-                                            subject_id     = subject_id,
-                                            subjects_dir   = subjects_dir,
-                                            cortical_atlas = cortical_atlas)
+        project_aparc_and_aseg_to_diffusion(outdir=outdir,
+                                            dif2anat_dat=dif2anat_dat,
+                                            nodif_brain=nodif_brain,
+                                            subject_id=subject_id,
+                                            subjects_dir=subjects_dir,
+                                            cortical_atlas=cortical_atlas)
 
     # Create the target ROI masks
     if cortical_atlas == "Desikan":
@@ -809,10 +807,11 @@ def create_masks_for_tracto_seeding_wm(outdir,
         # The stop mask is the combination of all target_ROIs, so that the
         # samples stop propagating as soon as they reach a target region.
         labels = [LABEL_OF_ROI[x] for x in target_ROIs]
-        cmd    = ["mri_binarize", "--i", aparc2dif, "--o", stop_mask,
-                   "--match"] + labels
-    else:  #  stop_mask_type == "inverse_wm":
-        cmd = ["mri_binarize", "--i", aseg2dif, "--o", stop_mask, "--wm", "--inv"]
+        cmd = ["mri_binarize", "--i", aparc2dif, "--o", stop_mask,
+               "--match"] + labels
+    else:  # stop_mask_type == "inverse_wm":
+        cmd = ["mri_binarize", "--i", aseg2dif,
+               "--o", stop_mask, "--wm", "--inv"]
     run_freesurfer_cmd(cmd)
 
     # Write the list in a txt file (probtrackx2 takes a txt list as input)
@@ -855,23 +854,24 @@ def compute_surface_area_of_roi_masks(roi_masks_txt):
     area_of_roi = dict()
 
     # Pattern to use to extract the total_area from the mris_info stdout
-    pattern = re.compile("^total_area[ ]+(\d+.\d+)", flags=re.M|re.I)
+    pattern = re.compile("^total_area[ ]+(\d+.\d+)", flags=re.M | re.I)
 
     for roi_mask in roi_masks:
-        roi_name     = os.path.basename(roi_mask).split(".nii")[0]
+        roi_name = os.path.basename(roi_mask).split(".nii")[0]
         path_surface = os.path.join(tempdir, roi_name)
         cmd = ["mri_tessellate", roi_mask, "1", path_surface]
         run_freesurfer_cmd(cmd)
 
         cmd_info = ["mris_info", path_surface]
-        stdout   = run_freesurfer_cmd(cmd_info).stdout
+        stdout = run_freesurfer_cmd(cmd_info).stdout
 
         # Look for the pattern
         matches = pattern.findall(stdout)
         try:
             area = float(matches[0])
         except:
-            raise Exception("Failed to compute the surface area of mask: %s " % roi_mask)
+            raise Exception(
+                "Failed to compute the surface area of mask: %s " % roi_mask)
 
         area_of_roi[roi_name] = area
 
@@ -888,7 +888,7 @@ def qc_tracto_masks(outdir,
                     wm_mask,
                     stop_mask,
                     roi_masks_txt,
-                    subdir = "qc"):
+                    subdir="qc"):
     """
     Function meant to help quality check (qc) the masks created by the
     create_masks_for_omatrix#_tractography() functions.
@@ -899,18 +899,6 @@ def qc_tracto_masks(outdir,
     <subdir> is "qc". To write in outdir directly, set subdir to anything that
     evaluates to False (empty string or None).
     Directories are automatically created if they don't exist.
-
-    <unit>
-        <input name="outdir"        type="Directory" />
-        <input name="nodif_brain"   type="File"      />
-        <input name="tracto_mask"   type="File"      />
-        <input name="wm_mask"       type="File"      />
-        <input name="stop_mask"     type="File"      />
-        <input name="roi_masks_txt" type="File"      />
-        <input name="subdir"        type="Str"       />
-
-        <output name="qc_dir"       type="Directory" />
-    </unit>
     """
     # If requested use a subdirectory in outdir
     if subdir:
@@ -925,18 +913,18 @@ def qc_tracto_masks(outdir,
     # Snap shot: nodif_brain with stop mask
     snapshot1_png = os.path.join(outdir, "nodif_brain_with_stop_mask.png")
     plot_image(nodif_brain,
-               overlay_file = stop_mask,
-               snap_file    = snapshot1_png,
-               name         = "nodif_brain_with_stop_mask",
-               cut_coords   = nb_slices_in_z-2)
+               overlay_file=stop_mask,
+               snap_file=snapshot1_png,
+               name="nodif_brain_with_stop_mask",
+               cut_coords=nb_slices_in_z - 2)
 
     # Snap shot: nodif_brain with wm mask
     snapshot2_png = os.path.join(outdir, "nodif_brain_with_wm_mask.png")
     plot_image(nodif_brain,
-               overlay_file = wm_mask,
-               snap_file    = snapshot2_png,
-               name         = "nodif_brain_with_wm_mask",
-               cut_coords   = nb_slices_in_z-2)
+               overlay_file=wm_mask,
+               snap_file=snapshot2_png,
+               name="nodif_brain_with_wm_mask",
+               cut_coords=nb_slices_in_z - 2)
 
     # Return something for Capsul
     qc_dir = outdir
@@ -951,7 +939,8 @@ def extract_nodif_volume(outdir, dwi, bval):
     outdir: str
         Path to directory where to write "nodif.nii.gz"
     dwi: str
-        Path to DW data in which at least one volume was acquired with bvalue=0.
+        Path to DW data in which at least one volume was acquired with
+        bvalue=0.
     bval: str
         Path to .bval file associated to the DW data.
 
@@ -979,7 +968,8 @@ def bet2_nodif_brain(outdir, dwi, bval, subdir="bet2_nodif_brain", qc=True):
     outdir: str
         Path to the directory where to output.
     dwi: str
-        Path to DW data in which at least one volume was acquired with bvalue=0.
+        Path to DW data in which at least one volume was acquired with
+        bvalue=0.
     bval: str
         Path to .bval file associated to the DW data.
     subdir: str, default "bet2_nodif_brain"
@@ -992,17 +982,6 @@ def bet2_nodif_brain(outdir, dwi, bval, subdir="bet2_nodif_brain", qc=True):
         Path to the brain only volume.
     nodif_brain_mask: str
         Path to the brain-only binary mask.
-
-    <unit>
-        <output name="nodif_brain"      type="File"      />
-        <output name="nodif_brain_mask" type="File"      />
-
-        <input name="outdir"            type="Directory" />
-        <input name="dwi"               type="File"      />
-        <input name="bval"              type="File"      />
-        <input name="subdir"            type="Str"       />
-        <input name="qc"                type="Bool"      />
-    </unit>
     """
     if subdir:
         outdir = os.path.join(outdir, subdir)
@@ -1021,7 +1000,7 @@ def bet2_nodif_brain(outdir, dwi, bval, subdir="bet2_nodif_brain", qc=True):
     bet2(nodif_volume, output_prefix, f=0.25, m=True)
 
     # Output paths
-    nodif_brain      = output_prefix + ".nii.gz"
+    nodif_brain = output_prefix + ".nii.gz"
     nodif_brain_mask = output_prefix + "_mask.nii.gz"
 
     # Check existence of resulting files
@@ -1105,19 +1084,21 @@ def omatrix3_to_roi_network(probtrackx2_dir, outdir=None):
 
     # Check input and output dirs
     if not os.path.isdir(probtrackx2_dir):
-        raise ValueError("Input directory does not exist: {}".format(probtrackx2_dir))
+        raise ValueError(
+            "Input directory does not exist: {}".format(probtrackx2_dir))
 
     if outdir is None:
         outdir = probtrackx2_dir
     else:
         if not os.path.isdir(outdir):
-            raise ValueError("Outdir does not exist: {}".format(probtrackx2_dir))
+            raise ValueError(
+                "Outdir does not exist: {}".format(probtrackx2_dir))
 
     path_matrix3 = os.path.join(probtrackx2_dir, "fdt_matrix3.dot")
-    path_coords  = os.path.join(probtrackx2_dir, "coords_for_fdt_matrix3")
+    path_coords = os.path.join(probtrackx2_dir, "coords_for_fdt_matrix3")
 
     matrix3 = np.loadtxt(path_matrix3, dtype=int)
-    coords  = np.loadtxt(path_coords, dtype=int)
+    coords = np.loadtxt(path_coords, dtype=int)
     nb_ROIs = coords[:, 3].max() + 1  # index start at 0, add 1
 
     # Map <voxel id> to <ROI id>
@@ -1132,7 +1113,7 @@ def omatrix3_to_roi_network(probtrackx2_dir, outdir=None):
     # For each pair of voxels add the fiber count to the associated ROIs
     nb_voxel_pairs = matrix3.shape[0]
     for i in range(nb_voxel_pairs):
-        ROI_1 = ROI_of_voxel[matrix3[i,0]]
+        ROI_1 = ROI_of_voxel[matrix3[i, 0]]
         ROI_2 = ROI_of_voxel[matrix3[i, 1]]
         fiber_count = matrix3[i, 2]
 
@@ -1156,8 +1137,8 @@ def normalize_connectogram_by_target_surf_area(outdir,
     """
     """
     area_of_roi = compute_surface_area_of_roi_masks(roi_masks_txt)
-    matrix      = np.loadtxt(matrix_txt)
-    labels      = np.loadtxt(labels_txt, dtype=str)
+    matrix = np.loadtxt(matrix_txt)
+    labels = np.loadtxt(labels_txt, dtype=str)
 
     assert matrix.shape[0] == matrix.shape[1] == labels.shape[0]
 
@@ -1183,17 +1164,17 @@ def probtrackx2_connectogram_seeding_wm(outdir,
                                         roi_masks_txt,
                                         tracto_mask,
                                         wm_mask,
-                                        stop_mask  = None,
-                                        avoid_mask = None,
-                                        subdir     = "probtrackx2",
-                                        nsamples   = 5000,
-                                        nsteps     = 2000,
-                                        cthr       = None,
-                                        loopcheck  = True,
-                                        steplength = 0.5,
-                                        fibthresh  = None,
-                                        distthresh = None,
-                                        sampvox    = None
+                                        stop_mask=None,
+                                        avoid_mask=None,
+                                        subdir="probtrackx2",
+                                        nsamples=5000,
+                                        nsteps=2000,
+                                        cthr=None,
+                                        loopcheck=True,
+                                        steplength=0.5,
+                                        fibthresh=None,
+                                        distthresh=None,
+                                        sampvox=None
                                         ):
     """
     Generate a connectogram using probtrackx2 with the following approach:
@@ -1219,30 +1200,6 @@ def probtrackx2_connectogram_seeding_wm(outdir,
         If set, the outputs are written in a subdirectory of outdir.
     <other args>:
         'probtrackx2 --help'
-
-    <unit>
-        <output name="fiber_density"   type="File"      />
-        <output name="matrix_txt"      type="File"      />
-        <output name="matrix_norm_txt" type="File"      />
-        <output name="labels_txt"      type="File"      />
-
-        <input name="outdir"           type="Directory" />
-        <input name="bedpostx_dir"     type="Directory" />
-        <input name="roi_masks_txt"    type="File"      />
-        <input name="tracto_mask"      type="File"      />
-        <input name="wm_mask"          type="File"      />
-        <input name="stop_mask"        type="File"      />
-        <input name="avoid_mask"       type="File"      />
-        <input name="subdir"           type="Str"       />
-        <input name="nsamples"         type="Int"       />
-        <input name="nsteps"           type="Int"       />
-        <input name="cthr"             type="Float"     />
-        <input name="loopcheck"        type="Bool"      />
-        <input name="steplength"       type="Float"     />
-        <input name="fibthresh"        type="Float"     />
-        <input name="distthresh"       type="Float"     />
-        <input name="sampvox"          type="Float"     />
-    </unit>
     """
 
     if subdir:
@@ -1251,22 +1208,22 @@ def probtrackx2_connectogram_seeding_wm(outdir,
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
 
-    probtrackx2(dir        = outdir,
-                samples    = os.path.join(bedpostx_dir, "merged"),
-                mask       = tracto_mask,
-                seed       = wm_mask,
-                omatrix3   = True,
-                target3    = roi_masks_txt,
-                stop       = stop_mask,
-                avoid      = avoid_mask,
-                nsamples   = nsamples,
-                nsteps     = nsteps,
-                cthr       = cthr,
-                loopcheck  = loopcheck,
-                steplength = steplength,
-                fibthresh  = fibthresh,
-                distthresh = distthresh,
-                sampvox    = sampvox
+    probtrackx2(dir=outdir,
+                samples=os.path.join(bedpostx_dir, "merged"),
+                mask=tracto_mask,
+                seed=wm_mask,
+                omatrix3=True,
+                target3=roi_masks_txt,
+                stop=stop_mask,
+                avoid=avoid_mask,
+                nsamples=nsamples,
+                nsteps=nsteps,
+                cthr=cthr,
+                loopcheck=loopcheck,
+                steplength=steplength,
+                fibthresh=fibthresh,
+                distthresh=distthresh,
+                sampvox=sampvox
                 )
 
     fiber_density = os.path.join(outdir, "fdt_paths.nii.gz")
@@ -1275,16 +1232,14 @@ def probtrackx2_connectogram_seeding_wm(outdir,
     matrix_txt = omatrix3_to_roi_network(outdir)
 
     # Create a list of labels from the list of mask paths
-    roi_masks  = np.loadtxt(roi_masks_txt, dtype=str)
-    labels     = [os.path.basename(x).split(".nii")[0] for x in roi_masks]
+    roi_masks = np.loadtxt(roi_masks_txt, dtype=str)
+    labels = [os.path.basename(x).split(".nii")[0] for x in roi_masks]
     labels_txt = os.path.join(outdir, "labels.txt")
     np.savetxt(labels_txt, labels, fmt="%s")
 
     # Create a normalized connectogram in the same directory
-    matrix_norm_txt, _ = normalize_connectogram_by_target_surf_area(outdir,
-                                                                    roi_masks_txt,
-                                                                    matrix_txt,
-                                                                    labels_txt)
+    matrix_norm_txt, _ = normalize_connectogram_by_target_surf_area(
+        outdir, roi_masks_txt, matrix_txt, labels_txt)
 
     return fiber_density, matrix_txt, matrix_norm_txt, labels_txt
 
@@ -1293,19 +1248,19 @@ def probtrackx2_connectogram_seeding_endpoints(outdir,
                                                bedpostx_dir,
                                                roi_masks_txt,
                                                tracto_mask,
-                                               network         = True,
-                                               stop_mask       = None,
-                                               avoid_mask      = None,
-                                               subdir          = "probtrackx2",
-                                               nsamples        = 5000,
-                                               nsteps          = 2000,
-                                               cthr            = None,
-                                               loopcheck       = True,
-                                               onewaycondition = None,
-                                               steplength      = 0.5,
-                                               fibthresh       = None,
-                                               distthresh      = None,
-                                               sampvox         = None
+                                               network=True,
+                                               stop_mask=None,
+                                               avoid_mask=None,
+                                               subdir="probtrackx2",
+                                               nsamples=5000,
+                                               nsteps=2000,
+                                               cthr=None,
+                                               loopcheck=True,
+                                               onewaycondition=None,
+                                               steplength=0.5,
+                                               fibthresh=None,
+                                               distthresh=None,
+                                               sampvox=None
                                                ):
     """
     Generate a connectogram using probtrackx2 with the following approach:
@@ -1347,35 +1302,33 @@ def probtrackx2_connectogram_seeding_endpoints(outdir,
 
     basepath_samples = os.path.join(bedpostx_dir, "merged")
 
-    list_of_files, matrix_txt = probtrackx2(network         = network,
-                                            seed            = roi_masks_txt,
-                                            stop            = stop_mask,
-                                            avoid           = avoid_mask,
-                                            loopcheck       = loopcheck,
-                                            onewaycondition = onewaycondition,
-                                            samples         = basepath_samples,
-                                            mask            = tracto_mask,
-                                            dir             = outdir,
-                                            nsamples        = nsamples,
-                                            nsteps          = nsteps,
-                                            cthr            = cthr,
-                                            steplength      = steplength,
-                                            fibthresh       = fibthresh,
-                                            distthresh      = distthresh,
-                                            sampvox         = sampvox)
+    list_of_files, matrix_txt = probtrackx2(network=network,
+                                            seed=roi_masks_txt,
+                                            stop=stop_mask,
+                                            avoid=avoid_mask,
+                                            loopcheck=loopcheck,
+                                            onewaycondition=onewaycondition,
+                                            samples=basepath_samples,
+                                            mask=tracto_mask,
+                                            dir=outdir,
+                                            nsamples=nsamples,
+                                            nsteps=nsteps,
+                                            cthr=cthr,
+                                            steplength=steplength,
+                                            fibthresh=fibthresh,
+                                            distthresh=distthresh,
+                                            sampvox=sampvox)
     fiber_density = list_of_files[0]
 
     # Create a list of labels from the list of mask paths
-    roi_masks  = np.loadtxt(roi_masks_txt, dtype=str)
-    labels     = [os.path.basename(x).split(".nii")[0] for x in roi_masks]
+    roi_masks = np.loadtxt(roi_masks_txt, dtype=str)
+    labels = [os.path.basename(x).split(".nii")[0] for x in roi_masks]
     labels_txt = os.path.join(outdir, "labels.txt")
     np.savetxt(labels_txt, labels, fmt="%s")
 
     # Create a normalized connectogram
-    matrix_norm_txt, _ = normalize_connectogram_by_target_surf_area(outdir,
-                                                                    roi_masks_txt,
-                                                                    matrix_txt,
-                                                                    labels_txt)
+    matrix_norm_txt, _ = normalize_connectogram_by_target_surf_area(
+        outdir, roi_masks_txt, matrix_txt, labels_txt)
 
     return fiber_density, matrix_txt, matrix_norm_txt, labels_txt
 
@@ -1391,10 +1344,12 @@ def plot_connectogram(outdir, matrix, labels=None, transform=None,
     outdir: str
         Path to the dir where to save the snapshot.
     matrix: numpy array or str
-        Connectivity matrix or path to txt file storing the connectivity matrix.
+        Connectivity matrix or path to txt file storing the connectivity
+        matrix.
     labels: list of str or str, default None
         Labels or path to txt file listing the labels.
-        By default no labels. Should be ordered like the rows/cols of the matrix.
+        By default no labels. Should be ordered like the rows/cols of the
+        matrix.
     transform: callable, default None
         A Callable function to apply on the matrix (e.g. numpy.log1p).
         By default no transformation is applied.
@@ -1428,8 +1383,8 @@ def plot_connectogram(outdir, matrix, labels=None, transform=None,
     ax.invert_yaxis()
     ax.xaxis.tick_top()
 
-    ax.set_xticks(np.arange(matrix.shape[0])+0.5, minor=False)
-    ax.set_yticks(np.arange(matrix.shape[1])+0.5, minor=False)
+    ax.set_xticks(np.arange(matrix.shape[0]) + 0.5, minor=False)
+    ax.set_yticks(np.arange(matrix.shape[1]) + 0.5, minor=False)
 
     # Add the labels if passed
     if labels is not None:
@@ -1517,14 +1472,15 @@ def qc_connectogram(outdir,
 
     fiber_density_png = os.path.join(outdir, "fiber_density_map.png")
     plot_image(tracto_mask,
-               overlay_file = fiber_density,
-               snap_file    = fiber_density_png,
-               name         = "fiber density map",
-               overlay_cmap = "cold_hot",
-               cut_coords   = nb_slices_in_z-2)
+               overlay_file=fiber_density,
+               snap_file=fiber_density_png,
+               name="fiber density map",
+               overlay_cmap="cold_hot",
+               cut_coords=nb_slices_in_z - 2)
 
     # connectogram snapshot
-    plot_connectogram(outdir, matrix_txt, labels=labels_txt, transform=np.log1p)
+    plot_connectogram(outdir, matrix_txt,
+                      labels=labels_txt, transform=np.log1p)
 
     # Normalized by surface target area connectogram snapshot
     plot_connectogram(outdir, matrix_norm_txt, labels=labels_txt,

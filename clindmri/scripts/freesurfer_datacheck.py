@@ -132,7 +132,7 @@ for sid in fsdir_subfolders:
         if line.strip():
             last_non_empty_line = line
     if "finished without error" in last_non_empty_line:
-        status[sid]["exitcode"] = 0  
+        status[sid]["exitcode"] = 0
 
 
 """

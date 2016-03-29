@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -18,31 +17,31 @@ from clindmri.extensions.fsl.exceptions import FSLRuntimeError
 def dtifit(k, r, b, m, o, w=None):
     """ Wraps command dtifit.
 
-    Usage: 
+    Usage:
     dtifit -k <filename>
     dtifit --verbose
 
     Compulsory arguments (You MUST set one or more of):
-	    -k,--data	dti data file
-	    -o,--out	Output basename
-	    -m,--mask	Bet binary mask file
-	    -r,--bvecs	b vectors file
-	    -b,--bvals	b values file
+        -k,--data    dti data file
+        -o,--out    Output basename
+        -m,--mask    Bet binary mask file
+        -r,--bvecs    b vectors file
+        -b,--bvals    b values file
 
     Optional arguments (You may optionally specify one or more of):
-	    -V,--verbose	switch on diagnostic messages
-	    -h,--help	display this message
-	    --cni	Input confound regressors
-	    --sse	Output sum of squared errors
-	    -w,--wls	Fit the tensor with weighted least squares
-	    --littlebit	Only process small area of brain
-	    --save_tensor	Save the elements of the tensor
-	    -z,--zmin	min z
-	    -Z,--zmax	max z
-	    -y,--ymin	min y
-	    -Y,--ymax	max y
-	    -x,--xmin	min x
-	    -X,--xmax	max x
+        -V,--verbose    switch on diagnostic messages
+        -h,--help    display this message
+        --cni    Input confound regressors
+        --sse    Output sum of squared errors
+        -w,--wls    Fit the tensor with weighted least squares
+        --littlebit    Only process small area of brain
+        --save_tensor    Save the elements of the tensor
+        -z,--zmin    min z
+        -Z,--zmax    max z
+        -y,--ymin    min y
+        -Y,--ymax    max y
+        -x,--xmin    min x
+        -X,--xmax    max x
 
     Returns
     -------
@@ -96,4 +95,3 @@ def dtifit(k, r, b, m, o, w=None):
 
     return (v1_file, v2_file, v3_file, l1_file, l2_file, l3_file, md_file,
             fa_file, s0_file, tensor_file, m0_file)
-

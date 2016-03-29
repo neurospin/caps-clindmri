@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -50,7 +49,7 @@ def pilot_gdti_estimation():
     """
     study_config = StudyConfig(
         modules=["SmartCachingConfig"],
-        use_smart_caching=True,   
+        use_smart_caching=True,
         output_directory=working_dir)
 
     # Create pipeline
@@ -68,9 +67,12 @@ def pilot_gdti_estimation():
         del view1
 
     # Set pipeline input parameters
-    pipeline.dfile = "/volatile/imagen/dmritest/000000022453/DTI/000000022453s011a1001.nii.gz"
-    pipeline.bvalfile = "/volatile/imagen/dmritest/000000022453/DTI/000000022453s011a1001.bval"
-    pipeline.bvecfile = "/volatile/imagen/dmritest/000000022453/DTI/000000022453s011a1001.bvec"
+    pipeline.dfile = ("/volatile/imagen/dmritest/000000022453/DTI/"
+                      "000000022453s011a1001.nii.gz")
+    pipeline.bvalfile = ("/volatile/imagen/dmritest/000000022453/DTI/"
+                         "000000022453s011a1001.bval")
+    pipeline.bvecfile = ("/volatile/imagen/dmritest/000000022453/DTI/"
+                         "000000022453s011a1001.bvec")
     pipeline.order = 2
     pipeline.odf = False
     print "Done in {0} seconds.".format(datetime.datetime.now() - start_time)

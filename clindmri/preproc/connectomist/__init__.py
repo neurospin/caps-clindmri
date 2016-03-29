@@ -22,9 +22,9 @@ from clindmri.extensions.connectomist.exceptions import (
 
 # Wrappers of Connectomist's tabs
 from .import_and_qspace_model import dwi_data_import_and_qspace_sampling
-from .mask                    import dwi_rough_mask_extraction
-from .outliers                import dwi_outlier_detection
-from .susceptibility          import dwi_susceptibility_artifact_correction
+from .mask import dwi_rough_mask_extraction
+from .outliers import dwi_outlier_detection
+from .susceptibility import dwi_susceptibility_artifact_correction
 from .eddy_current_and_motion import (dwi_eddy_current_and_motion_correction,
                                       export_eddy_motion_results_to_nifti)
 from .complete_preprocessing import complete_preprocessing

@@ -7,8 +7,6 @@
 # for details.
 ##########################################################################
 
-import numpy
-
 
 class GraphNode(object):
     """ Simple Graph Node Structure.
@@ -272,7 +270,7 @@ if __name__ == '__main__':
     """
 
     objects = ["chaussures", "chaussettes", "slip", "pantalon", "ceinture",
-        "chemise", "veste", "cravate"]
+               "chemise", "veste", "cravate"]
 
     dependancies = [
         ("slip", "pantalon"),

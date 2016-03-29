@@ -43,18 +43,20 @@ def generalized_tensor_estimation(dfile, bvalfile, bvecfile, order,
         <return name="gdtifile" type="File" desc="The result file containing
             the tensor model independent coefficients."/>
         <input name="dfile" type="File" desc="The diffusion volume file."/>
-        <input name="bvalfile" type="File" desc="The diffusion b-values file."/>
-        <input name="bvecfile" type="File" desc="The diffusion b-vectors file."/>
+        <input name="bvalfile" type="File" desc="The diffusion b-values
+            file."/>
+        <input name="bvecfile" type="File" desc="The diffusion b-vectors
+            file."/>
         <input name="order" type="Int" desc="The diffusion tensor order (must
             be even)."/>
-        <input name="maskfile" type="File" desc="A mask applied on the diffusion
-            volume."/>
+        <input name="maskfile" type="File" desc="A mask applied on the
+            diffusion volume."/>
         <input name="number_of_workers" type="Int" desc="The number of CPUs
             used during the execution."/>
         <input name="odf" type="Bool" desc="If True estimate the odf."/>
         <input name="output_directory" type="Directory" desc="The destination
             folder."/>
-    </process>    
+    </process>
     """
     # Intern parameters
     # > Replace diffusion signal smaller than this threshold in order to
@@ -70,10 +72,11 @@ def generalized_tensor_estimation(dfile, bvalfile, bvecfile, order,
     # Check that the model order is even
     if order % 2 == 1:
         raise Exception("'{0}' is not even. Expect an even model "
-                        "order.".format(self.model_order))
+                        "order.".format(order))
 
     # Load the diffusion sequence
-    data_flat, mask_flat, ref_flat, bvals, bvecs, shape, affine = load_diffusion_dataset(
+    (data_flat, mask_flat, ref_flat, bvals, bvecs,
+     shape, affine) = load_diffusion_dataset(
         dfile, bvalfile, bvecfile, maskfile)
 
     # Estimate the generalized tensor model
@@ -231,8 +234,8 @@ def quartic_tensor_fit(data_flat, mask_flat, reference_flat, bvals, bvecs,
 
 
 def quartic_tensor_odf_fit(data_flat, mask_flat, reference_flat, bvals, bvecs,
-                            order, delta=100., min_signal=1.,
-                            number_of_workers=1):
+                           order, delta=100., min_signal=1.,
+                           number_of_workers=1):
     """ Compute a Cartesian tensor Odf from a given DW dataset.
 
     Parameters
@@ -375,10 +378,8 @@ def print_tensor(tensor, order):
 
 if __name__ == "__main__":
 
-    from caps.toy_datasets import get_sample_data
     from clindmri.plot import pvtk
     from clindmri.estimation.utils import dti6to33
-    import os
 
     output_directory = "/volatile/nsap/diffusion/estimation/"
 
@@ -474,7 +475,7 @@ if __name__ == "__main__":
     gdtifile = generalized_tensor_estimation(
         dfile, bvalfile, bvecfile, order, maskfile=None, number_of_workers=1,
         odf=False, output_directory=output_directory)
-    dti_params = nibabel.load(gdtifile).get_data()  
+    dti_params = nibabel.load(gdtifile).get_data()
     print "Tensor:"
     for index, params in enumerate(dti_params[0, 0]):
         print "nnls:", index

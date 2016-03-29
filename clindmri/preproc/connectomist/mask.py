@@ -35,16 +35,6 @@ def dwi_rough_mask_extraction(
     -------
     outdir: str
         path to Connectomist's output directory.
-
-    <unit>
-        <output name="rough_mask_dir" type="Directory" description="Path
-            to Connectomist output work directory"/>
-
-        <input name="outdir" type="Directory" description="Path to
-            Connectomist output work directory"/>
-        <input name="raw_dwi_dir" type="Directory" description="Path to
-            Connectomist Raw DWI folder."/>
-    </unit>
     """
     # Dict with all parameters for connectomist
     algorithm = "DWI-Rough-Mask-Extraction"

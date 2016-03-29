@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAP - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -8,7 +7,6 @@
 ##########################################################################
 
 # System import
-import os
 import nibabel
 import numpy
 import random
@@ -34,7 +32,7 @@ def deterministic(diffusion_file, bvecs_file, bvals_file, trackfile,
     bvals_file: str (mandatory)
         a file containing the diffusion b-values.
     trackfile: str (mandatory)
-        a file path where the fibers will be saved in trackvis format. 
+        a file path where the fibers will be saved in trackvis format.
     mask_file: str (optional, default None)
         an image used to mask the diffusion data during the tractography. If
         not set, all the image voxels are considered.
@@ -80,7 +78,7 @@ def deterministic(diffusion_file, bvecs_file, bvals_file, trackfile,
         csapeaks.peak_values, csapeaks.peak_indices,
         odf_vertices=peaks.default_sphere.vertices, a_low=.05, step_sz=step,
         seeds=seeds)
-    affine = streamline_generator.affine
+    #  affine = streamline_generator.affine
 
     # Save the tracks in trackvis format
     hdr = nibabel.trackvis.empty_header()
@@ -93,5 +91,3 @@ def deterministic(diffusion_file, bvecs_file, bvals_file, trackfile,
     nibabel.trackvis.write(trackfile, streamlines, hdr, points_space="voxel")
 
     return streamlines, hdr
-
-    

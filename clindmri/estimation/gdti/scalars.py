@@ -1,6 +1,5 @@
-#! /usr/bin/env python
 ##########################################################################
-# NSAP - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -25,7 +24,7 @@ def gdti_scalars(gdtifile, output_directory):
         <return name="scalars" type="List_File" desc="The A dictionary with
             scalar map name as keys and sclar map files derived from the tensor
             model as values."/>
-        <input name="gdtifile" type="File" desc="A file containing the 
+        <input name="gdtifile" type="File" desc="A file containing the
             generalized tensor model independent coefficients."/>
         <input name="output_directory" type="Directory" desc="The destination
             folder."/>
@@ -66,7 +65,7 @@ def gdti_scalars(gdtifile, output_directory):
         scalars[map_name] = mapfile
 
     return scalars.values()
-    
+
 
 def compute_second_order_scalar_parameters(gdti6):
     """ Compute the Fractional Anisotropy [1]_ (FA),
@@ -121,8 +120,7 @@ def compute_second_order_scalar_parameters(gdti6):
 
     # Compute fractional anisotropy map
     fa = numpy.sqrt(0.5 * ((ev1 - ev2) ** 2 + (ev2 - ev3) ** 2 +
-                           (ev3 - ev1) ** 2)
-                           / ev2)
+                           (ev3 - ev1) ** 2) / ev2)
 
     # Compute lineraity coefficient map
     cl = (ev1 - ev2) / numpy.sqrt(ev2)
@@ -249,14 +247,13 @@ if __name__ == "__main__":
     print md
 
     # second order tensor: isotropic diffusion
-    tensor = numpy.zeros((1, 1, 1, 6, ), dtype=numpy.single) 
+    tensor = numpy.zeros((1, 1, 1, 6, ), dtype=numpy.single)
     d = 0.001
     tensor[..., :3] = d
     print tensor
-    fa, md, cl, cp, cs  = compute_second_order_scalar_parameters(tensor)
+    fa, md, cl, cp, cs = compute_second_order_scalar_parameters(tensor)
     print fa
     print md
     print cl
     print cp
     print cs
-
