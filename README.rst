@@ -1,9 +1,17 @@
-.. image:: https://travis-ci.org/AGrigis/caps-clindmri.svg?branch=master
-    :target: https://travis-ci.org/AGrigis/caps-clindmri
+.. image:: https://travis-ci.org/neurospin/caps-clindmri.svg?branch=master
+    :target: https://travis-ci.org/neurospin/caps-clindmri
 
+.. image:: https://coveralls.io/repos/neurospin/caps-clindmri/badge.svg?branch=master&service=github
+    :target: https://coveralls.io/github/neurospin/caps-clindmri
 
-.. image:: https://coveralls.io/repos/AGrigis/caps-clindmri/badge.svg?branch=master&service=github
-    :target: https://coveralls.io/github/AGrigis/caps-clindmri
+.. |Python27| image:: https://img.shields.io/badge/python-2.7-blue.svg
+.. _Python27: https://badge.fury.io/py/caps-clindmri
+
+.. |Python34| image:: https://img.shields.io/badge/python-3.4-blue.svg
+.. _Python34: https://badge.fury.io/py/caps-clindmri
+
+.. |PyPi| image:: https://badge.fury.io/py/caps-clindmri.svg
+.. _PyPi: https://badge.fury.io/py/caps-clindmri
 
 
 Easy to use pure-python command wrapper.
