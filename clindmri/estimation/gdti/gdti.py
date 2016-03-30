@@ -372,8 +372,8 @@ def print_tensor(tensor, order):
     c = 0
     for i in range(order + 1):
         for j in range(order + 1 - i):
-            print ("D (x,y,z)=({0},{1},{2}) - Coefficient: "
-                   "{3}".format(i, j, order - i - j, tensor[c]))
+            print("D (x,y,z)=({0},{1},{2}) - Coefficient: "
+                  "{3}".format(i, j, order - i - j, tensor[c]))
             c = c + 1
 
 if __name__ == "__main__":

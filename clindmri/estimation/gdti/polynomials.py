@@ -115,8 +115,8 @@ def print_polynomial_basis(order):
     for i in range(order + 1):
         for j in range(order - i + 1):
             mul = get_coefficient_multiplicity(order, i, j, order - i - j)
-            print ("Coefficient (x,y,z)=({0},{1},{2}) - Multiplicity: "
-                   "{3}".format(i, j, order - i - j, mul))
+            print("Coefficient (x,y,z)=({0},{1},{2}) - Multiplicity: "
+                  "{3}".format(i, j, order - i - j, mul))
 
 
 if __name__ == '__main__':
