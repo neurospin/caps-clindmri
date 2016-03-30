@@ -15,7 +15,9 @@ import clindmri
 
 
 release_info = {}
-execfile(os.path.join("clindmri", "info.py"), release_info)
+infopath = os.path.join(os.path.dirname(__file__), "clindmri", "info.py")
+with open(infopath) as open_file:
+    exec(open_file.read(), release_info)
 pkgdata = {
     "clindmri.tests": ["*.py"],
 }

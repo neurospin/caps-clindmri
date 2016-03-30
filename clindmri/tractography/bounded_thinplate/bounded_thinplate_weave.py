@@ -8,7 +8,17 @@
 
 # System import
 import numpy
-from scipy.weave import ext_tools
+import sys
+import warnings
+
+# COMPATIBILITY: the scipy.weave module is deprecated and was the only module
+# never ported to Python 3.x
+python_version = sys.version_info
+if python_version[0] < 3:
+    from scipy.weave import ext_tools
+else:
+    warnings.warn("The 'bounded_thinplate' is not available in Python 3.x.",
+                  DeprecationWarning)
 
 
 def build_bounded_thinplate_module():

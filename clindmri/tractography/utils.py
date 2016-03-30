@@ -7,6 +7,7 @@
 ##########################################################################
 
 # System import
+from __future__ import print_function
 import numpy
 import json
 import copy
@@ -321,7 +322,7 @@ def _extrap(xyz, cumlen, distance):
     try:
         ind = numpy.where((cumlen - distance) > 0)[0][0]
     except:
-        print xyz, cumlen, distance, cumlen - distance
+        print(xyz, cumlen, distance, cumlen - distance)
         raise
     len0 = cumlen[ind - 1]
     len1 = cumlen[ind]

@@ -271,8 +271,6 @@ class TriSurface(object):
         """
         import vtk
 
-        print self.metadata
-
         # Check that the inflated
         if inflated and self.inflated_vertices is None:
             raise ValueError("Can't save inflated volume '{0}' since it has "

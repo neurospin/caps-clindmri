@@ -15,8 +15,15 @@ fake return string.
 
 # System import
 import unittest
-import mock
-from mock import patch
+import sys
+# COMPATIBILITY: since python 3.3 mock is included in unittest module
+python_version = sys.version_info
+if python_version[:2] <= (3, 3):
+    import mock
+    from mock import patch
+else:
+    import unittest.mock as mock
+    from unittest.mock import patch
 
 # Clindmri import
 from clindmri.segmentation.fsl import bet2
