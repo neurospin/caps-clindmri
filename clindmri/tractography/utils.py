@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -8,6 +7,7 @@
 ##########################################################################
 
 # System import
+from __future__ import print_function
 import numpy
 import json
 import copy
@@ -38,7 +38,7 @@ class Tractogram(object):
                 clusters = json.load(open_file)
                 for clusterid, clusteritem in clusters.items():
                     for trkindex in clusteritem["indices"]:
-                        self.labels[trkindex] = clusterid    
+                        self.labels[trkindex] = clusterid
         self.length = [None, ] * self.shape()
 
     def shape(self):
@@ -95,13 +95,13 @@ class Tractogram(object):
             the downsampled tracks.
         """
         if index is not None and index < self.shape():
-            return dowsample(self.tracks[index], nb_points)
+            return downsample(self.tracks[index], nb_points)
 
         if index is None:
             dowsample_tracks = []
             for index in range(self.shape()):
                 dowsample_tracks.append(
-                    dowsample(self.tracks[index], nb_points))
+                    downsample(self.tracks[index], nb_points))
             return dowsample_tracks
 
         return []
@@ -127,7 +127,7 @@ class Tractogram(object):
 
     def endpoints(self):
         """ Return the tracks end points.
-    
+
         Returns
         -------
         endpoints: array (n, 2, 3)
@@ -270,7 +270,7 @@ def downsample(xyz, n_pols=3):
 
     Uses the length of the curve. It works in as similar fashion to
     midpoint and arbitrarypoint.
-    
+
     Parameters
     ----------
     xyz : array-like shape (N,3)
@@ -287,8 +287,8 @@ def downsample(xyz, n_pols=3):
     # Ensure we are working with numpy array
     xyz = numpy.asarray(xyz)
 
-    # Special cases when no track are passed or when the track is represented by
-    # one point
+    # Special cases when no track are passed or when the track is represented
+    # by one point
     n_pts = xyz.shape[0]
     if n_pts == 0:
         raise ValueError("xyz array cannot be empty.")
@@ -309,7 +309,7 @@ def downsample(xyz, n_pols=3):
                          "incorrect.".format(n_pols))
 
     # The resampling procedure
-    xyz2 = [_extrap(xyz, cumlen, distance) 
+    xyz2 = [_extrap(xyz, cumlen, distance)
             for distance in numpy.arange(0, cumlen[-1], step)]
 
     return numpy.vstack((numpy.array(xyz2), xyz[-1]))
@@ -318,13 +318,13 @@ def downsample(xyz, n_pols=3):
 def _extrap(xyz, cumlen, distance):
     """ Helper function for extrapolation.
     """
-    # Find where is the new point: interval 
-    try: 
+    # Find where is the new point: interval
+    try:
         ind = numpy.where((cumlen - distance) > 0)[0][0]
     except:
-        print xyz, cumlen, distance, cumlen - distance
+        print(xyz, cumlen, distance, cumlen - distance)
         raise
-    len0 = cumlen[ind - 1]        
+    len0 = cumlen[ind - 1]
     len1 = cumlen[ind]
 
     # Linear interpolation

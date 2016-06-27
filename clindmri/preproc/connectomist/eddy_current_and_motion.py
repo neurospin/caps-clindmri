@@ -51,19 +51,6 @@ def dwi_eddy_current_and_motion_correction(
     -------
     outdir: str
         path to Connectomist's output directory.
-
-    <unit>
-        <output name="eddy_motion_dir" type="Directory" />
-
-        <input name="outdir" type="Directory" description="Path to
-            Connectomist output work directory."/>
-        <input name="raw_dwi_dir" type="Directory" description="Path to
-            Connectomist Raw DWI directory."/>
-        <input name="rough_mask_dir" type="Directory" description="Path
-            to Connectomist Rough Mask directory."/>
-        <input name="corrected_dir" type="Directory" description="
-            Connectomist Susceptibility or Outlier directory."/>
-    </unit>
     """
     # Dict with all parameters for connectomist
     algorithm = "DWI-Eddy-Current-And-Motion-Correction"

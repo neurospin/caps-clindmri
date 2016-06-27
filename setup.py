@@ -7,32 +7,20 @@
 # for details.
 ##########################################################################
 
-from ez_setup import use_setuptools
-use_setuptools()
+
+# System import
+from setuptools import setup, find_packages
 import os
-from setuptools import setup, find_packages, Extension
-import numpy
-from Cython.Distutils import build_ext
-
-
-cmdclass = {"build_ext": build_ext}
-
-
-ext_modules = []
-for modulename, other_sources, language in (
-        ("clindmri.clustering.local_skeleton_clustering", [], "c"),
-        ("clindmri.clustering.metrics", [], "c")):
-    pyx_src = os.path.join(*modulename.split(".")) + ".pyx"
-    ext_modules.append(Extension(modulename, [pyx_src] + other_sources,
-                                 language=language,
-                                 include_dirs=[numpy.get_include(), "src"],
-                                 extra_compile_args=['-fopenmp'],
-                                 extra_link_args=['-fopenmp']))
+import clindmri
 
 
 release_info = {}
-execfile(os.path.join("clindmri", "info.py"), release_info)
-
+infopath = os.path.join(os.path.dirname(__file__), "clindmri", "info.py")
+with open(infopath) as open_file:
+    exec(open_file.read(), release_info)
+pkgdata = {
+    "clindmri.tests": ["*.py"],
+}
 
 setup(
     name=release_info["NAME"],
@@ -48,6 +36,5 @@ setup(
     platforms=release_info["PLATFORMS"],
     extras_require=release_info["EXTRA_REQUIRES"],
     install_requires=release_info["REQUIRES"],
-    ext_modules=ext_modules,
-    cmdclass=cmdclass,
+    package_data=pkgdata
 )

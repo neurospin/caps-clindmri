@@ -1,6 +1,5 @@
-#! /usr/bin/env python
 ##########################################################################
-# NSAP - Copyright (C) CEA, 2013-2015
+# NSAp - Copyright (C) CEA, 2013-2015
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -45,7 +44,7 @@ class LabelsOnPick(object):
         self.static_position = static_position
         self.to_keep_actors = to_keep_actors or []
 
-    def __call__(self, obj, event):    
+    def __call__(self, obj, event):
         """ When an actor is picked, display its label and focus on this
         actor only.
         """
@@ -78,7 +77,7 @@ def display_folds(folds_file, labels, weights, white_file=None,
     The scene supports one feature activated via the keystroke:
 
     * 'p': Pick the data at the current mouse point. This will pop-up a window
-      with information on the current pick (ie. the fold name). 
+      with information on the current pick (ie. the fold name).
 
     Parameters
     ----------
@@ -117,7 +116,8 @@ def display_folds(folds_file, labels, weights, white_file=None,
         vectices = image.darrays[vertindex].data
         triangles = image.darrays[vertindex + 1].data
         labelindex = image.darrays[vertindex].get_metadata()["Timestep"]
-        if labelindex != image.darrays[vertindex + 1].get_metadata()["Timestep"]:
+        if labelindex != image.darrays[vertindex + 1].get_metadata()[
+                "Timestep"]:
             raise ValueError("Gifti arrays '{0}' and '{1}' do not share the "
                              "same label.".format(vertindex, vertindex + 1))
         labelindex = int(labelindex)
@@ -199,6 +199,8 @@ def parse_graph(graph_file):
 
     # Search labels
     infold = False
+    meshid = None
+    label = None
     labels = {}
     for line in lines:
 
@@ -220,5 +222,3 @@ def parse_graph(graph_file):
             meshid = int(line.replace("Tmtktri_label", "").strip())
 
     return labels
-            
-

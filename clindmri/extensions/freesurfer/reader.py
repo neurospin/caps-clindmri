@@ -1,6 +1,5 @@
-#! /usr/bin/env python
 ##########################################################################
-# NSAP - Copyright (C) CEA, 2013
+# NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
@@ -12,7 +11,6 @@ import os
 import copy
 import re
 import numpy
-import json
 from nibabel import freesurfer
 
 # Clindmri import
@@ -124,7 +122,7 @@ def apply_affine_on_mesh(vertex, affine):
 
 def tkregister_translation(mgzfile, fsconfig):
     """ Get the tkregister translation.
-  
+
     FreeSurfer use a special origin for the Right-Anterior-Superior
     (anatomical coordinates) space. To get the standard, freesurfer scanner
     space in RAS coordinates we can use the 'mri_info --vox2ras aseg.mgz' or
@@ -250,14 +248,16 @@ class TriSurface(object):
         if annotfile is not None:
             labels, ctab, regions = freesurfer.read_annot(
                 annotfile, orig_ids=False)
-            meta = dict((index, {"region": item[0], "color": item[1][:4].tolist()})
-                        for index, item in enumerate(zip(regions, ctab)))
+            meta = dict(
+                (index, {"region": item[0], "color": item[1][:4].tolist()})
+                for index, item in enumerate(zip(regions, ctab)))
         else:
             labels = None
             meta = None
 
-        return TriSurface(vertices=vertices, triangles=triangles, labels=labels,
-                          metadata=meta, inflated_vertices=inflated_vertices)
+        return TriSurface(vertices=vertices, triangles=triangles,
+                          labels=labels, metadata=meta,
+                          inflated_vertices=inflated_vertices)
 
     def save_vtk(self, outfile, inflated=False):
         """ Export a mesh in .vtk format
@@ -270,8 +270,6 @@ class TriSurface(object):
             if True write the inflated volume.
         """
         import vtk
-
-        print self.metadata
 
         # Check that the inflated
         if inflated and self.inflated_vertices is None:
@@ -333,7 +331,6 @@ class TriSurface(object):
                 label_indices = indices[numpy.where(self.labels == label)]
                 label_array[label_indices.T.tolist()] = label + shift
         return label_array, nb_of_labels
-        
 
     def voxelize(self, shape, tol=0):
         """ Compute the enclosed points of the TriSurface.
@@ -357,7 +354,7 @@ class TriSurface(object):
         gridx, gridy, gridz = numpy.meshgrid(numpy.linspace(0, nx - 1, nx),
                                              numpy.linspace(0, ny - 1, ny),
                                              numpy.linspace(0, nz - 1, nz))
-       
+
         # Create polydata
         vtk_points = vtk.vtkPoints()
         for point in zip(gridx.flatten(), gridy.flatten(), gridz.flatten()):
@@ -365,7 +362,7 @@ class TriSurface(object):
         points_polydata = vtk.vtkPolyData()
         points_polydata.SetPoints(vtk_points)
         surf_polydata = self._polydata()
-        
+
         # Compute enclosed points
         enclosed_pts = vtk.vtkSelectEnclosedPoints()
         enclosed_pts.SetInput(points_polydata)
@@ -391,7 +388,7 @@ class TriSurface(object):
         Parameters
         ----------
         inflated: bool (optional, default False)
-            If True use the inflated vertices.            
+            If True use the inflated vertices.
 
         Returns
         -------
@@ -412,7 +409,6 @@ class TriSurface(object):
         vtk_triangles = vtk.vtkCellArray()
         vtk_colors = vtk.vtkUnsignedCharArray()
         vtk_colors.SetNumberOfComponents(1)
-        nb_of_labels = len(set(self.labels))
         labels[numpy.where(labels < 0)] = 0
         for index in range(len(vertices)):
             vtk_points.InsertNextPoint(vertices[index])
@@ -431,5 +427,3 @@ class TriSurface(object):
         polydata.SetPolys(vtk_triangles)
 
         return polydata
-
-            

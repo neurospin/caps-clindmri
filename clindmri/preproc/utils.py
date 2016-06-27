@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -19,7 +18,8 @@ def select_first_b0(bvalfile):
     <process>
         <return name="b0_index" type="Int" desc="First index of non weighted
             image."/>
-        <input name="bvalfile" type="File" desc="The diffusion b-values file."/>
+        <input name="bvalfile" type="File" desc="The diffusion b-values
+            file."/>
     </process>
     """
     bvals = numpy.loadtxt(bvalfile).tolist()
@@ -38,8 +38,10 @@ def rotate_bvecs(bvecfile, trffile, output_directory):
     three translation parameters (x,y,z in mm).
 
     <process>
-        <return name="reobvecfile" type="File" desc="The reoriented b-vectors."/>
-        <input name="bvecfile" type="File" desc="The diffusion b-vectors file."/>
+        <return name="reobvecfile" type="File" desc="The reoriented
+            b-vectors."/>
+        <input name="bvecfile" type="File" desc="The diffusion b-vectors
+            file."/>
         <input name="trffile" type="File" desc="The transformation parameters
             used to align each volume of the diffusion sequence."/>
         <input name="output_directory" type="Directory" desc="The destination
@@ -54,9 +56,11 @@ def rotate_bvecs(bvecfile, trffile, output_directory):
     # Load b-vectors and transformation parameters
     bvecs = numpy.loadtxt(bvecfile).T
     trf = numpy.loadtxt(trffile)
-    if bvecs.shape[0] != trf.shape[0] or bvecs.shape[1] != 3 or trf.shape[1] != 6:
-        raise Exception("The b-vector file '{0}' and transformation file '{1}' "
-                        "are miss-formated.".format(bvecfile, trffile))
+    if (bvecs.shape[0] != trf.shape[0] or bvecs.shape[1] != 3 or
+            trf.shape[1] != 6):
+        raise Exception(
+            "The b-vector file '{0}' and transformation file '{1}' "
+            "are miss-formated.".format(bvecfile, trffile))
     nbdirs = bvecs.shape[0]
 
     # Reorient the directions

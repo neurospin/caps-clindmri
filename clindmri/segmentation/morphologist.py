@@ -4,7 +4,7 @@
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 # for details.
-# 
+#
 # First activate brainvisa env:
 # .bv_env
 ##########################################################################
@@ -33,7 +33,8 @@ from soma_workflow.client import WorkflowController
 from clindmri.segmentation .topological_sort import Graph
 from clindmri.segmentation .topological_sort import GraphNode
 from clindmri.extensions.morphologist.wrappers import MorphologistWrapper
-from clindmri.extensions.morphologist.exceptions import MorphologistRuntimeError
+from clindmri.extensions.morphologist.exceptions import (
+    MorphologistRuntimeError)
 from clindmri.extensions.morphologist.exceptions import MorphologistError
 
 
@@ -52,8 +53,8 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
     4- A grey/white classification of each hemisphere to perform "Voxel Based
        Morphometry" (Grey White Classification) and spherical triangulation of
        cortical hemispheres (Grey White Surface).
-    5- Spherical triangulation of the external interface of the cortex of one or
-       two hemispheres (Get Spherical Hemi Surface).
+    5- Spherical triangulation of the external interface of the cortex of one
+       or two hemispheres (Get Spherical Hemi Surface).
     6- Computation of a graph representing the cortical fold topography
        (Cortical Fold Graph).
     7- Automatic identification of the cortical sulci (Automatic Sulci
@@ -100,26 +101,26 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
     # Check roughly the input file extension
     if not t1file.endswith(".nii.gz"):
         raise Exception("'{0}' is not a COMPRESSED NIFTI file.".format(t1file))
-    
+
     # Create a configuration for the morphologist study
     study_config = StudyConfig(
         modules=StudyConfig.default_modules + ["FomConfig", "BrainVISAConfig"])
     study_dict = {
-        "name" : "morphologist_fom",
-        "input_directory" : outdir,
-        "output_directory" : outdir,
-        "input_fom" : "morphologist-auto-nonoverlap-1.0",
-        "output_fom" : "morphologist-auto-nonoverlap-1.0",
-        "shared_fom" : "shared-brainvisa-1.0",
-        "spm_directory" : spmdir,
-        "use_soma_workflow" : True,
-        "use_fom" : True,
-        "spm_standalone" : True,
-        "use_matlab" : False,
-        "volumes_format" : "NIFTI gz",
-        "meshes_format" : "GIFTI",
-        "use_spm" : True,
-        "spm_exec" : spmexec,
+        "name": "morphologist_fom",
+        "input_directory": outdir,
+        "output_directory": outdir,
+        "input_fom": "morphologist-auto-nonoverlap-1.0",
+        "output_fom": "morphologist-auto-nonoverlap-1.0",
+        "shared_fom": "shared-brainvisa-1.0",
+        "spm_directory": spmdir,
+        "use_soma_workflow": True,
+        "use_fom": True,
+        "spm_standalone": True,
+        "use_matlab": False,
+        "volumes_format": "NIFTI gz",
+        "meshes_format": "GIFTI",
+        "use_spm": True,
+        "spm_exec": spmexec,
         "study_config.somaworkflow_computing_resource": "localhost",
         "somaworkflow_computing_resources_config": {
             "localhost": {
@@ -183,7 +184,7 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
     workflow.add_workflow(wf, as_group="{0}_{1}".format(study, sid))
     wffile = os.path.join(subjectdir, "{0}.wf".format(study))
     pickle.dump(workflow, open(wffile, "w"))
-       
+
     # Execute the workflow with somaworkflow
     if somaworkflow:
         controller = WorkflowController()
@@ -194,7 +195,8 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
         while True:
             time.sleep(waittime)
             wfstatus = controller.workflow_status(wfid)
-            if wfstatus not in ["worklflow_not_started", "workflow_in_progress"]:
+            if wfstatus not in [
+                    "worklflow_not_started", "workflow_in_progress"]:
                 break
 
     # Execute the workflow with subprocess
@@ -230,8 +232,8 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
                             struct = temporaries[str(item)]
                             name = cmd[2].split(";")[1].split()[-1]
                             tmppath = os.path.join(
-                                subjectdir, "t1mri", "default_acquisition", "tmp",
-                                str(item) + name + struct["suffix"])
+                                subjectdir, "t1mri", "default_acquisition",
+                                "tmp", str(item) + name + struct["suffix"])
                             tmpmap[str(item)] = tmppath
                         else:
                             raise MorphologistError(
@@ -243,8 +245,8 @@ def morphologist_all(t1file, sid, outdir, study="morphologist", waittime=10,
             worker = MorphologistWrapper(cmd)
             worker()
             if worker.exitcode != 0:
-                raise MorphologistRuntimeError(" ".join(worker.cmd),
-                                                        worker.stderr)
+                raise MorphologistRuntimeError(
+                    " ".join(worker.cmd), worker.stderr)
 
         wfstatus = "Done"
         wfid = "subprocess"

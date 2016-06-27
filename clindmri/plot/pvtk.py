@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -35,10 +34,10 @@ def ren():
 
     Examples
     --------
-    >>> import plot_vtk
-    >>> ren = plot_vtk.ren()
-    >>> plot_vtk.add(ren, actor)
-    >>> plot_vtk.show(ren)
+    >>> import pvtk
+    >>> ren = pvtk.ren()
+    >>> pvtk.add(ren, actor)
+    >>> pvtk.show(ren)
     """
     return vtk.vtkRenderer()
 
@@ -247,7 +246,7 @@ def tensor(coeff, order, position=(0, 0, 0),
     # Deform mesh
     design_matrix = construct_matrix_of_monomials(mesh, order)
     signal = numpy.dot(design_matrix, coeff)
-    #signal = np.maximum(signal, 0.0)
+    # signal = np.maximum(signal, 0.0)
     signal /= signal.max()
     signal *= 0.5
 
@@ -446,7 +445,7 @@ def tubes(lines, colors, opacity=1, linewidth=0.15, tube_sides=8,
     else:
         profileTubes.SetInputData(profileData)
 
-    #profileTubes.SetInput(profileData)
+    # profileTubes.SetInput(profileData)
     profileTubes.SetRadius(linewidth)
 
     profileMapper = vtk.vtkPolyDataMapper()
@@ -520,7 +519,8 @@ def dots(points, color=(1, 0, 0), psize=1, opacity=1):
     return aPolyVertexActor
 
 
-def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
+def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True,
+            decimation_ratio=1):
     """ Create a colored triangular surface.
 
     Parameters
@@ -539,6 +539,9 @@ def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
         the actor global opacity.
     set_lut: bool (optional, default True)
         if True set a tuned lut.
+    decimation_ratio: float (optional, default 1)
+        how many triangles should reduced by specifying the percentage
+        ([0,1]) of triangles to be removed.
 
     Returns
     -------
@@ -585,9 +588,14 @@ def surface(points, triangles, labels, ctab=None, opacity=1, set_lut=True):
     polydata.GetPointData().SetScalars(vtk_colors)
     polydata.SetPolys(vtk_triangles)
 
+    # Decimate the mesh
+    decimate = vtk.vtkDecimatePro()
+    decimate.SetInputConnection(polydata.GetProducerPort())
+    decimate.SetTargetReduction(decimation_ratio)
+
     # Create the mapper
     mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInput(polydata)
+    mapper.SetInput(decimate.GetOutput())
     if set_lut:
         mapper.SetLookupTable(lut)
         mapper.SetColorModeToMapScalars()

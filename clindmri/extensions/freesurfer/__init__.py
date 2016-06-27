@@ -9,4 +9,3 @@
 
 from .reader import read_cortex_surface_segmentation
 from .wrappers import FSWrapper
-

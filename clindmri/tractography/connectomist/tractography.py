@@ -63,7 +63,8 @@ def tractography(
         the path to the Connectomist model directory.
     registrationdir str
         the path to the Connectomist registration directory.
-    tracking_type: str (optional, default 'streamline_regularize_deterministic')
+    tracking_type: str (optional, default
+            'streamline_regularize_deterministic')
         the tractography algorithm: 'streamline_regularize_deterministic',
         'streamline_deterministic' or 'streamline_probabilistic'
     bundlemap: str (optional, default 'vtkbundlemap')

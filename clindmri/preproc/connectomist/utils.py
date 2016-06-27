@@ -85,7 +85,8 @@ def gz_compress(file_to_compress, clean=True):
 
     # Zip the input file
     gz_file = file_to_compress + ".gz"
-    with open(file_to_compress, 'rb') as f_in, gzip.open(gz_file, 'wb') as f_out:
+    with open(file_to_compress, 'rb') as f_in, \
+            gzip.open(gz_file, 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
     if clean:
         os.remove(file_to_compress)

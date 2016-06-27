@@ -5,7 +5,7 @@
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 # for details.
-# 
+#
 # First activate brainvisa env:
 # /neurospin/brainvisa/build/Ubuntu-14.04-x86_64/bug_fix/bin/bv_env
 ##########################################################################
@@ -163,4 +163,3 @@ if args.verbose > 1:
     print("[result] Workflow file: {0}.".format(wffile))
     print("[result] Workflow id: {0}.".format(wfid))
     print("[result] Workflow status: {0}.".format(wfstatus))
-

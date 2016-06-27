@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -16,11 +15,14 @@ from clindmri.extensions.fsl import FSLWrapper
 from clindmri.extensions.fsl.exceptions import FSLRuntimeError
 
 
-def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
+def probtrackx2(samples, seed, mask, dir, stop=None, avoid=None,
+                out="fdt_paths", nsamples=5000,
                 nsteps=2000, cthr=0.2, loopcheck=None, onewaycondition=None,
                 usef=None, simple=None, seedref=None, steplength=0.5,
-                fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=None,
-                stop=None, shfile="/etc/fsl/5.0/fsl.sh"):
+                fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=False,
+                omatrix1=False, omatrix2=False, omatrix3=False,
+                target2=None, target3=None,
+                shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command probtrackx2.
 
     Single voxel
@@ -37,7 +39,7 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
                 out="SingleVoxel_paths")
 
     [2] Tracking in a standard / no-diffusion space.
-    
+
     probtrackx2(samples="/.../fsl.bedpostX/merged",
                 mask="/.../fsl.bedpostX/nodif_brain_mask",
                 seed="$PATH/tracto/seedvox_coordinates.txt",
@@ -157,7 +159,7 @@ def probtrackx2(samples, seed, mask, dir, out="fdt_paths", nsamples=5000,
         --fibst     Force a starting fibre for tracking - default=1, i.e.
                     first fibre orientation. Only works if randfib==0
         --rseed     Random seed
-        
+
     Parameters
     ----------
     shfile: str (optional, default NeuroSpin path)
@@ -196,9 +198,9 @@ def bedpostx(input, n=3, w=1, b=1000, j=1250, s=25, model=2, g=None, c=None,
     expects to find bvals and bvecs in input
     expects to find data and nodif_brain_mask in input
     expects to find grad_dev in input, if -g is set
-    
+
     options (old syntax)
-    
+
     -n (number of fibers per voxel, default 3)
     -w (ARD weight, more weight means less secondary fibers per voxel,
        default 1)
@@ -293,7 +295,7 @@ def bedpostx_datacheck(input, shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps bedpostx_datacheck
 
     Usage: bedpostx_datacheck input
-    
+
     Parameters
     ----------
     input: str (mandatory)

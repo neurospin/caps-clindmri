@@ -17,9 +17,10 @@ import shutil
 try:
     import bredala
     bredala.USE_PROFILER = False
-    bredala.register("clindmri.segmentation.freesurfer", names=["mri_convert",
-                     "resample_cortical_surface", "conformed_to_native_space",
-                     "surf_convert", "qc"])
+    bredala.register(
+        "clindmri.segmentation.freesurfer",
+        names=["mri_convert", "resample_cortical_surface",
+               "conformed_to_native_space", "surf_convert", "qc"])
 except:
     pass
 

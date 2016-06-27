@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 ##########################################################################
 # NSAp - Copyright (C) CEA, 2013-2015
 # Distributed under the terms of the CeCILL-B license, as published by
@@ -111,6 +110,63 @@ def recon_all(fsdir, anatfile, sid, output_directory=None,
     subjfsdir = os.path.join(fsdir, sid)
 
     return subjfsdir
+
+
+def mri_binarize(inputfile, outputfile, match=[], wm=False,
+                 fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh"):
+    """ Binarize a FreeSurfer label map.
+
+    USAGE: mri_binarize
+
+   --i invol  : input volume
+
+   --min min  : min thresh (def is -inf)
+   --max max  : max thresh (def is +inf)
+   --pct P : set threshold to capture top P% (in mask or total volume)
+   --rmin rmin  : compute min based on rmin*globalmean
+   --rmax rmax  : compute max based on rmax*globalmean
+   --match matchval <matchval2 ...>  : match instead of threshold
+   --wm : set match vals to 2 and 41 (aseg for cerebral WM)
+   --ventricles : set match vals those for aseg ventricles+choroid (not 4th)
+   --wm+vcsf : WM and ventricular CSF, including choroid (not 4th)
+
+   --o outvol : output volume
+   --count countfile : save number of hits in ascii file (hits,ntotvox,pct)
+
+   --binval    val    : set vox within thresh to val (default is 1)
+   --binvalnot notval : set vox outside range to notval (default is 0)
+   --inv              : set binval=0, binvalnot=1
+   --frame frameno    : use 0-based frame of input (default is 0)
+   --frame-sum : sum frames together before binarizing
+   --frame-and : take intersection (AND) of frames. No --min needed.
+   --merge mergevol   : merge with mergevolume
+   --mask maskvol       : must be within mask
+   --mask-thresh thresh : set thresh for mask (def is 0.5)
+   --abs : take abs of invol first (ie, make unsigned)
+   --bincol : set binarized voxel value to its column number
+   --zero-edges : zero the edge voxels
+   --zero-slice-edges : zero the edge slice voxels
+   --dilate ndilate: dilate binarization in 3D
+   --erode  nerode: erode binarization in 3D (after any dilation)
+   --erode2d nerode2d: erode binarization in 2D (after any 3D erosion)
+
+   --debug     turn on debugging
+   --checkopts don't run anything, just check options and exit
+   --help      print out information on how to use this program
+   --version   print out version and exit
+    """
+    # Call freesurfer
+    cmd = ["mri_binarize", "--i", inputfile, "--o", outputfile]
+    if len(match) > 0:
+        cmd.append("--match")
+        cmd.extend(match)
+    if wm:
+        cmd.append("--wm")
+    recon = FSWrapper(cmd, shfile=fsconfig)
+    recon()
+    if recon.exitcode != 0:
+        raise FreeSurferRuntimeError(
+            recon.cmd[0], " ".join(recon.cmd[1:]), recon.stderr + recon.stdout)
 
 
 def aparcstats2table(fsdir, output_directory=None,
@@ -409,7 +465,7 @@ def mri_convert(fsdir, regex, output_directory=None, reslice=True,
         # Create the FS command
         basename = os.path.basename(inputfile).replace(".mgz", "")
         cmd = ["mri_convert", "--resample_type", interpolation]
-               #"--out_orientation", "RAS"]
+        # "--out_orientation", "RAS"]
         if reslice:
             reference_file = os.path.join(fsdir, subject, "mri", "rawavg.mgz")
             if not os.path.isfile(reference_file):
@@ -1128,10 +1184,10 @@ def population_statistic(fsdir, sid=None):
             subject_header = "{0}.{1}.{2}".format(hemi, stype, sname)
         else:
             continue
-        
+
         if sname not in popstats[hemi]:
             popstats[hemi][sname] = {}
-        with open(fpath, "rb" ) as openfile:
+        with open(fpath, "rb") as openfile:
             reader = csv.DictReader(openfile)
             for line in reader:
                 subject = line.pop(subject_header)
@@ -1151,4 +1207,3 @@ def population_statistic(fsdir, sid=None):
             }
 
     return popstats
-

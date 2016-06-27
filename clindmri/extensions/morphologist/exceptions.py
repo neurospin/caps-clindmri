@@ -22,4 +22,3 @@ class MorphologistRuntimeError(MorphologistError):
             "Morphologist call for '{0}' failed.Error:: "
             "{2}.".format(algorithm_name, parameters, error))
         super(MorphologistRuntimeError, self).__init__(message)
-
