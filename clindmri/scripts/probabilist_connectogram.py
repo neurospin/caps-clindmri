@@ -11,8 +11,10 @@
 import os
 import argparse
 
-from clindmri.connectivity.connectogram import CORTICAL_ATLASES, STOP_MASK_TYPES
-from clindmri.connectivity.connectogram_pipeline import connectogram_seeding_wm_pipeline
+from clindmri.connectivity.connectogram import \
+    CORTICAL_ATLASES, STOP_MASK_TYPES
+from clindmri.connectivity.connectogram_pipeline import \
+    connectogram_seeding_wm_pipeline
 
 
 def is_dir(dirpath):
@@ -42,58 +44,51 @@ def get_cmd_line_args():
                                      usage=usage)
 
     # Required arguments
-    parser.add_argument("-s", "--subject-id",
-                        required=True,
+    parser.add_argument("-s", "--subject-id", required=True,
                         help="Subject id used with Freesurfer.")
-    parser.add_argument("-i", "--nodif-brain",
-                        type=is_file,
-                        required=True,
+
+    parser.add_argument("-i", "--nodif-brain", type=is_file, required=True,
                         help="A preprocessed brain-only volume with bvalue=0.")
-    parser.add_argument("-m", "--nodif-brain-mask",
-                        type=is_file,
+
+    parser.add_argument("-m", "--nodif-brain-mask", type=is_file,
                         required=True,
                         help="A brain-only mask volume in diffusion space.")
-    parser.add_argument("-b", "--bedpostx-dir",
-                        type=is_dir,
-                        required=True,
+
+    parser.add_argument("-b", "--bedpostx-dir", type=is_dir, required=True,
                         help="The bedpostx output directory.")
-    parser.add_argument("-o", "--outdir",
-                        required=True,
+
+    parser.add_argument("-o", "--outdir", required=True,
                         help="Directory where to output.")
 
     # Optional arguments
-    parser.add_argument("-a", "--cortical-atlas",
-                        default="Desikan",
-                        choices=CORTICAL_ATLASES,
-                        metavar="<atlas name>",
+    parser.add_argument("-a", "--cortical-atlas", default="Desikan",
+                        choices=CORTICAL_ATLASES, metavar="<atlas name>",
                         help="Cortical atlas name")
-    parser.add_argument("-p", "--stop-mask-type",
-                        default="target_rois",
-                        choices=STOP_MASK_TYPES,
-                        metavar="<stop mask type>",
-                        help='Which type of stop mask to use:'
-                             '\n- "target_rois": stop a sample as soon as it reaches a target region'
-                             '\n- "inverse_wm":  stop a sample as soon as it leaves the white matter')
-    parser.add_argument("-l", "--nsamples",
-                        type=int,
-                        default=5000,
-                        metavar="<nsamples>",
-                        help="Number of samples per voxel to initiate in seed region (default 5000).")
-    parser.add_argument("-e", "--nsteps",
-                        type=int,
-                        default=2000,
-                        metavar="<nsteps>",
-                        help="Maximum number of steps for a sample (default 2000).")
-    parser.add_argument('-g', "--steplength",
-                        type=float,
-                        default=0.5,
-                        metavar="<steplength>",
-                        help="Step length in mm.")
+
+    phelp = ("Which type of stop mask to use: 'target_rois' or 'inverse_wm'. "
+             "Stop a sample as soon as it reaches a target region or as soon "
+             "as it leaves the white matter")
+    parser.add_argument("-p", "--stop-mask-type", default="target_rois",
+                        choices=STOP_MASK_TYPES,  metavar="<stop mask type>",
+                        help=phelp)
+
+    lhelp = ("Number of samples per voxel to initiate in seed region "
+             "(default 5000).")
+    parser.add_argument("-l", "--nsamples", type=int, default=5000,
+                        metavar="<nsamples>", help=lhelp)
+
+    ehelp = ("Maximum number of steps for a sample (default 2000).")
+    parser.add_argument("-e", "--nsteps", type=int, default=2000,
+                        metavar="<nsteps>", help=ehelp)
+
+    parser.add_argument('-g', "--steplength", type=float, default=0.5,
+                        metavar="<steplength>", help="Step length in mm.")
+
+    dhelp = "To bypass the $SUBJECTS_DIR environment variable."
     parser.add_argument("-d", "--subjects-dir",
-                        metavar="<Freesurfer subjects directory>",
-                        help="To bypass the $SUBJECTS_DIR environment variable.")
-    parser.add_argument("-f", "--fsl-init",
-                        default="/etc/fsl/5.0/fsl.sh",
+                        metavar="<Freesurfer subjects directory>", help=dhelp)
+
+    parser.add_argument("-f", "--fsl-init", default="/etc/fsl/5.0/fsl.sh",
                         metavar="<FSL init script>",
                         help="To initialize FSL's environment.")
 

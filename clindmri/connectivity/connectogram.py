@@ -18,7 +18,7 @@ import json
 from clindmri.preproc.utils import select_first_b0
 from clindmri.registration.utils import extract_image
 from clindmri.segmentation.fsl import bet2
-from clindmri.tractography.fsl import bedpostx, probtrackx2
+from clindmri.tractography.fsl import probtrackx2
 from clindmri.extensions.freesurfer.wrappers import FSWrapper
 from clindmri.extensions.freesurfer.exceptions import FreeSurferRuntimeError
 from clindmri.extensions.fsl.wrappers import FSLWrapper
@@ -305,7 +305,7 @@ def register_diffusion_to_anatomy(outdir,
 
     dif2anat_dat = os.path.join(outdir, "dif2anat.dat")
     cmd = ["bbregister",
-           "--s", subject_id,
+           "--s",   subject_id,
            "--mov", nodif_brain,
            "--reg", dif2anat_dat,
            "--dti",
@@ -350,12 +350,12 @@ def qc_dif2anat_registration(outdir,
 
     # Project T1 in dif
     cmd = ["mri_vol2vol",
-           "--mov", nodif_brain,
-           "--targ", t1,
+           "--mov",    nodif_brain,
+           "--targ",   t1,
            "--inv",
            "--interp", "nearest",
-           "--o", t1_to_dif,
-           "--reg", dif2anat_dat,
+           "--o",      t1_to_dif,
+           "--reg",    dif2anat_dat,
            "--no-save-reg"]
     run_freesurfer_cmd(cmd)
 
@@ -481,12 +481,12 @@ def project_aparc_and_aseg_to_diffusion(outdir,
 
     # Project cortical segmentation in diffusion
     cmd = ["mri_vol2vol",
-           "--mov", nodif_brain,
-           "--targ", aparc_mgz,
+           "--mov",    nodif_brain,
+           "--targ",   aparc_mgz,
            "--inv",
            "--interp", "nearest",
-           "--o", aparc2dif,
-           "--reg", dif2anat_dat,
+           "--o",      aparc2dif,
+           "--reg",    dif2anat_dat,
            "--no-save-reg"]
     run_freesurfer_cmd(cmd)
 
@@ -494,12 +494,12 @@ def project_aparc_and_aseg_to_diffusion(outdir,
     aseg_mgz = os.path.join(subj_dir, "mri/aseg.mgz")
     aseg2dif = os.path.join(outdir, "aseg2dif%s" % outext)
     cmd = ["mri_vol2vol",
-           "--mov", nodif_brain,
-           "--targ", aseg_mgz,
+           "--mov",    nodif_brain,
+           "--targ",   aseg_mgz,
            "--inv",
            "--interp", "nearest",
-           "--o", aseg2dif,
-           "--reg", dif2anat_dat,
+           "--o",      aseg2dif,
+           "--reg",    dif2anat_dat,
            "--no-save-reg"]
     run_freesurfer_cmd(cmd)
 
@@ -529,8 +529,10 @@ def create_ventricles_mask(outdir, path_aseg, outext=".nii.gz"):
     segmentation before calling this function.
     """
     ventricles_mask = os.path.join(outdir, "ventricles%s" % outext)
-    cmd = ["mri_binarize", "--i", path_aseg,
-           "--ventricles", "--o", ventricles_mask]
+    cmd = ["mri_binarize",
+           "--i", path_aseg,
+           "--ventricles",
+           "--o", ventricles_mask]
     run_freesurfer_cmd(cmd)
 
     return ventricles_mask
@@ -560,9 +562,9 @@ def create_target_masks(outdir, target_rois, path_aparc, outext=".nii.gz"):
     for roi in target_rois:
         mask_path = os.path.join(outdir, "%s%s" % (roi, outext))
         cmd = ["mri_binarize",
-               "--i", path_aparc,
+               "--i",     path_aparc,
                "--match", LABEL_OF_ROI[roi],
-               "--o", mask_path]
+               "--o",     mask_path]
         run_freesurfer_cmd(cmd)
         roi_masks.append(mask_path)
 
@@ -868,7 +870,7 @@ def qc_tracto_masks(outdir,
                     subdir="qc"):
     """
     Function meant to help quality check (qc) the masks created by the
-    create_masks_for_omatrix#_tractography() functions.
+    create_masks_for_tracto_seeding_*() functions.
     It creates snap shots to visualize the quality of the registration
     of the tractography masks in the diffusion space.
 
@@ -994,48 +996,6 @@ def bet2_nodif_brain(outdir, dwi, bval, subdir="bet2_nodif_brain", qc=True):
     return nodif_brain, nodif_brain_mask
 
 
-def create_bedpostx_indir(bedpostx_indir, dwi, bval, bvec, nodif_brain_mask):
-    """
-    Bedpostx requires an input directory with specific filenames inside to run.
-    The function copies the required files to a directory with the right names.
-    """
-    # Create directory if it does not exist
-    if not os.path.isdir(bedpostx_indir):
-        os.makedirs(bedpostx_indir)
-
-    # Extension is either ".nii" or ".nii.gz"
-    data_ext = ".nii" if dwi.endswith(".nii") else ".nii.gz"
-    mask_ext = ".nii" if nodif_brain_mask.endswith(".nii") else ".nii.gz"
-
-    shutil.copy2(dwi,  os.path.join(bedpostx_indir, "data" + data_ext))
-    shutil.copy2(bval, os.path.join(bedpostx_indir, "bvals"))
-    shutil.copy2(bvec, os.path.join(bedpostx_indir, "bvecs"))
-    shutil.copy2(nodif_brain_mask,
-                 os.path.join(bedpostx_indir, "nodif_brain_mask" + mask_ext))
-
-    return bedpostx_indir
-
-
-def bedpostx_diffusion_model(outdir, dwi, bval, bvec, nodif_brain_mask):
-    """
-    <unit>
-        <output name="bedpostx_dir"    type="Directory" />
-
-        <input name="outdir"           type="Directory" />
-        <input name="dwi"              type="File"      />
-        <input name="bval"             type="File"      />
-        <input name="bvec"             type="File"      />
-        <input name="nodif_brain_mask" type="File"      />
-    </unit>
-    """
-    bedpostx_indir = os.path.join(outdir, "bedpostx")
-
-    create_bedpostx_indir(bedpostx_indir, dwi, bval, bvec, nodif_brain_mask)
-    bedpostx_dir = bedpostx(bedpostx_indir)[0]
-
-    return bedpostx_dir
-
-
 def omatrix3_to_roi_network(probtrackx2_dir, outdir=None):
     """
     When using the --omatrix3 option in probtrackx2, the result is a
@@ -1131,7 +1091,8 @@ def normalize_connectogram_by_target_surf_area(outdir,
     # Normalize each value by the area of the target ROI
     for i, roi_i in enumerate(labels):
         for j, roi_j in enumerate(labels):
-            matrix[i, j] = matrix[i, j] / (area_of_roi[roi_i] + area_of_roi[roi_j])
+            sum_areas = area_of_roi[roi_i] + area_of_roi[roi_j]
+            matrix[i, j] = matrix[i, j] / sum_areas
 
     # Save output matrix
     filename = "%s%s" % (os.path.basename(txt_matrix), suffix)
@@ -1254,30 +1215,6 @@ def probtrackx2_connectogram_seeding_endpoints(outdir,
         - for each sample, propagate until stop
         - the --network option automatically generates a ROIxROI matrix
           called 'fdt_network_matrix'
-    <unit>
-        <output name="fiber_density"         type="File"      />
-        <output name="txt_matrix"            type="File"      />
-        <output name="txt_matrix_normalized" type="File"      />
-        <output name="txt_labels"            type="File"      />
-
-        <input name="outdir"                 type="Directory" />
-        <input name="bedpostx_dir"           type="Directory" />
-        <input name="txt_roi_masks"          type="File"      />
-        <input name="tracto_mask"            type="File"      />
-        <input name="network"                type="Bool"      />
-        <input name="stop_mask"              type="File"      />
-        <input name="avoid_mask"             type="File"      />
-        <input name="subdir"                 type="Str"       />
-        <input name="nsamples"               type="Int"       />
-        <input name="nsteps"                 type="Int"       />
-        <input name="cthr"                   type="Float"     />
-        <input name="loopcheck"              type="Bool"      />
-        <input name="onewaycondition"        type="Bool"      />
-        <input name="steplength"             type="Float"     />
-        <input name="fibthresh"              type="Float"     />
-        <input name="distthresh"             type="Float"     />
-        <input name="sampvox"                type="Float"     />
-    </unit>
     """
 
     if subdir:
@@ -1459,10 +1396,11 @@ def qc_connectogram(outdir,
                                               transform=np.log1p)
 
     # Normalized by surface target area connectogram snapshot
-    connectogram_norm_snapshot = plot_connectogram(outdir,
-                                                   txt_matrix_normalized,
-                                                   labels=txt_labels,
-                                                   transform=np.log1p,
-                                                   prefix="connectogram_normalized")
+    connectogram_norm_snapshot = \
+        plot_connectogram(outdir,
+                          txt_matrix_normalized,
+                          labels=txt_labels,
+                          transform=np.log1p,
+                          prefix="connectogram_normalized")
 
     return connectogram_snapshot, connectogram_norm_snapshot
