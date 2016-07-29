@@ -19,18 +19,21 @@ from clindmri.connectivity.connectogram import (
 
 
 def connectogram_seeding_wm_pipeline(outdir,
+                                     dwi,
+                                     bval,
+                                     bvec,
                                      nodif_brain,
                                      nodif_brain_mask,
                                      bedpostx_dir,
                                      subject_id,
+                                     nsamples,
+                                     nsteps,
+                                     steplength,
                                      cortical_atlas="Desikan",
                                      stop_mask_type="target_rois",
                                      subjects_dir=None,
-                                     nsamples=5000,
-                                     nsteps=2000,
                                      cthr=None,
                                      loopcheck=True,
-                                     steplength=0.5,
                                      fibthresh=None,
                                      distthresh=None,
                                      sampvox=None,
@@ -46,6 +49,12 @@ def connectogram_seeding_wm_pipeline(outdir,
     ----------
     outdir: str
         Directory where to output.
+    dwi: str
+        Path to the diffusion-weighted images (Nifti required).
+    bval: str
+        Path to the bvalue list.
+    bvec: str
+        Path to the list of diffusion-sensitized directions.
     nodif_brain: str
         Path to the preprocessed brain-only DWI volume.
     nodif_brain_mask: str
@@ -90,8 +99,11 @@ def connectogram_seeding_wm_pipeline(outdir,
                              subdir="qc")
 
     # STEP 3 - Create the needed files to run probtrackx2: the masks
-    txt_roi_masks, tracto_mask, wm_mask, stop_mask, avoid_mask = \
+    txt_roi_masks, tracto_mask, seed_mask, stop_mask, avoid_mask = \
         create_masks_for_tracto_seeding_wm(outdir=outdir,
+                                           dwi=dwi,
+                                           bval=bval,
+                                           bvec=bvec,
                                            nodif_brain=nodif_brain,
                                            nodif_brain_mask=nodif_brain_mask,
                                            dif2anat_dat=dif2anat_dat,
@@ -101,13 +113,12 @@ def connectogram_seeding_wm_pipeline(outdir,
                                            subjects_dir=subjects_dir,
                                            subdir="masks")
 
-    # STEP 4 - QC the tractography masks
-    qc_tracto_masks(outdir,
-                    nodif_brain,
-                    tracto_mask,
-                    wm_mask,
-                    stop_mask,
-                    txt_roi_masks,
+    # STEP 4 - Create snapshots of the tractography masks
+    qc_tracto_masks(outdir=outdir,
+                    tracto_mask=tracto_mask,
+                    seed_mask=seed_mask,
+                    stop_mask=stop_mask,
+                    txt_roi_masks=txt_roi_masks,
                     subdir="qc")
 
     # STEP 5 - Run probtrackx2
@@ -116,20 +127,20 @@ def connectogram_seeding_wm_pipeline(outdir,
                                             bedpostx_dir=bedpostx_dir,
                                             txt_roi_masks=txt_roi_masks,
                                             tracto_mask=tracto_mask,
-                                            wm_mask=wm_mask,
+                                            seed_mask=seed_mask,
                                             stop_mask=stop_mask,
                                             avoid_mask=avoid_mask,
                                             nsamples=nsamples,
                                             nsteps=nsteps,
+                                            steplength=steplength,
                                             cthr=cthr,
                                             loopcheck=loopcheck,
-                                            steplength=steplength,
                                             fibthresh=fibthresh,
                                             distthresh=distthresh,
                                             sampvox=sampvox,
                                             subdir="probtrackx2")
 
-    # STEP 6 - QC the connectograms (default and normalized)
+    # STEP 6 - Create snapshots of the connectograms (default and normalized)
     qc_connectogram(outdir=outdir,
                     tracto_mask=tracto_mask,
                     fiber_density=fiber_density,

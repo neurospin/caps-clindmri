@@ -38,8 +38,9 @@ def get_cmd_line_args():
     Create a command line argument parser, run it and return a dict mapping
     <argument name> -> <argument value>.
     """
-    usage = ("%(prog)s -s <subject id> -i <nodif_brain> -m <nodif_brain_mask> "
-             "-b <bedpostx_dir> -o <outdir> [options]")
+    usage = ("%(prog)s -s <subject id> -i <dwi> -b <bval> -r <bvec> "
+             "-n <nodif_brain> -m <nodif_brain_mask> -x <bedpostx_dir> "
+             "-o <outdir> [options]")
     parser = argparse.ArgumentParser(prog="python probabilist_connectogram.py",
                                      usage=usage)
 
@@ -47,15 +48,36 @@ def get_cmd_line_args():
     parser.add_argument("-s", "--subject-id", required=True,
                         help="Subject id used with Freesurfer.")
 
-    parser.add_argument("-i", "--nodif-brain", type=is_file, required=True,
+    parser.add_argument("-i", "--dwi", type=is_file, required=True,
+                        help="Path to the diffusion-weighted images (Nifti "
+                             "required).")
+
+    parser.add_argument("-b", "--bval", type=is_file, required=True,
+                        help="Path to the bvalue list.")
+
+    parser.add_argument("-r", "--bvec", type=is_file, required=True,
+                        help="Path to the list of diffusion-sensitized "
+                             "directions.")
+
+    parser.add_argument("-n", "--nodif-brain", type=is_file, required=True,
                         help="A preprocessed brain-only volume with bvalue=0.")
 
     parser.add_argument("-m", "--nodif-brain-mask", type=is_file,
                         required=True,
                         help="A brain-only mask volume in diffusion space.")
 
-    parser.add_argument("-b", "--bedpostx-dir", type=is_dir, required=True,
+    parser.add_argument("-x", "--bedpostx-dir", type=is_dir, required=True,
                         help="The bedpostx output directory.")
+
+    parser.add_argument("-l", "--nsamples", type=int, metavar="<int>",
+                        help="Number of samples per voxel to initiate in "
+                             "seed region")
+
+    parser.add_argument("-e", "--nsteps", type=int, metavar="<int>",
+                        help="Maximum number of steps for a sample.")
+
+    parser.add_argument('-g', "--steplength", type=float, metavar="<float>",
+                        help="Step length in mm.")
 
     parser.add_argument("-o", "--outdir", required=True,
                         help="Directory where to output.")
@@ -69,27 +91,14 @@ def get_cmd_line_args():
              "Stop a sample as soon as it reaches a target region or as soon "
              "as it leaves the white matter")
     parser.add_argument("-p", "--stop-mask-type", default="target_rois",
-                        choices=STOP_MASK_TYPES,  metavar="<stop mask type>",
-                        help=phelp)
+                        choices=STOP_MASK_TYPES,  metavar="<type>", help=phelp)
 
-    lhelp = ("Number of samples per voxel to initiate in seed region "
-             "(default 5000).")
-    parser.add_argument("-l", "--nsamples", type=int, default=5000,
-                        metavar="<nsamples>", help=lhelp)
-
-    ehelp = ("Maximum number of steps for a sample (default 2000).")
-    parser.add_argument("-e", "--nsteps", type=int, default=2000,
-                        metavar="<nsteps>", help=ehelp)
-
-    parser.add_argument('-g', "--steplength", type=float, default=0.5,
-                        metavar="<steplength>", help="Step length in mm.")
-
-    dhelp = "To bypass the $SUBJECTS_DIR environment variable."
-    parser.add_argument("-d", "--subjects-dir",
-                        metavar="<Freesurfer subjects directory>", help=dhelp)
+    parser.add_argument("-d", "--subjects-dir", metavar="<path>",
+                        help="To set or bypass the $SUBJECTS_DIR environment "
+                             "variable.")
 
     parser.add_argument("-f", "--fsl-init", default="/etc/fsl/5.0/fsl.sh",
-                        metavar="<FSL init script>",
+                        metavar="<path>",
                         help="To initialize FSL's environment.")
 
     # Create a dict of arguments to pass to the 'main' function
