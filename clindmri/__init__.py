@@ -7,3 +7,6 @@
 ##########################################################################
 
 from .info import __version__
+
+DEFAULT_CONNECTOMIST_PATH = \
+    "/i2bm/local/Ubuntu-14.04-x86_64/ptk/bin/connectomist"

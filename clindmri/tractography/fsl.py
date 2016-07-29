@@ -16,8 +16,8 @@ from clindmri.extensions.fsl.exceptions import FSLRuntimeError
 
 
 def probtrackx2(samples, seed, mask, dir, stop=None, avoid=None,
-                out="fdt_paths", nsamples=5000,
-                nsteps=2000, cthr=0.2, loopcheck=None, onewaycondition=None,
+                out="fdt_paths", nsamples=5000, nsteps=2000, cthr=0.2,
+                loopcheck=None, waypoints=None, onewaycondition=None,
                 usef=None, simple=None, seedref=None, steplength=0.5,
                 fibthresh=0.01, distthresh=0.0, sampvox=0.0, network=False,
                 omatrix1=False, omatrix2=False, omatrix3=False,
