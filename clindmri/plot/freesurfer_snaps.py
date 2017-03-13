@@ -3,12 +3,13 @@
 import subprocess
 import os
 import shutil
+import traceback
 
 
-def freesurfer_snaps_wm(fsdir, sid, axis=["C", "A", "S"],
-                        slice_interval=[0, 255],
+def freesurfer_snaps_wm(fsdir, sid, axis=("C", "A", "S"),
+                        slice_min=0,
+                        slice_max=255,
                         output_directory=None,
-                        fsconfig="/i2bm/local/freesurfer/SetUpFreeSurfer.sh",
                         logfile=None):
     """
     plot snaps from freesurfer segmentation, using freesurfer tkmedit
@@ -48,8 +49,8 @@ def freesurfer_snaps_wm(fsdir, sid, axis=["C", "A", "S"],
                 script.write("SetOrientation {}\n".format(axis_orient[axe]))
                 script.write("SetCursor 0 0 0 0\n")
                 script.write("for { set slice %s } { $slice <= %s } "
-                             "{ incr slice 1 } {\n" % (slice_interval[0],
-                                                       slice_interval[1]))
+                             "{ incr slice 1 } {\n" % (slice_min,
+                                                       slice_max))
                 script.write("\tSetSlice $slice\n")
                 script.write("\tRedrawScreen\n")
                 script.write("\tSaveRGB {}" .format(
@@ -76,13 +77,26 @@ def freesurfer_snaps_wm(fsdir, sid, axis=["C", "A", "S"],
                 os.path.join(output_directory, sid,
                              "{}.png".format(snap.split(".")[0]))])
             os.remove(os.path.join(output_directory, sid, snap))
-    except:
+    except CalledProcessError:
         if logfile is not None:
             if os.path.isfile(logfile):
                 arg = "a"
             else:
                 arg = "w"
             with open(logfile, arg) as _file:
-                _file.write("{}\n".format(sid))
+                _file.write("{} FAILED: {}\n".format(
+                    sid,
+                    traceback.format_exc()))
+        else:
+            pass
+    else:
+        if logfile is not None:
+            if os.path.isfile(logfile):
+                arg = "a"
+            else:
+                arg = "w"
+            with open(logfile, arg) as _file:
+                _file.write("{} SUCCESS\n".format(
+                    sid))
         else:
             pass
