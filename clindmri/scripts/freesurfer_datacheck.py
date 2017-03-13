@@ -114,7 +114,10 @@ for sid in fsdir_subfolders:
 
     # Check if the subject id is valid using the input regex
     match = re.findall(args.regex, sid)
-    if len(match) != 1 or match[0] != sid:
+
+    # handle the case where the regex has a "or"
+    # when we look for noth XXXXXXXXXXXX and XXXXXXXXXXXX_2
+    if len(match) != 1 or sid not in match[0]:
         continue
 
     # Store the subject tree folder-folder files counts
