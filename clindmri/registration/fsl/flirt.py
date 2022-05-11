@@ -16,7 +16,8 @@ from clindmri.extensions.fsl.exceptions import FSLRuntimeError
 
 def flirt(in_file, ref_file, omat=None, out=None, init=None, cost="corratio",
           usesqform=None, displayinit=None, anglerep="euler", bins=256,
-          interp="trilinear", dof=12, applyxfm=None, verbose=0):
+          interp="trilinear", dof=12, applyxfm=None, verbose=0,
+          shfile="/etc/fsl/5.0/fsl.sh"):
     """ Wraps command flirt.
 
     Usage: flirt [options] -in <inputvol> -ref <refvol> -out <outputvol>
@@ -133,7 +134,7 @@ def flirt(in_file, ref_file, omat=None, out=None, init=None, cost="corratio",
         omat = os.path.join(dirname, "flirt_omat_{0}".format(basename))
 
     # Call flirt
-    fslprocess = FSLWrapper("flirt")
+    fslprocess = FSLWrapper("flirt", shfile=shfile)
     fslprocess()
     if fslprocess.exitcode != 0:
         raise FSLRuntimeError(fslprocess.cmd[0], " ".join(fslprocess.cmd[1:]),
