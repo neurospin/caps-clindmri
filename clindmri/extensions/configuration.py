@@ -35,6 +35,7 @@ def environment(sh_file=None, env={}):
     # we're using shell=True
     # Pass empty environment to get only the prgram variables
     command = ["bash", "-c", ". '{0}' ; /usr/bin/printenv".format(sh_file)]
+    env['PATH'] = os.environ['PATH']
     process = subprocess.Popen(command, env=env,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
